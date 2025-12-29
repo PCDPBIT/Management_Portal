@@ -50,7 +50,7 @@ type RegulationClauseHistory struct {
 
 // RegulationStructure represents the complete nested structure
 type RegulationStructure struct {
-	Regulation Regulation                     `json:"regulation"`
+	Regulation Regulation                    `json:"regulation"`
 	Sections   []RegulationSectionWithClauses `json:"sections"`
 }
 
@@ -68,3 +68,4 @@ type LegacyRegulation struct {
 	MaxCredits   int       `json:"max_credits"`
 	CreatedAt    time.Time `json:"created_at"`
 }
+

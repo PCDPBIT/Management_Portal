@@ -31,12 +31,12 @@ func SetupRoutes() *mux.Router {
 
 	// Regulation Editor routes (structured editing)
 	router.HandleFunc("/api/regulations/{id}/structure", handlers.GetRegulationStructure).Methods("GET", "OPTIONS")
-
+	
 	// Section management
 	router.HandleFunc("/api/regulations/{id}/sections", handlers.CreateSection).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/regulations/sections/{sectionId}", handlers.UpdateSection).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/regulations/sections/{sectionId}", handlers.DeleteSection).Methods("DELETE", "OPTIONS")
-
+	
 	// Clause management
 	router.HandleFunc("/api/regulations/sections/{sectionId}/clauses", handlers.CreateClause).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/regulations/clauses/{clauseId}", handlers.UpdateClause).Methods("PUT", "OPTIONS")
