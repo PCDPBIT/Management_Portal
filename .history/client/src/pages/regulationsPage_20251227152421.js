@@ -1,16 +1,19 @@
-// import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import MainLayout from '../components/MainLayout'
 
-// function RegulationsPage() {
-//   const [regulations, setRegulations] = useState([])
-//   const [loading, setLoading] = useState(true)
-//   const [error, setError] = useState('')
-//   const [showForm, setShowForm] = useState(false)
-//   const [formData, setFormData] = useState({ name: '', academic_year: '' })
+function RegulationsPage() {
+  const navigate = useNavigate()
+  const [regulations, setRegulations] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [formData, setFormData] = useState({ code: '', name: '', status: 'DRAFT' })
 
-//   // Fetch regulations from backend
-//   useEffect(() => {
-//     fetchRegulations()
-//   }, [])
+  // Fetch regulations from backend
+  useEffect(() => {
+    fetchRegulations()
+  }, [])
 
 //   const fetchRegulations = async () => {
 //     try {
@@ -37,7 +40,7 @@
 //       const response = await fetch(`http://localhost:8080/api/regulation/${regulationId}/pdf`)
 //       if (!response.ok) {
 //         const errorText = await response.text()
-
+        
 //         // Check if the error is about Chrome not being installed
 //         if (errorText.includes('Chrome') || errorText.includes('Chromium')) {
 //           const useHTML = window.confirm(
@@ -45,14 +48,14 @@
 //             'Would you like to view the HTML preview instead?\n\n' +
 //             '(You can print it to PDF using your browser\'s print function)'
 //           )
-
+          
 //           if (useHTML) {
 //             // Open HTML preview in new tab
 //             window.open(`http://localhost:8080/api/regulation/${regulationId}/pdf?preview=html`, '_blank')
 //             return
 //           }
 //         }
-
+        
 //         throw new Error('Failed to generate PDF')
 //       }
 //       const blob = await response.blob()
@@ -72,7 +75,7 @@
 
 //   const handleAddRegulation = async (e) => {
 //     e.preventDefault()
-
+    
 //     if (!formData.name.trim() || !formData.academic_year.trim()) {
 //       setError('Please fill in all fields')
 //       return
@@ -137,7 +140,7 @@
 //       {/* Header */}
 //       <div className="flex justify-between items-center mb-10 bg-white/95 backdrop-blur-md px-10 py-8 rounded-2xl shadow-xl">
 //         <h1 className="text-4xl font-bold text-gray-800 tracking-tight">Curriculum Page</h1>
-//         <button
+//         <button 
 //           onClick={() => setShowForm(!showForm)}
 //           className="px-7 py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
 //         >
@@ -182,8 +185,8 @@
 //               />
 //             </div>
 
-//             <button
-//               type="submit"
+//             <button 
+//               type="submit" 
 //               className="px-8 py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
 //             >
 //               Create Regulation
@@ -205,14 +208,14 @@
 //         /* Regulations Grid */
 //         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
 //           {regulations.map(reg => (
-//             <div
-//               key={reg.id}
+//             <div 
+//               key={reg.id} 
 //               className="group relative bg-white/95 backdrop-blur-md rounded-xl shadow-md hover:shadow-xl p-5 transition-all duration-300 hover:-translate-y-1 border border-white/50 hover:border-indigo-300 overflow-hidden cursor-pointer"
 //               onClick={() => window.location.href = `/regulation/${reg.id}/overview`}
 //             >
 //               {/* Top colored border on hover */}
 //               <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 to-purple-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
-
+              
 //               {/* Card Content */}
 //               <div className="flex items-center justify-center min-h-[50px]">
 //                 <h3 className="text-base font-semibold text-gray-800 text-center leading-tight">

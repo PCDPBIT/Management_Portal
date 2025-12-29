@@ -17,12 +17,12 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/curriculum/{id}", handlers.UpdateCurriculum).Methods("PUT", "OPTIONS")
 
 	// NEW Regulation Management routes (isolated from curriculum)
-	router.HandleFunc("/api/regulations", handlers.GetRegulationsNew).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/regulations", handlers.GetRegulations).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/regulations", handlers.CreateRegulationNew).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/regulations/{id}", handlers.GetRegulationByID).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/regulations/{id}", handlers.UpdateRegulationNew).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/regulations/{id}", handlers.DeleteRegulationNew).Methods("DELETE", "OPTIONS")
-
+	
 	// Regulation Clauses routes
 	router.HandleFunc("/api/regulations/{id}/clauses", handlers.GetRegulationClauses).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/regulations/{id}/clauses", handlers.CreateRegulationClause).Methods("POST", "OPTIONS")

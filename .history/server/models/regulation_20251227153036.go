@@ -43,3 +43,4 @@ type LegacyRegulation struct {
 	MaxCredits   int       `json:"max_credits"`
 	CreatedAt    time.Time `json:"created_at"`
 }
+

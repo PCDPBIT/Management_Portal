@@ -759,3 +759,4 @@ func AddRegulationRefColumns() error {
 	fmt.Println("Regulation reference columns added successfully!")
 	return nil
 }
+

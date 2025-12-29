@@ -22,7 +22,7 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/regulations/{id}", handlers.GetRegulationByID).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/regulations/{id}", handlers.UpdateRegulationNew).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/regulations/{id}", handlers.DeleteRegulationNew).Methods("DELETE", "OPTIONS")
-
+	
 	// Regulation Clauses routes
 	router.HandleFunc("/api/regulations/{id}/clauses", handlers.GetRegulationClauses).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/regulations/{id}/clauses", handlers.CreateRegulationClause).Methods("POST", "OPTIONS")
