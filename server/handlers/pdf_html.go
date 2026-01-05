@@ -3,7 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"database/sql"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -121,30 +121,25 @@ func fetchCompleteRegulationData(regulationID int) (*models.RegulationPDF, error
 	}
 
 	// Fetch department overview
-	var visionJSON, missionJSON, peosJSON, posJSON, psosJSON []byte
+	var departmentID int
 	err = db.DB.QueryRow(`
-		SELECT vision, mission, peos, pos, psos 
+		SELECT id, vision 
 		FROM department_overview 
 		WHERE regulation_id = ?`, regulationID).
-		Scan(&visionJSON, &missionJSON, &peosJSON, &posJSON, &psosJSON)
+		Scan(&departmentID, &pdfData.Overview.Vision)
 
 	if err == nil {
-		json.Unmarshal(visionJSON, &pdfData.Overview.Vision)
-		json.Unmarshal(missionJSON, &pdfData.Overview.Mission)
+		// Fetch mission items from normalized table
+		pdfData.Overview.Mission = fetchDepartmentListItemsHTML(departmentID, "department_mission", "mission_text")
 
-		// Parse PEOs, POs, PSOs and extract text (they are []string in template usage)
-		var peoItems []models.DepartmentListItem
-		var poItems []models.DepartmentListItem
-		var psoItems []models.DepartmentListItem
+		// Fetch PEOs from normalized table
+		pdfData.Overview.PEOs = fetchDepartmentListItemsHTML(departmentID, "department_peos", "peo_text")
 
-		json.Unmarshal(peosJSON, &peoItems)
-		json.Unmarshal(posJSON, &poItems)
-		json.Unmarshal(psosJSON, &psoItems)
+		// Fetch POs from normalized table
+		pdfData.Overview.POs = fetchDepartmentListItemsHTML(departmentID, "department_pos", "po_text")
 
-		// Store as DepartmentListItem arrays, template will extract .Text
-		pdfData.Overview.PEOs = peoItems
-		pdfData.Overview.POs = poItems
-		pdfData.Overview.PSOs = psoItems
+		// Fetch PSOs from normalized table
+		pdfData.Overview.PSOs = fetchDepartmentListItemsHTML(departmentID, "department_psos", "pso_text")
 	}
 
 	// Fetch PEO-PO mapping
@@ -438,6 +433,29 @@ func printToPDF(html string, res *[]byte) chromedp.Tasks {
 	}
 }
 
+// Helper function to fetch list items from normalized tables for PDF generation
+func fetchDepartmentListItemsHTML(departmentID int, tableName, columnName string) []models.DepartmentListItem {
+	query := fmt.Sprintf("SELECT id, %s, visibility, source_department_id FROM %s WHERE department_id = ? ORDER BY position", columnName, tableName)
+	rows, err := db.DB.Query(query, departmentID)
+	if err != nil {
+		return []models.DepartmentListItem{}
+	}
+	defer rows.Close()
+
+	items := []models.DepartmentListItem{}
+	for rows.Next() {
+		var item models.DepartmentListItem
+		var sourceDeptID sql.NullInt64
+		if err := rows.Scan(&item.ID, &item.Text, &item.Visibility, &sourceDeptID); err == nil {
+			if sourceDeptID.Valid {
+				item.SourceDepartmentID = int(sourceDeptID.Int64)
+			}
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
 const htmlTemplate = `<!DOCTYPE html>
 <html>
 <head>
@@ -489,6 +507,19 @@ const htmlTemplate = `<!DOCTYPE html>
 			font-weight: bold;
 			margin: 20px 0 10px 0;
 			text-align: center;
+		}
+		
+		.centered-content {
+			text-align: center;
+		}
+		
+		.centered-content p {
+			text-align: center;
+		}
+		
+		.centered-content ol {
+			display: inline-block;
+			text-align: left;
 		}
 		
 		h2 {
@@ -618,39 +649,49 @@ const htmlTemplate = `<!DOCTYPE html>
 
 <!-- Vision and Mission -->
 <h1>VISION</h1>
+<div class="centered-content">
 <p>{{.Overview.Vision}}</p>
+</div>
 
 <h1>MISSION</h1>
+<div class="centered-content">
 <ol>
 {{range .Overview.Mission}}
 	<li>{{.Text}}</li>
 {{end}}
 </ol>
+</div>
 
 <!-- PEOs -->
 <h1>PROGRAM EDUCATIONAL OBJECTIVES (PEOs)</h1>
+<div class="centered-content">
 <ol>
 {{range .Overview.PEOs}}
 	<li>{{.Text}}</li>
 {{end}}
 </ol>
+</div>
 
 <!-- POs -->
 <h1>PROGRAM OUTCOMES (POs)</h1>
+<div class="centered-content">
 <ol>
 {{range .Overview.POs}}
 	<li>{{.Text}}</li>
 {{end}}
 </ol>
+</div>
 
 <!-- PSOs -->
 {{if .Overview.PSOs}}
 <h1>PROGRAM SPECIFIC OUTCOMES (PSOs)</h1>
+<div class="centered-content">
 <ol>
 {{range .Overview.PSOs}}
 	<li>{{.Text}}</li>
 {{end}}
 </ol>
+</div>
 {{end}}
 
 <div class="page-break"></div>

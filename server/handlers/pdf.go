@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"bytes"
-	"encoding/json"
+	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -65,19 +65,25 @@ func fetchRegulationData(regulationID int) (*models.RegulationPDF, error) {
 	}
 
 	// Fetch department overview
-	var visionJSON, missionJSON, peosJSON, posJSON, psosJSON []byte
+	var departmentID int
 	err = db.DB.QueryRow(`
-		SELECT vision, mission, peos, pos, psos 
+		SELECT id, vision 
 		FROM department_overview 
 		WHERE regulation_id = ?`, regulationID).
-		Scan(&visionJSON, &missionJSON, &peosJSON, &posJSON, &psosJSON)
+		Scan(&departmentID, &pdfData.Overview.Vision)
 
 	if err == nil {
-		json.Unmarshal(visionJSON, &pdfData.Overview.Vision)
-		json.Unmarshal(missionJSON, &pdfData.Overview.Mission)
-		json.Unmarshal(peosJSON, &pdfData.Overview.PEOs)
-		json.Unmarshal(posJSON, &pdfData.Overview.POs)
-		json.Unmarshal(psosJSON, &pdfData.Overview.PSOs)
+		// Fetch mission items from normalized table
+		pdfData.Overview.Mission = fetchDepartmentListItems(departmentID, "department_mission", "mission_text")
+
+		// Fetch PEOs from normalized table
+		pdfData.Overview.PEOs = fetchDepartmentListItems(departmentID, "department_peos", "peo_text")
+
+		// Fetch POs from normalized table
+		pdfData.Overview.POs = fetchDepartmentListItems(departmentID, "department_pos", "po_text")
+
+		// Fetch PSOs from normalized table
+		pdfData.Overview.PSOs = fetchDepartmentListItems(departmentID, "department_psos", "pso_text")
 	}
 
 	// Fetch PEO-PO mapping
@@ -239,6 +245,29 @@ func generatePDF(data *models.RegulationPDF) ([]byte, error) {
 	return pdfBytes, nil
 }
 
+// Helper function to fetch list items from normalized tables for PDF generation
+func fetchDepartmentListItems(departmentID int, tableName, columnName string) []models.DepartmentListItem {
+	query := fmt.Sprintf("SELECT id, %s, visibility, source_department_id FROM %s WHERE department_id = ? ORDER BY position", columnName, tableName)
+	rows, err := db.DB.Query(query, departmentID)
+	if err != nil {
+		return []models.DepartmentListItem{}
+	}
+	defer rows.Close()
+
+	items := []models.DepartmentListItem{}
+	for rows.Next() {
+		var item models.DepartmentListItem
+		var sourceDeptID sql.NullInt64
+		if err := rows.Scan(&item.ID, &item.Text, &item.Visibility, &sourceDeptID); err == nil {
+			if sourceDeptID.Valid {
+				item.SourceDepartmentID = int(sourceDeptID.Int64)
+			}
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
 func escapeLatex(s string) string {
 	replacer := strings.NewReplacer(
 		"\\", "\\textbackslash{}",
@@ -304,7 +333,7 @@ const latexTemplate = `\documentclass[12pt,a4paper]{article}
 \subsection{Mission}
 \begin{itemize}
 {{range .Overview.Mission}}
-\item {{escapeLatex .}}
+\item {{escapeLatex .Text}}
 {{end}}
 \end{itemize}
 
@@ -312,7 +341,7 @@ const latexTemplate = `\documentclass[12pt,a4paper]{article}
 \section{Program Educational Objectives (PEOs)}
 \begin{enumerate}
 {{range .Overview.PEOs}}
-\item {{escapeLatex .}}
+\item {{escapeLatex .Text}}
 {{end}}
 \end{enumerate}
 
@@ -320,7 +349,7 @@ const latexTemplate = `\documentclass[12pt,a4paper]{article}
 \section{Program Outcomes (POs)}
 \begin{enumerate}
 {{range .Overview.POs}}
-\item {{escapeLatex .}}
+\item {{escapeLatex .Text}}
 {{end}}
 \end{enumerate}
 
@@ -328,7 +357,7 @@ const latexTemplate = `\documentclass[12pt,a4paper]{article}
 \section{Program Specific Outcomes (PSOs)}
 \begin{enumerate}
 {{range .Overview.PSOs}}
-\item {{escapeLatex .}}
+\item {{escapeLatex .Text}}
 {{end}}
 \end{enumerate}
 
