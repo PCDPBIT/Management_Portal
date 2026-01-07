@@ -28,7 +28,7 @@ function CurriculumMainPage() {
   const fetchRegulations = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/curriculum`)
+      const response = await fetch(`${API_BASE_URL}/curriculum`)
       if (!response.ok) {
         throw new Error('Failed to fetch regulations')
       }
@@ -47,7 +47,7 @@ function CurriculumMainPage() {
   const fetchLogs = async (curriculumId) => {
     try {
       setLogsLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/curriculum/${curriculumId}/logs`)
+      const response = await fetch(`${API_BASE_URL}/curriculum/${curriculumId}/logs`)
       if (!response.ok) {
         throw new Error('Failed to fetch logs')
       }
@@ -71,7 +71,7 @@ function CurriculumMainPage() {
   const handleDownloadPDF = async (e, regulationId, regulationName) => {
     e.stopPropagation()
     try {
-      const response = await fetch(`${API_BASE_URL}/api/regulation/${regulationId}/pdf`)
+      const response = await fetch(`${API_BASE_URL}/regulation/${regulationId}/pdf`)
       if (!response.ok) {
         const errorText = await response.text()
         
@@ -85,7 +85,7 @@ function CurriculumMainPage() {
           
           if (useHTML) {
             // Open HTML preview in new tab
-            window.open(`${API_BASE_URL}/api/regulation/${regulationId}/pdf?preview=html`, '_blank')
+            window.open(`${API_BASE_URL}/regulation/${regulationId}/pdf?preview=html`, '_blank')
             return
           }
         }
@@ -116,7 +116,7 @@ function CurriculumMainPage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/curriculum/create`, {
+      const response = await fetch(`${API_BASE_URL}/curriculum/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,7 +163,7 @@ function CurriculumMainPage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/curriculum/${editingCurriculum.id}`, {
+      const response = await fetch(`${API_BASE_URL}/curriculum/${editingCurriculum.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -196,7 +196,7 @@ function CurriculumMainPage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/curriculum/delete?id=${id}`, {
+      const response = await fetch(`${API_BASE_URL}/curriculum/delete?id=${id}`, {
         method: 'DELETE',
       })
 

@@ -29,7 +29,7 @@ function ManageCurriculumPage() {
   const fetchSemesters = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/regulation/${id}/semesters`)
+      const response = await fetch(`${API_BASE_URL}/regulation/${id}/semesters`)
       if (!response.ok) {
         throw new Error('Failed to fetch semesters')
       }
@@ -61,7 +61,7 @@ function ManageCurriculumPage() {
 
   const fetchHonourCards = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/regulation/${id}/honour-cards`)
+      const response = await fetch(`${API_BASE_URL}/regulation/${id}/honour-cards`)
       if (!response.ok) {
         throw new Error('Failed to fetch honour cards')
       }
@@ -100,7 +100,7 @@ function ManageCurriculumPage() {
     const generatedName = nameMap[newSemester.card_type] || 'Semester'
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/regulation/${id}/semester`, {
+      const response = await fetch(`${API_BASE_URL}/regulation/${id}/semester`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ function ManageCurriculumPage() {
     e.preventDefault()
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/regulation/${id}/honour-card`, {
+      const response = await fetch(`${API_BASE_URL}/regulation/${id}/honour-card`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -213,7 +213,7 @@ function ManageCurriculumPage() {
     e.preventDefault()
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/semester/${editingSemester.id}`, {
+      const response = await fetch(`${API_BASE_URL}/semester/${editingSemester.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -242,7 +242,7 @@ function ManageCurriculumPage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/semester/${semId}`, {
+      const response = await fetch(`${API_BASE_URL}/semester/${semId}`, {
         method: 'DELETE',
       })
 

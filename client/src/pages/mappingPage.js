@@ -25,7 +25,7 @@ function MappingPage() {
   const fetchMapping = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/course/${courseId}/mapping`)
+      const response = await fetch(`${API_BASE_URL}/course/${courseId}/mapping`)
       if (!response.ok) {
         throw new Error('Failed to fetch mapping data')
       }
@@ -78,7 +78,7 @@ function MappingPage() {
         }
       })
 
-      const response = await fetch(`${API_BASE_URL}/api/course/${courseId}/mapping`, {
+      const response = await fetch(`${API_BASE_URL}/course/${courseId}/mapping`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

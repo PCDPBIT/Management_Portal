@@ -27,7 +27,7 @@ function DepartmentOverviewPage() {
   const fetchOverview = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/regulation/${id}/overview`)
+      const response = await fetch(`${API_BASE_URL}/regulation/${id}/overview`)
       if (!response.ok) {
         throw new Error('Failed to fetch overview data')
       }
@@ -56,7 +56,7 @@ function DepartmentOverviewPage() {
       setError('')
       setSuccess('')
       
-      const response = await fetch(`${API_BASE_URL}/api/regulation/${id}/overview`, {
+      const response = await fetch(`${API_BASE_URL}/regulation/${id}/overview`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

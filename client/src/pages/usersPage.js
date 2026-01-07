@@ -45,7 +45,7 @@ function UsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/users`)
+      const response = await fetch(`${API_BASE_URL}/users`)
       if (!response.ok) throw new Error('Failed to fetch users')
       const data = await response.json()
       setUsers(data)
@@ -60,7 +60,7 @@ function UsersPage() {
   const handleCreateUser = async (e) => {
     e.preventDefault()
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users`, {
+      const response = await fetch(`${API_BASE_URL}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser)
@@ -103,7 +103,7 @@ function UsersPage() {
   const handleUpdateUser = async (e) => {
     e.preventDefault()
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${currentUser.id}`, {
+      const response = await fetch(`${API_BASE_URL}/users/${currentUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editUser)
@@ -130,7 +130,7 @@ function UsersPage() {
   const handleUpdatePassword = async (e) => {
     e.preventDefault()
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${currentUser.id}/password`, {
+      const response = await fetch(`${API_BASE_URL}/users/${currentUser.id}/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: newPassword })
@@ -152,7 +152,7 @@ function UsersPage() {
     if (!window.confirm(`Are you sure you want to delete user "${user.username}"?`)) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${user.id}`, {
+      const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
         method: 'DELETE'
       })
       

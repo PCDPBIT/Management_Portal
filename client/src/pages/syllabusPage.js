@@ -55,7 +55,7 @@ function SyllabusPage() {
   // Fetch course information
   const fetchCourseInfo = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/course/${courseId}`)
+      const response = await fetch(`${API_BASE_URL}/course/${courseId}`)
       if (!response.ok) throw new Error('Failed to fetch course info')
       const data = await response.json()
       setCourseInfo(data)
@@ -68,7 +68,7 @@ function SyllabusPage() {
   const fetchSyllabus = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/course/${courseId}/syllabus`)
+      const response = await fetch(`${API_BASE_URL}/course/${courseId}/syllabus`)
       if (!response.ok) throw new Error('Failed to fetch syllabus')
       
       const data = await response.json()
@@ -103,7 +103,7 @@ function SyllabusPage() {
     e.preventDefault()
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/course/${courseId}/syllabus`, {
+      const response = await fetch(`${API_BASE_URL}/course/${courseId}/syllabus`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(header),
@@ -465,7 +465,7 @@ function SyllabusPage() {
     const modelName = curriculumTemplate === '2022' ? `Unit ${moduleNumber}` : `Module ${moduleNumber}`
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/course/${courseId}/syllabus/model`, {
+      const response = await fetch(`${API_BASE_URL}/course/${courseId}/syllabus/model`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -490,7 +490,7 @@ function SyllabusPage() {
     if (!newName || newName === currentName) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/syllabus/model/${modelId}`, {
+      const response = await fetch(`${API_BASE_URL}/syllabus/model/${modelId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -514,7 +514,7 @@ function SyllabusPage() {
     if (!window.confirm('Delete this model? This will also delete all its titles and topics.')) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/syllabus/model/${modelId}`, {
+      const response = await fetch(`${API_BASE_URL}/syllabus/model/${modelId}`, {
         method: 'DELETE'
       })
 
@@ -546,7 +546,7 @@ function SyllabusPage() {
 
     try {
       const model = models.find(m => m.id === modelId)
-      const response = await fetch(`${API_BASE_URL}/api/syllabus/model/${modelId}/title`, {
+      const response = await fetch(`${API_BASE_URL}/syllabus/model/${modelId}/title`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -575,7 +575,7 @@ function SyllabusPage() {
     const hoursNum = parseInt(hours) || 0
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/syllabus/title/${titleId}`, {
+      const response = await fetch(`${API_BASE_URL}/syllabus/title/${titleId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -600,7 +600,7 @@ function SyllabusPage() {
     if (!window.confirm('Delete this title? This will also delete all its topics.')) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/syllabus/title/${titleId}`, {
+      const response = await fetch(`${API_BASE_URL}/syllabus/title/${titleId}`, {
         method: 'DELETE'
       })
 
@@ -631,7 +631,7 @@ function SyllabusPage() {
       const allTitles = models.flatMap(m => m.titles || [])
       const title = allTitles.find(t => t.id === titleId)
       
-      const response = await fetch(`${API_BASE_URL}/api/syllabus/title/${titleId}/topic`, {
+      const response = await fetch(`${API_BASE_URL}/syllabus/title/${titleId}/topic`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -656,7 +656,7 @@ function SyllabusPage() {
     if (!newTopic || newTopic === currentTopic) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/syllabus/topic/${topicId}`, {
+      const response = await fetch(`${API_BASE_URL}/syllabus/topic/${topicId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -680,7 +680,7 @@ function SyllabusPage() {
     if (!window.confirm('Delete this topic?')) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/syllabus/topic/${topicId}`, {
+      const response = await fetch(`${API_BASE_URL}/syllabus/topic/${topicId}`, {
         method: 'DELETE'
       })
 
@@ -706,7 +706,7 @@ function SyllabusPage() {
     if (!hours || isNaN(hours)) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/course/${courseId}/experiments`, {
+      const response = await fetch(`${API_BASE_URL}/course/${courseId}/experiments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -733,7 +733,7 @@ function SyllabusPage() {
     if (!exp) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/experiments/${expId}`, {
+      const response = await fetch(`${API_BASE_URL}/experiments/${expId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -760,7 +760,7 @@ function SyllabusPage() {
     if (!exp) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/experiments/${expId}`, {
+      const response = await fetch(`${API_BASE_URL}/experiments/${expId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -786,7 +786,7 @@ function SyllabusPage() {
     if (!window.confirm('Delete this experiment? This will also delete all its topics.')) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/experiments/${expId}`, {
+      const response = await fetch(`${API_BASE_URL}/experiments/${expId}`, {
         method: 'DELETE'
       })
 
@@ -811,7 +811,7 @@ function SyllabusPage() {
     const updatedTopics = [...(exp.topics || []), topic]
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/experiments/${expId}`, {
+      const response = await fetch(`${API_BASE_URL}/experiments/${expId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -842,7 +842,7 @@ function SyllabusPage() {
     const updatedTopics = exp.topics.filter((_, idx) => idx !== topicIndex)
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/experiments/${expId}`, {
+      const response = await fetch(`${API_BASE_URL}/experiments/${expId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

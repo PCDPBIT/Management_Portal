@@ -20,7 +20,7 @@ function Dashboard() {
   const fetchDashboardStats = async () => {
     try {
       // Fetch actual curriculum count from API
-      const response = await fetch(`${API_BASE_URL}/api/curriculum`)
+      const response = await fetch(`${API_BASE_URL}/curriculum`)
       if (response.ok) {
         const data = await response.json()
         setStats({
