@@ -30,10 +30,10 @@ WORKDIR /app
 RUN npm install -g serve
 
 # Copy built application from builder
-COPY --from=builder /app/public ./public
+COPY --from=builder /app/build ./build
 
 # Expose port
 EXPOSE 80
 
 # Start the application
-CMD ["serve", "-s", "public", "-l", "80"]
+CMD ["serve", "-s", "build", "-l", "80"]
