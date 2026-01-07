@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MainLayout from '../components/MainLayout'
+import { API_BASE_URL } from '../config'
 
 function ClusterManagementPage() {
   const navigate = useNavigate()
@@ -25,7 +26,7 @@ function ClusterManagementPage() {
   const fetchClusters = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8080/api/clusters')
+      const response = await fetch(`${API_BASE_URL}/api/clusters`)
       if (!response.ok) {
         throw new Error('Failed to fetch clusters')
       }
@@ -42,7 +43,7 @@ function ClusterManagementPage() {
 
   const fetchRegulations = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/curriculum')
+      const response = await fetch(`${API_BASE_URL}/api/curriculum`)
       if (!response.ok) {
         throw new Error('Failed to fetch regulations')
       }
@@ -55,7 +56,7 @@ function ClusterManagementPage() {
 
   const fetchAvailableDepartments = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/clusters/available-departments')
+      const response = await fetch(`${API_BASE_URL}/api/clusters/available-departments`)
       if (!response.ok) {
         throw new Error('Failed to fetch available departments')
       }
@@ -69,7 +70,7 @@ function ClusterManagementPage() {
 
   const fetchClusterDepartments = async (clusterId) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/cluster/${clusterId}/departments`)
+      const response = await fetch(`${API_BASE_URL}/api/cluster/${clusterId}/departments`)
       if (!response.ok) {
         throw new Error('Failed to fetch cluster departments')
       }
@@ -90,7 +91,7 @@ function ClusterManagementPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:8080/api/clusters', {
+      const response = await fetch(`${API_BASE_URL}/api/clusters`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,7 +120,7 @@ function ClusterManagementPage() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/cluster/${clusterId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/cluster/${clusterId}`, {
         method: 'DELETE',
       })
 
@@ -157,7 +158,7 @@ function ClusterManagementPage() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/cluster/${selectedCluster.id}/department`, {
+      const response = await fetch(`${API_BASE_URL}/api/cluster/${selectedCluster.id}/department`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -188,7 +189,7 @@ function ClusterManagementPage() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/cluster/${selectedCluster.id}/department/${deptId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/cluster/${selectedCluster.id}/department/${deptId}`, {
         method: 'DELETE',
       })
 

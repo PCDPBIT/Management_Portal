@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MainLayout from '../components/MainLayout'
+import { API_BASE_URL } from '../config'
 
 function SharingManagementPage() {
   const navigate = useNavigate()
@@ -26,7 +27,7 @@ function SharingManagementPage() {
   const fetchClusters = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8080/api/clusters')
+      const response = await fetch(`${API_BASE_URL}/api/clusters`)
       if (!response.ok) {
         throw new Error('Failed to fetch clusters')
       }
@@ -43,7 +44,7 @@ function SharingManagementPage() {
 
   const fetchClusterDepartments = async (clusterId) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/cluster/${clusterId}/departments`)
+      const response = await fetch(`${API_BASE_URL}/api/cluster/${clusterId}/departments`)
       if (!response.ok) {
         throw new Error('Failed to fetch cluster departments')
       }
@@ -65,7 +66,7 @@ function SharingManagementPage() {
 
   const fetchSharingInfo = async (regulationId) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/regulation/${regulationId}/sharing`)
+      const response = await fetch(`${API_BASE_URL}/api/regulation/${regulationId}/sharing`)
       if (!response.ok) {
         throw new Error('Failed to fetch sharing info')
       }
@@ -79,7 +80,7 @@ function SharingManagementPage() {
 
   const fetchClusterContent = async (clusterId) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/cluster/${clusterId}/shared-content`)
+      const response = await fetch(`${API_BASE_URL}/api/cluster/${clusterId}/shared-content`)
       if (!response.ok) {
         throw new Error('Failed to fetch cluster content')
       }
@@ -129,7 +130,7 @@ function SharingManagementPage() {
         requestBody.target_departments = targetDepartments
       }
       
-      const response = await fetch('http://localhost:8080/api/sharing/visibility', {
+      const response = await fetch(`${API_BASE_URL}/api/sharing/visibility`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -187,7 +188,7 @@ function SharingManagementPage() {
     
     // Fetch the list of departments that currently have this item
     try {
-      const response = await fetch(`http://localhost:8080/api/sharing/${itemType}/${itemId}/departments`)
+      const response = await fetch(`${API_BASE_URL}/api/sharing/${itemType}/${itemId}/departments`)
       if (response.ok) {
         const data = await response.json()
         setSharedWithDepartments(data.shared_with || [])

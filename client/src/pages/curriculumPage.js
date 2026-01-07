@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { API_BASE_URL } from '../config'
 
 function CurriculumPage() {
   const { id } = useParams()
@@ -24,7 +25,7 @@ function CurriculumPage() {
   const fetchSemesters = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`http://localhost:8080/api/regulation/${id}/semesters`)
+      const response = await fetch(`${API_BASE_URL}/api/regulation/${id}/semesters`)
       if (!response.ok) {
         throw new Error('Failed to fetch semesters')
       }
@@ -41,7 +42,7 @@ function CurriculumPage() {
 
   const fetchHonourCards = async () => {
     try {
-      const response = await fetch(`http://localhost:8080/api/regulation/${id}/honour-cards`)
+      const response = await fetch(`${API_BASE_URL}/api/regulation/${id}/honour-cards`)
       if (!response.ok) {
         throw new Error('Failed to fetch honour cards')
       }
@@ -56,7 +57,7 @@ function CurriculumPage() {
     e.preventDefault()
     
     try {
-      const response = await fetch(`http://localhost:8080/api/regulation/${id}/semester`, {
+      const response = await fetch(`${API_BASE_URL}/api/regulation/${id}/semester`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,7 +86,7 @@ function CurriculumPage() {
     e.preventDefault()
     
     try {
-      const response = await fetch(`http://localhost:8080/api/regulation/${id}/honour-card`, {
+      const response = await fetch(`${API_BASE_URL}/api/regulation/${id}/honour-card`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

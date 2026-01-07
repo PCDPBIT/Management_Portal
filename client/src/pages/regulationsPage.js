@@ -34,7 +34,7 @@
 //   const handleDownloadPDF = async (e, regulationId, regulationName) => {
 //     e.stopPropagation()
 //     try {
-//       const response = await fetch(`http://localhost:8080/api/regulation/${regulationId}/pdf`)
+//       const response = await fetch(`${API_BASE_URL}/api/regulation/${regulationId}/pdf`)
 //       if (!response.ok) {
 //         const errorText = await response.text()
 
@@ -48,7 +48,7 @@
 
 //           if (useHTML) {
 //             // Open HTML preview in new tab
-//             window.open(`http://localhost:8080/api/regulation/${regulationId}/pdf?preview=html`, '_blank')
+//             window.open(`${API_BASE_URL}/api/regulation/${regulationId}/pdf?preview=html`, '_blank')
 //             return
 //           }
 //         }
@@ -108,7 +108,7 @@
 //     }
 
 //     try {
-//       const response = await fetch(`http://localhost:8080/api/regulations/delete?id=${id}`, {
+//       const response = await fetch(`${API_BASE_URL}/api/regulations/delete?id=${id}`, {
 //         method: 'DELETE',
 //       })
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import MainLayout from '../components/MainLayout'
+import { API_BASE_URL } from '../config'
 
 function PEOPOMappingPage() {
   const { id } = useParams()
@@ -23,7 +24,7 @@ function PEOPOMappingPage() {
       setLoading(true)
       
       // Fetch department overview (for PEOs and POs)
-      const overviewResponse = await fetch(`http://localhost:8080/api/regulation/${id}/overview`)
+      const overviewResponse = await fetch(`${API_BASE_URL}/api/regulation/${id}/overview`)
       if (!overviewResponse.ok) {
         throw new Error('Failed to fetch department overview')
       }
@@ -32,7 +33,7 @@ function PEOPOMappingPage() {
       setPos(overviewData.pos || [])
 
       // Fetch existing PEO-PO mappings
-      const mappingResponse = await fetch(`http://localhost:8080/api/regulation/${id}/peo-po-mapping`)
+      const mappingResponse = await fetch(`${API_BASE_URL}/api/regulation/${id}/peo-po-mapping`)
       if (!mappingResponse.ok) {
         throw new Error('Failed to fetch PEO-PO mappings')
       }
@@ -66,7 +67,7 @@ function PEOPOMappingPage() {
         })
       })
 
-      const response = await fetch(`http://localhost:8080/api/regulation/${id}/peo-po-mapping`, {
+      const response = await fetch(`${API_BASE_URL}/api/regulation/${id}/peo-po-mapping`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
