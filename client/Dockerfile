@@ -36,7 +36,6 @@ COPY --from=builder /app/build ./build
 EXPOSE 80
 
 # Start the application
-# -s: Single page application mode
+# -s: Single page application mode (handles client-side routing)
 # -l: Listen port
-# -p: Proxy path (for subdirectory deployment)
-CMD ["serve", "-s", "build", "-l", "80", "-p", "/cms"]
+CMD ["serve", "-s", "build", "-l", "tcp://0.0.0.0:80"]
