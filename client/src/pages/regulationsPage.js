@@ -15,7 +15,7 @@
 //   const fetchRegulations = async () => {
 //     try {
 //       setLoading(true)
-//       const response = await fetch('http://localhost:8080/api/regulations')
+//       const response = await fetch('${API_BASE_URL}/regulations')
 //       if (!response.ok) {
 //         throw new Error('Failed to fetch regulations')
 //       }
@@ -79,7 +79,7 @@
 //     }
 
 //     try {
-//       const response = await fetch('http://localhost:8080/api/regulations/create', {
+//       const response = await fetch('${API_BASE_URL}/regulations/create', {
 //         method: 'POST',
 //         headers: {
 //           'Content-Type': 'application/json',

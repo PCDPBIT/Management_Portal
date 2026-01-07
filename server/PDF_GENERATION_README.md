@@ -144,7 +144,7 @@ which chromium
 
 ### API Endpoint
 ```
-GET http://localhost:8080/api/regulation/{id}/pdf
+GET ${API_BASE_URL}/regulation/{id}/pdf
 ```
 
 ### Frontend

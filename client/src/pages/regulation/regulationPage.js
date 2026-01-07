@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../../components/MainLayout";
+import { API_BASE_URL } from "../../config";
 
 function RegulationPage() {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ function RegulationPage() {
   const fetchRegulations = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:8080/api/regulations");
+      const response = await fetch("${API_BASE_URL}/regulations");
       if (!response.ok) {
         throw new Error("Failed to fetch regulations");
       }
@@ -42,7 +43,7 @@ function RegulationPage() {
     e.stopPropagation();
     try {
       const response = await fetch(
-        `http://localhost:8080/api/regulation/${regulationId}/pdf`
+        `${API_BASE_URL}/regulation/${regulationId}/pdf`
       );
       if (!response.ok) {
         const errorText = await response.text();
@@ -58,7 +59,7 @@ function RegulationPage() {
           if (useHTML) {
             // Open HTML preview in new tab
             window.open(
-              `http://localhost:8080/api/regulation/${regulationId}/pdf?preview=html`,
+              `${API_BASE_URL}/regulation/${regulationId}/pdf?preview=html`,
               "_blank"
             );
             return;
@@ -93,7 +94,7 @@ function RegulationPage() {
     }
 
     try {
-      const response = await fetch("http://localhost:8080/api/regulations", {
+      const response = await fetch("${API_BASE_URL}/regulations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -127,7 +128,7 @@ function RegulationPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/regulations/${id}`,
+        `${API_BASE_URL}/regulations/${id}`,
         {
           method: "DELETE",
         }

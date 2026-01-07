@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import MainLayout from "../../components/MainLayout";
 import ClauseSidebar from "./components/ClauseSidebar";
 import ClauseEditor from "./components/ClauseEditor";
+import { API_BASE_URL } from "../../config";
 
 function RegulationEditorPage() {
   const { id } = useParams();
@@ -23,7 +24,7 @@ function RegulationEditorPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `http://localhost:8080/api/regulations/${id}/structure`
+        `${API_BASE_URL}/regulations/${id}/structure`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch regulation structure");
@@ -52,7 +53,7 @@ function RegulationEditorPage() {
   const handleClauseSave = async (updatedClause) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/regulations/clauses/${updatedClause.id}`,
+        `${API_BASE_URL}/regulations/clauses/${updatedClause.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -76,7 +77,7 @@ function RegulationEditorPage() {
   const handleSectionAdd = async (sectionData) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/regulations/${id}/sections`,
+        `${API_BASE_URL}/regulations/${id}/sections`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -98,7 +99,7 @@ function RegulationEditorPage() {
   const handleClauseAdd = async (sectionId, clauseData) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/regulations/sections/${sectionId}/clauses`,
+        `${API_BASE_URL}/regulations/sections/${sectionId}/clauses`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -124,7 +125,7 @@ function RegulationEditorPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/regulations/clauses/${clauseId}`,
+        `${API_BASE_URL}/regulations/clauses/${clauseId}`,
         {
           method: "DELETE",
         }
