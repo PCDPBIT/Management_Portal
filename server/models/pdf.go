@@ -2,14 +2,14 @@ package models
 
 // RegulationPDF represents all data needed for PDF generation
 type RegulationPDF struct {
-	RegulationID   int                `json:"regulation_id"`
-	RegulationName string             `json:"regulation_name"`
-	AcademicYear   string             `json:"academic_year"`
-	CurriculumTemplate string         `json:"curriculum_template"`
-	Overview       DepartmentOverview `json:"overview"`
-	Semesters      []SemesterPDF      `json:"semesters"`
-	HonourCards    []HonourCardPDF    `json:"honour_cards"`
-	PEOPOMapping   map[string]int     `json:"peo_po_mapping"`
+	RegulationID       int                `json:"regulation_id"`
+	RegulationName     string             `json:"regulation_name"`
+	AcademicYear       string             `json:"academic_year"`
+	CurriculumTemplate string             `json:"curriculum_template"`
+	Overview           DepartmentOverview `json:"overview"`
+	Semesters          []SemesterPDF      `json:"semesters"`
+	HonourCards        []HonourCardPDF    `json:"honour_cards"`
+	PEOPOMapping       map[string]int     `json:"peo_po_mapping"`
 }
 
 type SemesterPDF struct {
