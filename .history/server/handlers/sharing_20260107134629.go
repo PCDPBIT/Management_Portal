@@ -55,16 +55,11 @@ func GetDepartmentSharingInfo(w http.ResponseWriter, r *http.Request) {
 		WHERE cd.department_id = ?
 	`, deptOverviewID).Scan(&clusterID, &clusterName)
 
-	// Get current regulation's curriculum template
-	var curriculumTemplate string
-	db.DB.QueryRow(`SELECT COALESCE(curriculum_template, '2026') FROM curriculum WHERE id = ?`, regulationID).Scan(&curriculumTemplate)
-
 	// Get all items with their visibility
 	response := map[string]interface{}{
-		"department_id":       deptOverviewID,
-		"regulation_id":       regulationID,
-		"curriculum_template": curriculumTemplate,
-		"in_cluster":          clusterID.Valid,
+		"department_id": deptOverviewID,
+		"regulation_id": regulationID,
+		"in_cluster":    clusterID.Valid,
 	}
 
 	if clusterID.Valid {
@@ -256,7 +251,7 @@ func fetchItemsWithVisibility(deptID int, tableName, columnName string) []map[st
 // fetchClusterDepartments gets all departments in a cluster except the current one
 func fetchClusterDepartments(clusterID, currentDeptID int) []map[string]interface{} {
 	query := `
-		SELECT cd.department_id, do.regulation_id, c.name, COALESCE(c.curriculum_template, '2026') as curriculum_template
+		SELECT cd.department_id, do.regulation_id, c.name
 		FROM cluster_departments cd
 		JOIN department_overview do ON cd.department_id = do.id
 		JOIN curriculum c ON do.regulation_id = c.id
@@ -271,13 +266,12 @@ func fetchClusterDepartments(clusterID, currentDeptID int) []map[string]interfac
 	depts := []map[string]interface{}{}
 	for rows.Next() {
 		var deptID, regID int
-		var name, curriculumTemplate string
-		if err := rows.Scan(&deptID, &regID, &name, &curriculumTemplate); err == nil {
+		var name string
+		if err := rows.Scan(&deptID, &regID, &name); err == nil {
 			depts = append(depts, map[string]interface{}{
-				"department_id":       deptID,
-				"regulation_id":       regID,
-				"name":                name,
-				"curriculum_template": curriculumTemplate,
+				"department_id": deptID,
+				"regulation_id": regID,
+				"name":          name,
 			})
 		}
 	}
@@ -893,20 +887,18 @@ func shareSemesterToCluster(sourceDeptID, sourceRegulationID, semesterID, semest
 			queryArgs = append(queryArgs, targetDepartments[i])
 		}
 		targetDeptQuery = fmt.Sprintf(`
-			SELECT cd.department_id, do.regulation_id, COALESCE(c.curriculum_template, '2026') as curriculum_template 
+			SELECT cd.department_id, do.regulation_id 
 			FROM cluster_departments cd
 			JOIN department_overview do ON cd.department_id = do.id
-			JOIN curriculum c ON do.regulation_id = c.id
 			WHERE cd.cluster_id = ? AND cd.department_id != ? AND cd.department_id IN (%s)
 		`, placeholders)
 		queryArgs = append([]interface{}{clusterID.Int64, sourceDeptID}, queryArgs...)
 	} else {
 		// Share with all departments
 		targetDeptQuery = `
-			SELECT cd.department_id, do.regulation_id, COALESCE(c.curriculum_template, '2026') as curriculum_template 
+			SELECT cd.department_id, do.regulation_id 
 			FROM cluster_departments cd
 			JOIN department_overview do ON cd.department_id = do.id
-			JOIN curriculum c ON do.regulation_id = c.id
 			WHERE cd.cluster_id = ? AND cd.department_id != ?
 		`
 		queryArgs = []interface{}{clusterID.Int64, sourceDeptID}
@@ -921,14 +913,7 @@ func shareSemesterToCluster(sourceDeptID, sourceRegulationID, semesterID, semest
 	// For each target department
 	for rows.Next() {
 		var targetDeptID, targetRegulationID int
-		var targetCurriculumTemplate string
-		if err := rows.Scan(&targetDeptID, &targetRegulationID, &targetCurriculumTemplate); err != nil {
-			continue
-		}
-
-		// Check template compatibility - skip if templates don't match
-		if sourceCurriculumTemplate != targetCurriculumTemplate {
-			log.Printf("Skipping sharing to dept %d: template mismatch (source: %s, target: %s)", targetDeptID, sourceCurriculumTemplate, targetCurriculumTemplate)
+		if err := rows.Scan(&targetDeptID, &targetRegulationID); err != nil {
 			continue
 		}
 
@@ -1036,18 +1021,9 @@ func unshareSemesterFromCluster(sourceDeptID, semesterID int) error {
 
 // shareCourseToCluster copies a course to selected or all cluster departments
 func shareCourseToCluster(sourceDeptID, sourceRegulationID, courseID int, targetDepartments []int) error {
-	// Get source curriculum template
-	var sourceCurriculumTemplate string
-	err := db.DB.QueryRow(`
-		SELECT COALESCE(curriculum_template, '2026') FROM curriculum WHERE id = ?
-	`, sourceRegulationID).Scan(&sourceCurriculumTemplate)
-	if err != nil {
-		return fmt.Errorf("failed to get source curriculum template: %v", err)
-	}
-
 	// Get cluster ID for this department
 	var clusterID sql.NullInt64
-	err = db.DB.QueryRow(`
+	err := db.DB.QueryRow(`
 		SELECT cluster_id FROM cluster_departments WHERE department_id = ?
 	`, sourceDeptID).Scan(&clusterID)
 	if err != nil || !clusterID.Valid {
@@ -1100,20 +1076,18 @@ func shareCourseToCluster(sourceDeptID, sourceRegulationID, courseID int, target
 			queryArgs = append(queryArgs, targetDepartments[i])
 		}
 		targetDeptQuery = fmt.Sprintf(`
-			SELECT cd.department_id, do.regulation_id, COALESCE(c.curriculum_template, '2026') as curriculum_template 
+			SELECT cd.department_id, do.regulation_id 
 			FROM cluster_departments cd
 			JOIN department_overview do ON cd.department_id = do.id
-			JOIN curriculum c ON do.regulation_id = c.id
 			WHERE cd.cluster_id = ? AND cd.department_id != ? AND cd.department_id IN (%s)
 		`, placeholders)
 		queryArgs = append([]interface{}{clusterID.Int64, sourceDeptID}, queryArgs...)
 	} else {
 		// Share with all departments
 		targetDeptQuery = `
-			SELECT cd.department_id, do.regulation_id, COALESCE(c.curriculum_template, '2026') as curriculum_template 
+			SELECT cd.department_id, do.regulation_id 
 			FROM cluster_departments cd
 			JOIN department_overview do ON cd.department_id = do.id
-			JOIN curriculum c ON do.regulation_id = c.id
 			WHERE cd.cluster_id = ? AND cd.department_id != ?
 		`
 		queryArgs = []interface{}{clusterID.Int64, sourceDeptID}
@@ -1128,14 +1102,7 @@ func shareCourseToCluster(sourceDeptID, sourceRegulationID, courseID int, target
 	// For each target department
 	for rows.Next() {
 		var targetDeptID, targetRegulationID int
-		var targetCurriculumTemplate string
-		if err := rows.Scan(&targetDeptID, &targetRegulationID, &targetCurriculumTemplate); err != nil {
-			continue
-		}
-
-		// Check template compatibility - skip if templates don't match
-		if sourceCurriculumTemplate != targetCurriculumTemplate {
-			log.Printf("Skipping course sharing to dept %d: template mismatch (source: %s, target: %s)", targetDeptID, sourceCurriculumTemplate, targetCurriculumTemplate)
+		if err := rows.Scan(&targetDeptID, &targetRegulationID); err != nil {
 			continue
 		}
 
@@ -2031,18 +1998,9 @@ func updateHonourCardVisibility(cardID int, visibility string, targetDepartments
 
 // shareHonourCardToCluster copies an honour card (with its verticals and courses) to selected or all cluster departments
 func shareHonourCardToCluster(sourceDeptID, sourceRegulationID, cardID, semesterNum int, targetDepartments []int) error {
-	// Get source curriculum template
-	var sourceCurriculumTemplate string
-	err := db.DB.QueryRow(`
-		SELECT COALESCE(curriculum_template, '2026') FROM curriculum WHERE id = ?
-	`, sourceRegulationID).Scan(&sourceCurriculumTemplate)
-	if err != nil {
-		return fmt.Errorf("failed to get source curriculum template: %v", err)
-	}
-
 	// Get cluster ID for this department
 	var clusterID sql.NullInt64
-	err = db.DB.QueryRow(`
+	err := db.DB.QueryRow(`
 		SELECT cluster_id FROM cluster_departments WHERE department_id = ?
 	`, sourceDeptID).Scan(&clusterID)
 	if err != nil || !clusterID.Valid {

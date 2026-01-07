@@ -55,16 +55,11 @@ func GetDepartmentSharingInfo(w http.ResponseWriter, r *http.Request) {
 		WHERE cd.department_id = ?
 	`, deptOverviewID).Scan(&clusterID, &clusterName)
 
-	// Get current regulation's curriculum template
-	var curriculumTemplate string
-	db.DB.QueryRow(`SELECT COALESCE(curriculum_template, '2026') FROM curriculum WHERE id = ?`, regulationID).Scan(&curriculumTemplate)
-
 	// Get all items with their visibility
 	response := map[string]interface{}{
-		"department_id":       deptOverviewID,
-		"regulation_id":       regulationID,
-		"curriculum_template": curriculumTemplate,
-		"in_cluster":          clusterID.Valid,
+		"department_id": deptOverviewID,
+		"regulation_id": regulationID,
+		"in_cluster":    clusterID.Valid,
 	}
 
 	if clusterID.Valid {
@@ -256,7 +251,7 @@ func fetchItemsWithVisibility(deptID int, tableName, columnName string) []map[st
 // fetchClusterDepartments gets all departments in a cluster except the current one
 func fetchClusterDepartments(clusterID, currentDeptID int) []map[string]interface{} {
 	query := `
-		SELECT cd.department_id, do.regulation_id, c.name, COALESCE(c.curriculum_template, '2026') as curriculum_template
+		SELECT cd.department_id, do.regulation_id, c.name
 		FROM cluster_departments cd
 		JOIN department_overview do ON cd.department_id = do.id
 		JOIN curriculum c ON do.regulation_id = c.id
@@ -271,13 +266,12 @@ func fetchClusterDepartments(clusterID, currentDeptID int) []map[string]interfac
 	depts := []map[string]interface{}{}
 	for rows.Next() {
 		var deptID, regID int
-		var name, curriculumTemplate string
-		if err := rows.Scan(&deptID, &regID, &name, &curriculumTemplate); err == nil {
+		var name string
+		if err := rows.Scan(&deptID, &regID, &name); err == nil {
 			depts = append(depts, map[string]interface{}{
-				"department_id":       deptID,
-				"regulation_id":       regID,
-				"name":                name,
-				"curriculum_template": curriculumTemplate,
+				"department_id": deptID,
+				"regulation_id": regID,
+				"name":          name,
 			})
 		}
 	}
@@ -1135,7 +1129,7 @@ func shareCourseToCluster(sourceDeptID, sourceRegulationID, courseID int, target
 
 		// Check template compatibility - skip if templates don't match
 		if sourceCurriculumTemplate != targetCurriculumTemplate {
-			log.Printf("Skipping course sharing to dept %d: template mismatch (source: %s, target: %s)", targetDeptID, sourceCurriculumTemplate, targetCurriculumTemplate)
+			log.Printf("Skipping honour card sharing to dept %d: template mismatch (source: %s, target: %s)", targetDeptID, sourceCurriculumTemplate, targetCurriculumTemplate)
 			continue
 		}
 
