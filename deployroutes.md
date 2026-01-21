@@ -53,23 +53,23 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/regulations/clauses/{clauseId}/history", handlers.GetClauseHistory).Methods("GET", "OPTIONS")
 
 	// Department Overview routes
-	router.HandleFunc("/regulation/{id}/overview", handlers.GetDepartmentOverview).Methods("GET", "OPTIONS")
-	router.HandleFunc("/regulation/{id}/overview", handlers.SaveDepartmentOverview).Methods("POST", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/overview", handlers.GetDepartmentOverview).Methods("GET", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/overview", handlers.SaveDepartmentOverview).Methods("POST", "OPTIONS")
 
 	// Semester routes
-	router.HandleFunc("/regulation/{id}/semesters", handlers.GetSemesters).Methods("GET", "OPTIONS")
-	router.HandleFunc("/regulation/{id}/semester", handlers.CreateSemester).Methods("POST", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/semesters", handlers.GetSemesters).Methods("GET", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/semester", handlers.CreateSemester).Methods("POST", "OPTIONS")
 	router.HandleFunc("/semester/{id}", handlers.UpdateSemester).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/semester/{id}", handlers.DeleteSemester).Methods("DELETE", "OPTIONS")
-	router.HandleFunc("/regulation/{id}/semester/{semId}/courses", handlers.GetSemesterCourses).Methods("GET", "OPTIONS")
-	router.HandleFunc("/regulation/{id}/semester/{semId}/course", handlers.AddCourseToSemester).Methods("POST", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/semester/{semId}/courses", handlers.GetSemesterCourses).Methods("GET", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/semester/{semId}/course", handlers.AddCourseToSemester).Methods("POST", "OPTIONS")
 	router.HandleFunc("/course/{id}", handlers.GetCourse).Methods("GET", "OPTIONS")
 	router.HandleFunc("/course/{id}", handlers.UpdateCourse).Methods("PUT", "OPTIONS")
-	router.HandleFunc("/regulation/{id}/semester/{semId}/course/{courseId}", handlers.RemoveCourseFromSemester).Methods("DELETE", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/semester/{semId}/course/{courseId}", handlers.RemoveCourseFromSemester).Methods("DELETE", "OPTIONS")
 
 	// Honour Card routes
-	router.HandleFunc("/regulation/{id}/honour-cards", handlers.GetHonourCards).Methods("GET", "OPTIONS")
-	router.HandleFunc("/regulation/{id}/honour-card", handlers.CreateHonourCard).Methods("POST", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/honour-cards", handlers.GetHonourCards).Methods("GET", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/honour-card", handlers.CreateHonourCard).Methods("POST", "OPTIONS")
 	router.HandleFunc("/honour-card/{cardId}", handlers.DeleteHonourCard).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/honour-card/{cardId}/vertical", handlers.CreateHonourVertical).Methods("POST", "OPTIONS")
 	router.HandleFunc("/honour-vertical/{verticalId}", handlers.DeleteHonourVertical).Methods("DELETE", "OPTIONS")
@@ -98,8 +98,8 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/course/{courseId}/mapping", handlers.SaveCourseMapping).Methods("POST", "OPTIONS")
 
 	// PEO-PO Mapping routes
-	router.HandleFunc("/regulation/{id}/peo-po-mapping", handlers.GetPEOPOMapping).Methods("GET", "OPTIONS")
-	router.HandleFunc("/regulation/{id}/peo-po-mapping", handlers.SavePEOPOMapping).Methods("POST", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/peo-po-mapping", handlers.GetPEOPOMapping).Methods("GET", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/peo-po-mapping", handlers.SavePEOPOMapping).Methods("POST", "OPTIONS")
 
 	// Experiments routes (2022 template)
 	router.HandleFunc("/course/{courseId}/experiments", handlers.GetCourseExperiments).Methods("GET", "OPTIONS")
@@ -112,7 +112,7 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/curriculum/{id}/logs", handlers.GetCurriculumLogs).Methods("GET", "OPTIONS")
 
 	// PDF Generation route
-	router.HandleFunc("/regulation/{id}/pdf", handlers.GenerateRegulationPDFHTML).Methods("GET", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/pdf", handlers.GenerateRegulationPDFHTML).Methods("GET", "OPTIONS")
 
 	// Cluster Management routes
 	router.HandleFunc("/clusters", handlers.GetClusters).Methods("GET", "OPTIONS")
@@ -124,7 +124,7 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/cluster/{id}/department/{deptId}", handlers.RemoveDepartmentFromCluster).Methods("DELETE", "OPTIONS")
 
 	// Sharing Management routes
-	router.HandleFunc("/regulation/{id}/sharing", handlers.GetDepartmentSharingInfo).Methods("GET", "OPTIONS")
+	router.HandleFunc("/curriculum/{id}/sharing", handlers.GetDepartmentSharingInfo).Methods("GET", "OPTIONS")
 	router.HandleFunc("/sharing/visibility", handlers.UpdateItemVisibility).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/sharing/{item_type}/{item_id}/departments", handlers.GetItemSharedDepartments).Methods("GET", "OPTIONS")
 	router.HandleFunc("/cluster/{id}/shared-content", handlers.GetClusterSharedContent).Methods("GET", "OPTIONS")
@@ -142,6 +142,7 @@ func SetupRoutes() *mux.Router {
 
 	return router
 }
+
 
 
 
@@ -176,7 +177,7 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/curriculum/delete", handlers.DeleteRegulation).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/curriculum/{id}", handlers.UpdateCurriculum).Methods("PUT", "OPTIONS")
 
-	// Regulation Management routes
+	// NEW Regulation Management routes (isolated from curriculum)
 	router.HandleFunc("/api/regulations", handlers.GetRegulationsNew).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/regulations", handlers.CreateRegulationNew).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/regulations/{id}", handlers.GetRegulationByID).Methods("GET", "OPTIONS")
@@ -189,7 +190,7 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/regulations/clauses/{clauseId}", handlers.UpdateRegulationClause).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/regulations/clauses/{clauseId}", handlers.DeleteRegulationClause).Methods("DELETE", "OPTIONS")
 
-	// Regulation Editor routes
+	// Regulation Editor routes (structured editing)
 	router.HandleFunc("/api/regulations/{id}/structure", handlers.GetRegulationStructure).Methods("GET", "OPTIONS")
 
 	// Section management
@@ -204,23 +205,23 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/regulations/clauses/{clauseId}/history", handlers.GetClauseHistory).Methods("GET", "OPTIONS")
 
 	// Department Overview routes
-	router.HandleFunc("/api/regulation/{id}/overview", handlers.GetDepartmentOverview).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/regulation/{id}/overview", handlers.SaveDepartmentOverview).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/overview", handlers.GetDepartmentOverview).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/overview", handlers.SaveDepartmentOverview).Methods("POST", "OPTIONS")
 
 	// Semester routes
-	router.HandleFunc("/api/regulation/{id}/semesters", handlers.GetSemesters).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/regulation/{id}/semester", handlers.CreateSemester).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/semesters", handlers.GetSemesters).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/semester", handlers.CreateSemester).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/semester/{id}", handlers.UpdateSemester).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/semester/{id}", handlers.DeleteSemester).Methods("DELETE", "OPTIONS")
-	router.HandleFunc("/api/regulation/{id}/semester/{semId}/courses", handlers.GetSemesterCourses).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/regulation/{id}/semester/{semId}/course", handlers.AddCourseToSemester).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/semester/{semId}/courses", handlers.GetSemesterCourses).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/semester/{semId}/course", handlers.AddCourseToSemester).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/course/{id}", handlers.GetCourse).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/course/{id}", handlers.UpdateCourse).Methods("PUT", "OPTIONS")
-	router.HandleFunc("/api/regulation/{id}/semester/{semId}/course/{courseId}", handlers.RemoveCourseFromSemester).Methods("DELETE", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/semester/{semId}/course/{courseId}", handlers.RemoveCourseFromSemester).Methods("DELETE", "OPTIONS")
 
 	// Honour Card routes
-	router.HandleFunc("/api/regulation/{id}/honour-cards", handlers.GetHonourCards).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/regulation/{id}/honour-card", handlers.CreateHonourCard).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/honour-cards", handlers.GetHonourCards).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/honour-card", handlers.CreateHonourCard).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/honour-card/{cardId}", handlers.DeleteHonourCard).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/honour-card/{cardId}/vertical", handlers.CreateHonourVertical).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/honour-vertical/{verticalId}", handlers.DeleteHonourVertical).Methods("DELETE", "OPTIONS")
@@ -228,9 +229,12 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/honour-vertical/{verticalId}/course/{courseId}", handlers.RemoveCourseFromVertical).Methods("DELETE", "OPTIONS")
 
 	// Syllabus routes
+	// Return nested syllabus (header + models/titles/topics)
 	router.HandleFunc("/api/course/{courseId}/syllabus", handlers.GetCourseSyllabusNested).Methods("GET", "OPTIONS")
+	// Save header-only fields (outcomes, resources, prerequisites)
 	router.HandleFunc("/api/course/{courseId}/syllabus", handlers.SaveCourseSyllabus).Methods("POST", "OPTIONS")
 
+	// Relational CRUD
 	router.HandleFunc("/api/course/{courseId}/syllabus/model", handlers.CreateModel).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/syllabus/model/{modelId}", handlers.UpdateModel).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/syllabus/model/{modelId}", handlers.DeleteModel).Methods("DELETE", "OPTIONS")
@@ -246,10 +250,10 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/course/{courseId}/mapping", handlers.SaveCourseMapping).Methods("POST", "OPTIONS")
 
 	// PEO-PO Mapping routes
-	router.HandleFunc("/api/regulation/{id}/peo-po-mapping", handlers.GetPEOPOMapping).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/regulation/{id}/peo-po-mapping", handlers.SavePEOPOMapping).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/peo-po-mapping", handlers.GetPEOPOMapping).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/peo-po-mapping", handlers.SavePEOPOMapping).Methods("POST", "OPTIONS")
 
-	// Experiments routes
+	// Experiments routes (2022 template)
 	router.HandleFunc("/api/course/{courseId}/experiments", handlers.GetCourseExperiments).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/course/{courseId}/experiments", handlers.CreateExperiment).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/experiments/{expId}", handlers.UpdateExperiment).Methods("PUT", "OPTIONS")
@@ -259,8 +263,8 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/curriculum/{id}/log", handlers.CreateCurriculumLog).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/curriculum/{id}/logs", handlers.GetCurriculumLogs).Methods("GET", "OPTIONS")
 
-	// PDF Generation
-	router.HandleFunc("/api/regulation/{id}/pdf", handlers.GenerateRegulationPDFHTML).Methods("GET", "OPTIONS")
+	// PDF Generation route
+	router.HandleFunc("/api/curriculum/{id}/pdf", handlers.GenerateRegulationPDFHTML).Methods("GET", "OPTIONS")
 
 	// Cluster Management routes
 	router.HandleFunc("/api/clusters", handlers.GetClusters).Methods("GET", "OPTIONS")
@@ -272,7 +276,7 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/cluster/{id}/department/{deptId}", handlers.RemoveDepartmentFromCluster).Methods("DELETE", "OPTIONS")
 
 	// Sharing Management routes
-	router.HandleFunc("/api/regulation/{id}/sharing", handlers.GetDepartmentSharingInfo).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/curriculum/{id}/sharing", handlers.GetDepartmentSharingInfo).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/sharing/visibility", handlers.UpdateItemVisibility).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/sharing/{item_type}/{item_id}/departments", handlers.GetItemSharedDepartments).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/cluster/{id}/shared-content", handlers.GetClusterSharedContent).Methods("GET", "OPTIONS")

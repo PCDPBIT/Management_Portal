@@ -183,10 +183,10 @@ func GetClusterDepartments(w http.ResponseWriter, r *http.Request) {
 		var regulationName sql.NullString
 		if err := rows.Scan(&cd.ID, &cd.ClusterID, &cd.DepartmentID, &cd.CreatedAt, &curriculumID, &regulationName); err == nil {
 			dept := map[string]interface{}{
-				"id":              cd.DepartmentID,
-				"cluster_id":      cd.ClusterID,
-				"department_id":   cd.DepartmentID,
-				"created_at":      cd.CreatedAt,
+				"id":            cd.DepartmentID,
+				"cluster_id":    cd.ClusterID,
+				"department_id": cd.DepartmentID,
+				"created_at":    cd.CreatedAt,
 			}
 			if curriculumID.Valid {
 				dept["curriculum_id"] = curriculumID.Int64
