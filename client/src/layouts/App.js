@@ -16,6 +16,9 @@ import RegulationPage from "../pages/regulation/regulationPage";
 import RegulationEditorPage from "../pages/regulation/regulationEditorPage";
 import UsersPage from "../pages/curriculum/usersPage";
 import StudentDetailsPage from "../pages/student-teacher_entry/studentDetailsPage";
+import TeacherStudentDashboard from "../pages/student-teacher_entry/TeacherStudentDashboard";
+import TeacherDetailsPage from "../pages/student-teacher_entry/TeacherDetailsPage";
+import TeacherStudentMappingPage from "../pages/student-teacher_entry/TeacherStudentMappingPage";
 import PrivateRoute from "../components/PrivateRoute";
 
 function App() {
@@ -25,6 +28,9 @@ function App() {
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/users" element={<PrivateRoute><UsersPage /></PrivateRoute>} />
       <Route path="/Student_details" element={<PrivateRoute><StudentDetailsPage /></PrivateRoute>} />
+      <Route path="/student-teacher-dashboard" element={<PrivateRoute><TeacherStudentDashboard /></PrivateRoute>} />
+      <Route path="/teacher-details" element={<PrivateRoute><TeacherDetailsPage /></PrivateRoute>} />
+      <Route path="/teacher-student-mapping" element={<PrivateRoute><TeacherStudentMappingPage /></PrivateRoute>} />
       <Route path="/regulations" element={<PrivateRoute><RegulationPage /></PrivateRoute>} />
       <Route path="/curriculum/:id/editor" element={<PrivateRoute><RegulationEditorPage /></PrivateRoute>} />
       <Route path="/curriculum" element={<PrivateRoute><CurriculumMainPage /></PrivateRoute>} />

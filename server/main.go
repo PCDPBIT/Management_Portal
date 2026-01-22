@@ -14,8 +14,11 @@ import (
 
 func main() {
 	// Load environment variables from .env in server directory
+	// Try loading from current directory first, then from server/ subdirectory (if running from root)
 	if err := godotenv.Load(".env"); err != nil {
-		log.Println("No .env file found or failed to load; using environment defaults")
+		if err := godotenv.Load("server/.env"); err != nil {
+			log.Println("No .env file found or failed to load; using environment defaults")
+		}
 	}
 	// Initialize database
 	err := db.InitDB()
