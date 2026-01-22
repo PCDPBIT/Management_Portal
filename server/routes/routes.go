@@ -2,7 +2,7 @@ package routes
 
 import (
 	"net/http"
-	"server/handlers"
+	"server/handlers/curriculum"
 
 	"github.com/gorilla/mux"
 )

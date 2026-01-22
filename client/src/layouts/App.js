@@ -1,20 +1,21 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
-import LoginPage from "../pages/loginPage";
-import Dashboard from "../pages/dashboard";
-import CurriculumMainPage from "../pages/curriculumMainPage";
-import DepartmentOverviewPage from "../pages/departmentOverviewPage";
-import ManageCurriculumPage from "../pages/manageCurriculumPage";
-import SemesterDetailPage from "../pages/semesterDetailPage";
-import HonourCardPage from "../pages/honourCardPage";
-import SyllabusPage from "../pages/syllabusPage";
-import MappingPage from "../pages/mappingPage";
-import PEOPOMappingPage from "../pages/peoPOMappingPage";
-import ClusterManagementPage from "../pages/clusterManagementPage";
-import SharingManagementPage from "../pages/sharingManagementPage";
+import LoginPage from "../pages/curriculum/loginPage";
+import Dashboard from "../pages/curriculum/dashboard";
+import CurriculumMainPage from "../pages/curriculum/curriculumMainPage";
+import DepartmentOverviewPage from "../pages/curriculum/departmentOverviewPage";
+import ManageCurriculumPage from "../pages/curriculum/manageCurriculumPage";
+import SemesterDetailPage from "../pages/curriculum/semesterDetailPage";
+import HonourCardPage from "../pages/curriculum/honourCardPage";
+import SyllabusPage from "../pages/curriculum/syllabusPage";
+import MappingPage from "../pages/curriculum/mappingPage";
+import PEOPOMappingPage from "../pages/curriculum/peoPOMappingPage";
+import ClusterManagementPage from "../pages/curriculum/clusterManagementPage";
+import SharingManagementPage from "../pages/curriculum/sharingManagementPage";
 import RegulationPage from "../pages/regulation/regulationPage";
 import RegulationEditorPage from "../pages/regulation/regulationEditorPage";
-import UsersPage from "../pages/usersPage";
+import UsersPage from "../pages/curriculum/usersPage";
+import StudentDetailsPage from "../pages/student-teacher_entry/studentDetailsPage";
 import PrivateRoute from "../components/PrivateRoute";
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
       <Route path="/" element={<LoginPage />} />
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/users" element={<PrivateRoute><UsersPage /></PrivateRoute>} />
+      <Route path="/Student_details" element={<PrivateRoute><StudentDetailsPage /></PrivateRoute>} />
       <Route path="/regulations" element={<PrivateRoute><RegulationPage /></PrivateRoute>} />
       <Route path="/curriculum/:id/editor" element={<PrivateRoute><RegulationEditorPage /></PrivateRoute>} />
       <Route path="/curriculum" element={<PrivateRoute><CurriculumMainPage /></PrivateRoute>} />
