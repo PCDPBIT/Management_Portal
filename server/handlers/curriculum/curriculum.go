@@ -214,7 +214,8 @@ func GetSemesterCourses(w http.ResponseWriter, r *http.Request) {
 		       c.lecture_hrs, c.tutorial_hrs, c.practical_hrs, c.activity_hrs, COALESCE(c.` + "`tw/sl`" + `, 0) as tw_sl,
 		       COALESCE(c.theory_total_hrs, 0), COALESCE(c.tutorial_total_hrs, 0), COALESCE(c.practical_total_hrs, 0), COALESCE(c.activity_total_hrs, 0), COALESCE(c.total_hrs, 0),
 		       c.cia_marks, c.see_marks, c.total_marks,
-		       rc.id as reg_course_id
+		       rc.id as reg_course_id,
+		       COALESCE(rc.count_towards_limit, 1) as count_towards_limit
 		FROM courses c
 		INNER JOIN curriculum_courses rc ON c.course_id = rc.course_id
 		WHERE rc.curriculum_id = ? AND rc.semester_id = ? AND rc.status = 1 AND c.status = 1
@@ -233,15 +234,19 @@ func GetSemesterCourses(w http.ResponseWriter, r *http.Request) {
 	var courses []models.CourseWithDetails = make([]models.CourseWithDetails, 0)
 	for rows.Next() {
 		var course models.CourseWithDetails
+		var countTowardsLimitInt int
 		err := rows.Scan(&course.CourseID, &course.CourseCode, &course.CourseName, &course.CourseType, &course.Category, &course.Credit,
 			&course.LectureHrs, &course.TutorialHrs, &course.PracticalHrs, &course.ActivityHrs, &course.TwSlHrs,
 			&course.TheoryTotalHrs, &course.TutorialTotalHrs, &course.PracticalTotalHrs, &course.ActivityTotalHrs, &course.TotalHrs,
 			&course.CIAMarks, &course.SEEMarks, &course.TotalMarks,
-			&course.RegCourseID)
+			&course.RegCourseID, &countTowardsLimitInt)
 		if err != nil {
 			log.Println("Error scanning course:", err)
 			continue
 		}
+		// Convert int to bool pointer
+		countTowardsLimit := countTowardsLimitInt == 1
+		course.CountTowardsLimit = &countTowardsLimit
 		course.CurriculumTemplate = curriculumTemplate
 		courses = append(courses, course)
 	}
@@ -295,31 +300,51 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Calculate current total credits for this curriculum (across all semesters)
-	var currentCredits sql.NullInt64
-	creditQuery := `SELECT SUM(c.credit) FROM courses c 
-	                INNER JOIN curriculum_courses rc ON c.course_id = rc.course_id 
-	                WHERE rc.curriculum_id = ?`
-	err = db.DB.QueryRow(creditQuery, curriculumID).Scan(&currentCredits)
+	// Check if the current semester is a semester card type
+	var cardType string
+	err = db.DB.QueryRow("SELECT COALESCE(card_type, 'semester') FROM normal_cards WHERE id = ?", semesterID).Scan(&cardType)
 	if err != nil {
-		log.Println("Error calculating current credits:", err)
+		log.Println("Error fetching semester card type:", err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate credits"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate semester"})
 		return
 	}
 
-	totalCredits := 0
-	if currentCredits.Valid {
-		totalCredits = int(currentCredits.Int64)
+	// Only validate credit limit if this is a semester card and count_towards_limit is true
+	countTowardsLimit := true
+	if course.CountTowardsLimit != nil {
+		countTowardsLimit = *course.CountTowardsLimit
 	}
 
-	// Check if adding this course would exceed curriculum's max_credits
-	if totalCredits+course.Credit > maxCredits {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Total credits exceed the curriculum's maximum allowed limit"})
-		return
-	}
+	if cardType == "semester" && countTowardsLimit {
+		// Calculate current total credits for this curriculum (across all semester cards with count_towards_limit=true)
+		var currentCredits sql.NullInt64
+		creditQuery := `SELECT SUM(c.credit) FROM courses c 
+		                INNER JOIN curriculum_courses cc ON c.course_id = cc.course_id 
+		                INNER JOIN normal_cards nc ON cc.semester_id = nc.id
+		                WHERE cc.curriculum_id = ? 
+		                AND nc.card_type = 'semester'
+		                AND (cc.count_towards_limit IS NULL OR cc.count_towards_limit = 1)`
+		err = db.DB.QueryRow(creditQuery, curriculumID).Scan(&currentCredits)
+		if err != nil {
+			log.Println("Error calculating current credits:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate credits"})
+			return
+		}
 
+		totalCredits := 0
+		if currentCredits.Valid {
+			totalCredits = int(currentCredits.Int64)
+		}
+
+		// Check if adding this course would exceed curriculum's max_credits
+		if totalCredits+course.Credit > maxCredits {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Total credits exceed the curriculum's maximum allowed limit"})
+			return
+		}
+	}
 	// Get curriculum template
 	var curriculumTemplate string
 	err = db.DB.QueryRow("SELECT curriculum_template FROM curriculum WHERE id = ? AND status = 1", curriculumID).Scan(&curriculumTemplate)
@@ -395,9 +420,9 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Link course to curriculum and semester
-	linkQuery := "INSERT INTO curriculum_courses (curriculum_id, semester_id, course_id) VALUES (?, ?, ?)"
-	result, err := db.DB.Exec(linkQuery, curriculumID, semesterID, courseID)
+	// Link course to curriculum and semester (countTowardsLimit already set above)
+	linkQuery := "INSERT INTO curriculum_courses (curriculum_id, semester_id, course_id, count_towards_limit) VALUES (?, ?, ?, ?)"
+	result, err := db.DB.Exec(linkQuery, curriculumID, semesterID, courseID, countTowardsLimit)
 	if err != nil {
 		log.Println("Error linking course:", err)
 		w.WriteHeader(http.StatusInternalServerError)

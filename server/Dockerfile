@@ -51,7 +51,7 @@ COPY --from=builder /app/main .
 RUN mkdir -p /app/uploads /app/pdfs
 
 # Expose port
-EXPOSE 5000
+EXPOSE 5001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

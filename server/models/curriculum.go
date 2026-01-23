@@ -27,6 +27,7 @@ type Course struct {
 	CIAMarks           int    `json:"cia_marks"`
 	SEEMarks           int    `json:"see_marks"`
 	TotalMarks         int    `json:"total_marks"`
+	CountTowardsLimit  *bool  `json:"count_towards_limit,omitempty"`
 	CurriculumTemplate string `json:"curriculum_template,omitempty"`
 }
 
@@ -57,6 +58,7 @@ type CourseWithDetails struct {
 	CIAMarks           int    `json:"cia_marks"`
 	SEEMarks           int    `json:"see_marks"`
 	TotalMarks         int    `json:"total_marks"`
+	CountTowardsLimit  *bool  `json:"count_towards_limit,omitempty"`
 	RegCourseID        int    `json:"reg_course_id"`
 	CurriculumTemplate string `json:"curriculum_template,omitempty"`
 }

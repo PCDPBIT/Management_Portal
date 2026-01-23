@@ -422,3 +422,47 @@ func GetCourse(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(course)
 }
+
+// UpdateCurriculumCourse updates curriculum_courses link table (e.g., count_towards_limit)
+func UpdateCurriculumCourse(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	if r.Method != http.MethodPut {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Method not allowed"})
+		return
+	}
+
+	vars := mux.Vars(r)
+	regCourseID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid curriculum course ID"})
+		return
+	}
+
+	var requestData struct {
+		CountTowardsLimit bool `json:"count_towards_limit"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&requestData)
+	if err != nil {
+		log.Println("Error decoding request body:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	// Update curriculum_courses record
+	query := "UPDATE curriculum_courses SET count_towards_limit = ? WHERE id = ?"
+	_, err = db.DB.Exec(query, requestData.CountTowardsLimit, regCourseID)
+	if err != nil {
+		log.Println("Error updating curriculum_courses:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update curriculum course link"})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Curriculum course link updated successfully"})
+}

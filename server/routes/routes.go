@@ -64,6 +64,7 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/curriculum/{id}/semester/{semId}/course", curriculum.AddCourseToSemester).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/course/{id}", curriculum.GetCourse).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/course/{id}", curriculum.UpdateCourse).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/api/curriculum-course/{id}", curriculum.UpdateCurriculumCourse).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/curriculum/{id}/semester/{semId}/course/{courseId}", curriculum.RemoveCourseFromSemester).Methods("DELETE", "OPTIONS")
 
 	// Honour Card routes

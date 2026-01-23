@@ -79,7 +79,12 @@ func GetDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 // Note: Shared items are now physically replicated in the database with source_department_id,
 // so we only need to fetch items for this department (includes both owned and shared items)
 func fetchDepartmentList(departmentID int, tableName, columnName string) []models.DepartmentListItem {
-	query := fmt.Sprintf("SELECT id, %s, visibility, source_department_id FROM %s WHERE curriculum_id = ? ORDER BY position", columnName, tableName)
+	// Only fetch items with status=1 for curriculum_mission, curriculum_peos, curriculum_pos, curriculum_psos
+	statusFilter := ""
+	if tableName == "curriculum_mission" || tableName == "curriculum_peos" || tableName == "curriculum_pos" || tableName == "curriculum_psos" {
+		statusFilter = " AND status = 1"
+	}
+	query := fmt.Sprintf("SELECT id, %s, visibility, source_department_id FROM %s WHERE curriculum_id = ?%s ORDER BY position", columnName, tableName, statusFilter)
 	rows, err := db.DB.Query(query, departmentID)
 	if err != nil {
 		return []models.DepartmentListItem{}
@@ -151,7 +156,18 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 	checkQuery := "SELECT id FROM curriculum_vision WHERE curriculum_id = ?"
 	err = db.DB.QueryRow(checkQuery, regulationID).Scan(&existingID)
 
-	if err == sql.ErrNoRows {
+	if overview.Vision == "" {
+		// If vision is empty, delete the record if it exists
+		_, err := db.DB.Exec("DELETE FROM curriculum_vision WHERE curriculum_id = ?", regulationID)
+		if err != nil && err != sql.ErrNoRows {
+			log.Println("Error deleting empty vision record:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete empty vision record"})
+			return
+		}
+		overview.ID = 0
+		departmentID = 0
+	} else if err == sql.ErrNoRows {
 		// INSERT new record
 		insertQuery := `INSERT INTO curriculum_vision (curriculum_id, vision) VALUES (?, ?)`
 		result, err := db.DB.Exec(insertQuery, regulationID, overview.Vision)
@@ -419,11 +435,20 @@ func saveDepartmentList(departmentID int, tableName, columnName string, items []
 				log.Printf("Deleting shared item %d from department %d\n", id, existing.sourceDepartmentID.Int64)
 			}
 
-			// Delete the item (works for both owned and shared items)
-			deleteQuery := fmt.Sprintf("DELETE FROM %s WHERE id = ?", tableName)
-			_, err := db.DB.Exec(deleteQuery, id)
-			if err != nil {
-				log.Printf("Error deleting item %d: %v\n", id, err)
+			// SOFT DELETE for curriculum_mission, curriculum_peos, curriculum_pos, curriculum_psos: set status=0 instead of deleting
+			if tableName == "curriculum_mission" || tableName == "curriculum_peos" || tableName == "curriculum_pos" || tableName == "curriculum_psos" {
+				softDeleteQuery := fmt.Sprintf("UPDATE %s SET status = 0 WHERE id = ?", tableName)
+				_, err := db.DB.Exec(softDeleteQuery, id)
+				if err != nil {
+					log.Printf("Error soft-deleting %s %d: %v\\n", tableName, id, err)
+				}
+			} else {
+				// Delete the item (works for both owned and shared items)
+				deleteQuery := fmt.Sprintf("DELETE FROM %s WHERE id = ?", tableName)
+				_, err := db.DB.Exec(deleteQuery, id)
+				if err != nil {
+					log.Printf("Error deleting item %d: %v\\n", id, err)
+				}
 			}
 		}
 	}

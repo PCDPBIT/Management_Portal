@@ -28,7 +28,8 @@ function SemesterDetailPage() {
     activity_hrs: 0,
     tw_sl_hrs: 0,
     cia_marks: 40,
-    see_marks: 60
+    see_marks: 60,
+    count_towards_limit: true
   })
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingCourse, setEditingCourse] = useState(null)
@@ -44,7 +45,11 @@ function SemesterDetailPage() {
     activity_hrs: 0,
     tw_sl_hrs: 0,
     cia_marks: 40,
-    see_marks: 60
+    see_marks: 60,
+    theory_hours: 0,
+    tutorial_hours: 0,
+    practical_hours: 0,
+    count_towards_limit: true
   })
 
   useEffect(() => {
@@ -63,12 +68,20 @@ function SemesterDetailPage() {
       const semesters = await semResponse.json()
       
       // Fetch courses for all semesters and sum credits
+      // Only count credits from semester card types and courses with count_towards_limit = true
       let totalCredits = 0
       for (const sem of semesters) {
+        // Only count credits for semester card types
+        if (sem.card_type !== 'semester') continue
+        
         const courseResponse = await fetch(`${API_BASE_URL}/curriculum/${id}/semester/${sem.id}/courses`)
         if (courseResponse.ok) {
           const semCourses = await courseResponse.json()
-          totalCredits += semCourses.reduce((sum, c) => sum + (c.credit || 0), 0)
+          // Only sum credits where count_towards_limit is true (or undefined for backwards compatibility)
+          totalCredits += semCourses.reduce((sum, c) => {
+            const shouldCount = c.count_towards_limit === undefined || c.count_towards_limit === true
+            return sum + (shouldCount ? (c.credit || 0) : 0)
+          }, 0)
         }
       }
       setTotalCurriculumCredits(totalCredits)
@@ -116,7 +129,8 @@ function SemesterDetailPage() {
         throw new Error('Failed to fetch courses')
       }
       const data = await response.json()
-      setCourses(data || [])
+      // Reverse the array so most recently added courses appear at the top
+      setCourses((data || []).reverse())
       setError('')
     } catch (err) {
       console.error('Error fetching courses:', err)
@@ -128,6 +142,14 @@ function SemesterDetailPage() {
 
   const handleAddCourse = async (e) => {
     e.preventDefault()
+    
+    // Validate total marks
+    const totalMarks = (parseInt(newCourse.cia_marks) || 0) + (parseInt(newCourse.see_marks) || 0)
+    if (totalMarks > 100) {
+      setError('Total marks (CIA + SEE) cannot exceed 100. Please adjust the marks.')
+      setTimeout(() => setError(''), 5000)
+      return
+    }
     
     try {
       const lectureHrs = parseInt(newCourse.lecture_hrs) || 0
@@ -158,7 +180,7 @@ function SemesterDetailPage() {
         courseData.tutorial_total_hrs = tutorialHrs * 15
         courseData.activity_total_hrs = activityHrs * 15
         courseData.practical_total_hrs = 0
-      } else if (newCourse.course_type === 'Theory&Lab') {
+      } else if (newCourse.course_type === 'Theory&Lab' || newCourse.course_type === 'NA') {
         courseData.theory_total_hrs = lectureHrs * 15
         courseData.tutorial_total_hrs = tutorialHrs * 15
         courseData.practical_total_hrs = practicalHrs * 15
@@ -207,7 +229,8 @@ function SemesterDetailPage() {
         activity_hrs: 0,
         tw_sl_hrs: 0,
         cia_marks: 40,
-        see_marks: 60
+        see_marks: 60,
+        count_towards_limit: true
       })
       setShowAddForm(false)
       fetchCourses()
@@ -234,7 +257,11 @@ function SemesterDetailPage() {
       activity_hrs: course.activity_hrs || 0,
       tw_sl_hrs: course.tw_sl_hrs || 0,
       cia_marks: course.cia_marks || 40,
-      see_marks: course.see_marks || 60
+      see_marks: course.see_marks || 60,
+      theory_hours: course.theory_total_hrs || 0,
+      tutorial_hours: course.tutorial_total_hrs || 0,
+      practical_hours: course.practical_total_hrs || 0,
+      count_towards_limit: course.count_towards_limit === undefined ? true : course.count_towards_limit
     })
     setShowEditModal(true)
   }
@@ -242,17 +269,61 @@ function SemesterDetailPage() {
   const handleUpdateCourse = async (e) => {
     e.preventDefault()
     
+    // Validate total marks
+    const totalMarks = (parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0)
+    if (totalMarks > 100) {
+      setError('Total marks (CIA + SEE) cannot exceed 100. Please adjust the marks.')
+      setTimeout(() => setError(''), 5000)
+      return
+    }
+    
     try {
+      const lectureHrs = parseInt(editCourseData.lecture_hrs) || 0
+      const tutorialHrs = parseInt(editCourseData.tutorial_hrs) || 0
+      const practicalHrs = parseInt(editCourseData.practical_hrs) || 0
+      const activityHrs = parseInt(editCourseData.activity_hrs) || 0
+      
       const courseData = {
         ...editCourseData,
         credit: parseInt(editCourseData.credit),
-        lecture_hrs: parseInt(editCourseData.lecture_hrs) || 0,
-        tutorial_hrs: parseInt(editCourseData.tutorial_hrs) || 0,
-        practical_hrs: parseInt(editCourseData.practical_hrs) || 0,
-        activity_hrs: parseInt(editCourseData.activity_hrs) || 0,
+        lecture_hrs: lectureHrs,
+        tutorial_hrs: tutorialHrs,
+        practical_hrs: practicalHrs,
+        activity_hrs: activityHrs,
         tw_sl_hrs: parseInt(editCourseData.tw_sl_hrs) || 0,
         cia_marks: parseInt(editCourseData.cia_marks) || 40,
         see_marks: parseInt(editCourseData.see_marks) || 60
+      }
+      
+      // Calculate total hours based on course type (for 2026 template, auto-calculate; for 2022, use manual inputs)
+      if (curriculumTemplate === '2026') {
+        if (editCourseData.course_type === 'Lab') {
+          courseData.theory_total_hrs = 0
+          courseData.tutorial_total_hrs = 0
+          courseData.activity_total_hrs = 0
+          courseData.practical_total_hrs = practicalHrs * 15
+        } else if (editCourseData.course_type === 'Theory') {
+          courseData.theory_total_hrs = lectureHrs * 15
+          courseData.tutorial_total_hrs = tutorialHrs * 15
+          courseData.activity_total_hrs = activityHrs * 15
+          courseData.practical_total_hrs = 0
+        } else if (editCourseData.course_type === 'Theory&Lab' || editCourseData.course_type === 'NA') {
+          courseData.theory_total_hrs = lectureHrs * 15
+          courseData.tutorial_total_hrs = tutorialHrs * 15
+          courseData.practical_total_hrs = practicalHrs * 15
+          courseData.activity_total_hrs = 0
+        } else {
+          // Default: calculate all
+          courseData.theory_total_hrs = lectureHrs * 15
+          courseData.tutorial_total_hrs = tutorialHrs * 15
+          courseData.practical_total_hrs = practicalHrs * 15
+          courseData.activity_total_hrs = activityHrs * 15
+        }
+      } else {
+        // For 2022 template, use manual input values
+        courseData.theory_total_hrs = parseInt(editCourseData.theory_hours) || 0
+        courseData.tutorial_total_hrs = parseInt(editCourseData.tutorial_hours) || 0
+        courseData.practical_total_hrs = parseInt(editCourseData.practical_hours) || 0
       }
       
       const response = await fetch(`${API_BASE_URL}/course/${editingCourse.id}`, {
@@ -267,11 +338,27 @@ function SemesterDetailPage() {
         throw new Error('Failed to update course')
       }
 
+      // Update count_towards_limit in curriculum_courses if reg_course_id exists
+      if (editingCourse.reg_course_id && semester?.card_type === 'semester') {
+        const linkUpdateResponse = await fetch(`${API_BASE_URL}/curriculum-course/${editingCourse.reg_course_id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ count_towards_limit: editCourseData.count_towards_limit }),
+        })
+        
+        if (!linkUpdateResponse.ok) {
+          console.warn('Failed to update count_towards_limit flag')
+        }
+      }
+
       setSuccess('Course updated successfully!')
       setTimeout(() => setSuccess(''), 3000)
       setShowEditModal(false)
       setEditingCourse(null)
       fetchCourses()
+      fetchTotalCredits()
     } catch (err) {
       console.error('Error updating course:', err)
       setError('Failed to update course')
@@ -380,11 +467,11 @@ function SemesterDetailPage() {
           <div className="card-custom p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-900">Add New Course</h2>
-              {curriculum && (
+              {curriculum && semester?.card_type === 'semester' && (
                 <div className={`px-4 py-2 rounded-lg font-semibold text-sm ${
                   totalCurriculumCredits >= curriculum.max_credits 
                     ? 'bg-red-100 text-red-700' 
-                    : totalCurriculumCredits + (parseInt(newCourse.credit) || 0) > curriculum.max_credits
+                    : newCourse.count_towards_limit && (totalCurriculumCredits + (parseInt(newCourse.credit) || 0) > curriculum.max_credits)
                     ? 'bg-yellow-100 text-yellow-700'
                     : 'bg-blue-100 text-blue-700'
                 }`}>
@@ -431,6 +518,7 @@ function SemesterDetailPage() {
                   <option value="Theory">Theory</option>
                   <option value="Lab">Lab</option>
                   <option value="Theory&Lab">Theory&Lab</option>
+                  <option value="NA">NA</option>
                 </select>
               </div>
 
@@ -449,6 +537,7 @@ function SemesterDetailPage() {
                   <option value="PC - Professional Core">PC - Professional Core</option>
                   <option value="PE - Professional Elective">PE - Professional Elective</option>
                   <option value="EEC - Employability Enhancement Course">EEC - Employability Enhancement Course</option>
+                  <option value="NA">NA</option>
                 </select>
               </div>
 
@@ -558,8 +647,11 @@ function SemesterDetailPage() {
                   type="number"
                   value={(parseInt(newCourse.cia_marks) || 0) + (parseInt(newCourse.see_marks) || 0)}
                   readOnly
-                  className="input-custom bg-gray-100 cursor-not-allowed"
+                  className={`input-custom bg-gray-100 cursor-not-allowed ${(parseInt(newCourse.cia_marks) || 0) + (parseInt(newCourse.see_marks) || 0) > 100 ? 'border-red-500 border-2' : ''}`}
                 />
+                {(parseInt(newCourse.cia_marks) || 0) + (parseInt(newCourse.see_marks) || 0) > 100 && (
+                  <p className="text-red-600 text-xs mt-1 font-medium">⚠ Total marks cannot exceed 100</p>
+                )}
               </div>
 
               {/* Course Type Specific Fields - Total Hours for whole semester */}
@@ -647,7 +739,7 @@ function SemesterDetailPage() {
                 </>
               )}
 
-              {newCourse.course_type === 'Theory&Lab' && (
+              {(newCourse.course_type === 'Theory&Lab' || newCourse.course_type === 'NA') && (
                 <>
                   <div className="md:col-span-2">
                     <h3 className="text-sm font-bold text-gray-900 mb-3 mt-4 pt-4 border-t border-gray-200">Total Hours (for whole semester)</h3>
@@ -797,6 +889,26 @@ function SemesterDetailPage() {
                 </>
               )}
 
+              {/* Credit Limit Checkbox - Only show for semester card types */}
+              {semester?.card_type === 'semester' && (
+                <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newCourse.count_towards_limit}
+                      onChange={(e) => setNewCourse({ ...newCourse, count_towards_limit: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Include this course's credits in the curriculum's max credit limit calculation
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-2 ml-7">
+                    Uncheck this if the course credits should not count towards the total {curriculum?.max_credits || 0} credit limit
+                  </p>
+                </div>
+              )}
+
               <div className="md:col-span-2">
                 <button type="submit" className="w-full btn-primary-custom">Add Course</button>
               </div>
@@ -824,8 +936,8 @@ function SemesterDetailPage() {
                     <th className="text-left">Course Name</th>
                     <th className="text-left">Type</th>
                     <th className="text-left">Category</th>
-                    <th className="text-left">Credits</th>
                     <th className="text-left">{curriculumTemplate === '2022' ? 'L-T-P' : 'L-T-P-A'}</th>
+                    <th className="text-left">Credits</th>
                     <th className="text-left">Marks</th>
                     <th className="text-center">Actions</th>
                   </tr>
@@ -845,13 +957,13 @@ function SemesterDetailPage() {
                           {course.category}
                         </span>
                       </td>
-                      <td className="font-semibold">{course.credit}</td>
                       <td className="font-mono text-sm">
                         {curriculumTemplate === '2022' 
                           ? `${course.lecture_hrs || 0}-${course.tutorial_hrs || 0}-${course.practical_hrs || 0}`
                           : `${course.lecture_hrs || 0}-${course.tutorial_hrs || 0}-${course.practical_hrs || 0}-${course.activity_hrs || 0}`
                         }
                       </td>
+                      <td className="font-semibold">{course.credit}</td>
                       <td>
                         <div className="text-xs space-y-1">
                           <div>CIA: <span className="font-semibold">{course.cia_marks || 0}</span></div>
@@ -953,6 +1065,8 @@ function SemesterDetailPage() {
                       <option value="">Select Type</option>
                       <option value="Theory">Theory</option>
                       <option value="Lab">Lab</option>
+                      <option value="Theory&Lab">Theory&Lab</option>
+                      <option value="NA">NA</option>
                     </select>
                   </div>
 
@@ -971,6 +1085,7 @@ function SemesterDetailPage() {
                       <option value="PC - Professional Core">PC - Professional Core</option>
                       <option value="PE - Professional Elective">PE - Professional Elective</option>
                       <option value="EEC - Employability Enhancement Course">EEC - Employability Enhancement Course</option>
+                      <option value="NA">NA</option>
                     </select>
                   </div>
                 </div>
@@ -1018,6 +1133,7 @@ function SemesterDetailPage() {
                   </div>
                   )}
 
+                  {editCourseData.course_type !== 'Theory' && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Practical (hrs per week)</label>
                     <input
@@ -1029,6 +1145,7 @@ function SemesterDetailPage() {
                       className="input-custom"
                     />
                   </div>
+                  )}
 
                   {curriculumTemplate !== '2022' && (
                     <div>
@@ -1079,8 +1196,11 @@ function SemesterDetailPage() {
                       type="number"
                       value={(parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0)}
                       readOnly
-                      className="input-custom bg-gray-100 cursor-not-allowed"
+                      className={`input-custom bg-gray-100 cursor-not-allowed ${(parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0) > 100 ? 'border-red-500 border-2' : ''}`}
                     />
+                    {(parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0) > 100 && (
+                      <p className="text-red-600 text-xs mt-1 font-medium">⚠ Total marks cannot exceed 100</p>
+                    )}
                   </div>
                 </div>
 
@@ -1174,7 +1294,7 @@ function SemesterDetailPage() {
                 )}
 
                 {/* Total Hours for whole semester - Theory&Lab */}
-                {editCourseData.course_type === 'Theory&Lab' && (
+                {(editCourseData.course_type === 'Theory&Lab' || editCourseData.course_type === 'NA') && (
                   <>
                     <div className="border-t pt-4 mt-4">
                       <h3 className="text-sm font-bold text-gray-900 mb-3">Total Hours (for whole semester)</h3>
@@ -1318,34 +1438,10 @@ function SemesterDetailPage() {
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">PRACTICAL HRS</label>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">PRACTICAL HRS (Auto)</label>
                           <input
                             type="number"
-                            value={editCourseData.practical_hours}
-                            onChange={(e) => setEditCourseData({ ...editCourseData, practical_hours: e.target.value })}
-                            placeholder="0"
-                            min="0"
-                            className="input-custom"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">TW/SL HRS</label>
-                          <input
-                            type="number"
-                            value={editCourseData.tutorial_hours}
-                            onChange={(e) => setEditCourseData({ ...editCourseData, tutorial_hours: e.target.value })}
-                            placeholder="0"
-                            min="0"
-                            className="input-custom"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">TOTAL (Auto)</label>
-                          <input
-                            type="number"
-                            value={(parseInt(editCourseData.practical_hours) || 0) + (parseInt(editCourseData.tutorial_hours) || 0)}
+                            value={(parseInt(editCourseData.practical_hrs) || 0) * 15}
                             readOnly
                             className="input-custom bg-gray-100 cursor-not-allowed"
                           />
@@ -1353,6 +1449,26 @@ function SemesterDetailPage() {
                       </div>
                     )}
                   </>
+                )}
+
+                {/* Credit Limit Checkbox - Only show for semester card types */}
+                {semester?.card_type === 'semester' && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editCourseData.count_towards_limit}
+                        onChange={(e) => setEditCourseData({ ...editCourseData, count_towards_limit: e.target.checked })}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Include this course's credits in the curriculum's max credit limit calculation
+                      </span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-2 ml-7">
+                      Uncheck this if the course credits should not count towards the total {curriculum?.max_credits || 0} credit limit
+                    </p>
+                  </div>
                 )}
 
                 <div className="flex gap-3 justify-end pt-2">
