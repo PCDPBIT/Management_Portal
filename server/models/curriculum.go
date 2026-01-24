@@ -98,7 +98,6 @@ type Curriculum struct {
 	AcademicYear       string `json:"academic_year"`
 	MaxCredits         int    `json:"max_credits"`
 	CurriculumTemplate string `json:"curriculum_template"` // "2022" or "2026"
-	TemplateConfig     string `json:"template_config"`     // JSON config for template-specific features
 }
 
 // Experiment models for 2022 template

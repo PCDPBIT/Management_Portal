@@ -62,6 +62,11 @@ func main() {
 		log.Fatal("Failed to create sharing tracking table:", err)
 	}
 
+	// Remove UNIQUE constraints on position to allow soft deletes
+	if err := db.RemoveUniquePositionConstraints(); err != nil {
+		log.Fatal("Failed to remove unique position constraints:", err)
+	}
+
 	// Create regulation management tables (PHASE 1 - isolated, zero breakage)
 	if err := db.CreateRegulationTables(); err != nil {
 		log.Fatal("Failed to create regulation tables:", err)

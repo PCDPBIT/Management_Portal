@@ -625,15 +625,15 @@ func AddVisibilitySemestersCourses() error {
 	return nil
 }
 
-// AddSourceDepartmentColumns adds source_department_id to track shared item origins
+// AddSourceDepartmentColumns adds source_curriculum_id to track shared item origins
 func AddSourceDepartmentColumns() error {
-	fmt.Println("Adding source_department_id columns to track shared items...")
+	fmt.Println("Adding source_curriculum_id columns to track shared items...")
 
 	// Add to department tables
 	tables := []string{"curriculum_mission", "curriculum_peos", "curriculum_pos", "curriculum_psos"}
 	for _, table := range tables {
-		if err := ensureColumnExists(table, "source_department_id", "INT DEFAULT NULL"); err != nil {
-			return fmt.Errorf("failed to add source_department_id to %s: %w", table, err)
+		if err := ensureColumnExists(table, "source_curriculum_id", "INT DEFAULT NULL"); err != nil {
+			return fmt.Errorf("failed to add source_curriculum_id to %s: %w", table, err)
 		}
 	}
 
@@ -675,6 +675,44 @@ func CreateSharingTrackingTable() error {
 	}
 
 	fmt.Println("Sharing tracking table created successfully!")
+	return nil
+}
+
+// RemoveUniquePositionConstraints removes UNIQUE constraints on (curriculum_id, position)
+// to allow soft deletes - multiple records can have same position if only one has status=1
+func RemoveUniquePositionConstraints() error {
+	fmt.Println("Removing UNIQUE position constraints to support soft deletes...")
+
+	tables := []string{"curriculum_mission", "curriculum_peos", "curriculum_pos", "curriculum_psos"}
+
+	for _, table := range tables {
+		// Check if the constraint exists
+		var constraintExists bool
+		checkQuery := `
+			SELECT COUNT(*) > 0
+			FROM information_schema.TABLE_CONSTRAINTS 
+			WHERE TABLE_SCHEMA = DATABASE() 
+			AND TABLE_NAME = ? 
+			AND CONSTRAINT_NAME = 'department_id'
+		`
+		err := DB.QueryRow(checkQuery, table).Scan(&constraintExists)
+		if err != nil {
+			log.Printf("Error checking constraint for %s: %v\n", table, err)
+			continue
+		}
+
+		if constraintExists {
+			dropQuery := fmt.Sprintf("ALTER TABLE `%s` DROP INDEX `department_id`", table)
+			_, err := DB.Exec(dropQuery)
+			if err != nil {
+				log.Printf("Error dropping constraint for %s: %v\n", table, err)
+				continue
+			}
+			fmt.Printf("Dropped UNIQUE constraint from %s\n", table)
+		}
+	}
+
+	fmt.Println("UNIQUE position constraints removed successfully!")
 	return nil
 }
 
@@ -767,21 +805,9 @@ func CreateRegulationTables() error {
 	return nil
 }
 
-// AddRegulationRefColumns adds nullable reference columns to link curriculum to regulations
+// AddRegulationRefColumns is deprecated - curriculum_ref_id has been removed
 func AddRegulationRefColumns() error {
-	fmt.Println("Adding regulation reference columns (shadow links)...")
-
-	// Add to curriculum table
-	if err := ensureColumnExists("curriculum", "curriculum_ref_id", "INT NULL"); err != nil {
-		return err
-	}
-
-	// Add to courses table (if needed in future)
-	if err := ensureColumnExists("courses", "curriculum_ref_id", "INT NULL"); err != nil {
-		return err
-	}
-
-	fmt.Println("Regulation reference columns added successfully!")
+	// No-op: curriculum_ref_id columns have been removed from the schema
 	return nil
 }
 

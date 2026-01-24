@@ -69,21 +69,15 @@ func fetchRegulationData(curriculumID int) (*models.RegulationPDF, error) {
 	err = db.DB.QueryRow(`
 		SELECT id, vision 
 		FROM curriculum_vision 
-		WHERE regulation_id = ?`, curriculumID).
+		WHERE curriculum_id = ?`, curriculumID).
 		Scan(&departmentID, &pdfData.Overview.Vision)
 
 	if err == nil {
-		// Fetch mission items from normalized table
-		pdfData.Overview.Mission = fetchDepartmentListItems(departmentID, "curriculum_mission", "mission_text")
-
-		// Fetch PEOs from normalized table
-		pdfData.Overview.PEOs = fetchDepartmentListItems(departmentID, "curriculum_peos", "peo_text")
-
-		// Fetch POs from normalized table
-		pdfData.Overview.POs = fetchDepartmentListItems(departmentID, "curriculum_pos", "po_text")
-
-		// Fetch PSOs from normalized table
-		pdfData.Overview.PSOs = fetchDepartmentListItems(departmentID, "curriculum_psos", "pso_text")
+		// Fetch mission, PEOs, POs, PSOs from normalized tables (all use curriculum_id FK to curriculum.id)
+		pdfData.Overview.Mission = fetchDepartmentListItems(curriculumID, "curriculum_mission", "mission_text")
+		pdfData.Overview.PEOs = fetchDepartmentListItems(curriculumID, "curriculum_peos", "peo_text")
+		pdfData.Overview.POs = fetchDepartmentListItems(curriculumID, "curriculum_pos", "po_text")
+		pdfData.Overview.PSOs = fetchDepartmentListItems(curriculumID, "curriculum_psos", "pso_text")
 	}
 
 	// Fetch PEO-PO mapping
@@ -247,7 +241,7 @@ func generatePDF(data *models.RegulationPDF) ([]byte, error) {
 
 // Helper function to fetch list items from normalized tables for PDF generation
 func fetchDepartmentListItems(departmentID int, tableName, columnName string) []models.DepartmentListItem {
-	query := fmt.Sprintf("SELECT id, %s, visibility, source_department_id FROM %s WHERE department_id = ? ORDER BY position", columnName, tableName)
+	query := fmt.Sprintf("SELECT id, %s, visibility, source_curriculum_id FROM %s WHERE curriculum_id = ? ORDER BY position", columnName, tableName)
 	rows, err := db.DB.Query(query, departmentID)
 	if err != nil {
 		return []models.DepartmentListItem{}
@@ -260,7 +254,7 @@ func fetchDepartmentListItems(departmentID int, tableName, columnName string) []
 		var sourceDeptID sql.NullInt64
 		if err := rows.Scan(&item.ID, &item.Text, &item.Visibility, &sourceDeptID); err == nil {
 			if sourceDeptID.Valid {
-				item.SourceDepartmentID = int(sourceDeptID.Int64)
+				item.SourceCurriculumID = int(sourceDeptID.Int64)
 			}
 			items = append(items, item)
 		}

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -16,7 +15,7 @@ func GetRegulations(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	query := "SELECT id, name, academic_year, max_credits, curriculum_template, template_config, created_at FROM curriculum WHERE status = 1 ORDER BY created_at DESC"
+	query := "SELECT id, name, academic_year, max_credits, curriculum_template, created_at FROM curriculum WHERE status = 1 ORDER BY created_at DESC"
 	rows, err := db.DB.Query(query)
 	if err != nil {
 		log.Println("Error querying curriculum:", err)
@@ -29,14 +28,10 @@ func GetRegulations(w http.ResponseWriter, r *http.Request) {
 	var regulations []models.LegacyRegulation = make([]models.LegacyRegulation, 0)
 	for rows.Next() {
 		var reg models.LegacyRegulation
-		var templateConfig sql.NullString
-		err := rows.Scan(&reg.ID, &reg.Name, &reg.AcademicYear, &reg.MaxCredits, &reg.CurriculumTemplate, &templateConfig, &reg.CreatedAt)
+		err := rows.Scan(&reg.ID, &reg.Name, &reg.AcademicYear, &reg.MaxCredits, &reg.CurriculumTemplate, &reg.CreatedAt)
 		if err != nil {
 			log.Println("Error scanning curriculum:", err)
 			continue
-		}
-		if templateConfig.Valid {
-			reg.TemplateConfig = &templateConfig.String
 		}
 		regulations = append(regulations, reg)
 	}
@@ -76,8 +71,8 @@ func CreateRegulation(w http.ResponseWriter, r *http.Request) {
 		reg.CurriculumTemplate = "2026"
 	}
 
-	query := "INSERT INTO curriculum (name, academic_year, max_credits, curriculum_template, template_config) VALUES (?, ?, ?, ?, ?)"
-	result, err := db.DB.Exec(query, reg.Name, reg.AcademicYear, reg.MaxCredits, reg.CurriculumTemplate, reg.TemplateConfig)
+	query := "INSERT INTO curriculum (name, academic_year, max_credits, curriculum_template) VALUES (?, ?, ?, ?)"
+	result, err := db.DB.Exec(query, reg.Name, reg.AcademicYear, reg.MaxCredits, reg.CurriculumTemplate)
 	if err != nil {
 		log.Println("Error inserting curriculum:", err)
 		w.WriteHeader(http.StatusInternalServerError)
