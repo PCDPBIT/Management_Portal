@@ -145,17 +145,11 @@ func fetchCompleteRegulationData(regulationID int) (*models.RegulationPDF, error
 		Scan(&departmentID, &pdfData.Overview.Vision)
 
 	if err == nil {
-		// Fetch mission items from normalized table
-		pdfData.Overview.Mission = fetchDepartmentListItemsHTML(departmentID, "curriculum_mission", "mission_text")
-
-		// Fetch PEOs from normalized table
-		pdfData.Overview.PEOs = fetchDepartmentListItemsHTML(departmentID, "curriculum_peos", "peo_text")
-
-		// Fetch POs from normalized table
-		pdfData.Overview.POs = fetchDepartmentListItemsHTML(departmentID, "curriculum_pos", "po_text")
-
-		// Fetch PSOs from normalized table
-		pdfData.Overview.PSOs = fetchDepartmentListItemsHTML(departmentID, "curriculum_psos", "pso_text")
+		// Fetch mission, PEOs, POs, PSOs from normalized tables (all use curriculum_id FK to curriculum.id)
+		pdfData.Overview.Mission = fetchDepartmentListItemsHTML(regulationID, "curriculum_mission", "mission_text")
+		pdfData.Overview.PEOs = fetchDepartmentListItemsHTML(regulationID, "curriculum_peos", "peo_text")
+		pdfData.Overview.POs = fetchDepartmentListItemsHTML(regulationID, "curriculum_pos", "po_text")
+		pdfData.Overview.PSOs = fetchDepartmentListItemsHTML(regulationID, "curriculum_psos", "pso_text")
 	}
 
 	// Fetch PEO-PO mapping
@@ -603,7 +597,7 @@ func printToPDF(html string, res *[]byte) chromedp.Tasks {
 
 // Helper function to fetch list items from normalized tables for PDF generation
 func fetchDepartmentListItemsHTML(departmentID int, tableName, columnName string) []models.DepartmentListItem {
-	query := fmt.Sprintf("SELECT id, %s, visibility, source_department_id FROM %s WHERE department_id = ? ORDER BY position", columnName, tableName)
+	query := fmt.Sprintf("SELECT id, %s, visibility, source_curriculum_id FROM %s WHERE curriculum_id = ? ORDER BY position", columnName, tableName)
 	rows, err := db.DB.Query(query, departmentID)
 	if err != nil {
 		return []models.DepartmentListItem{}
@@ -616,7 +610,7 @@ func fetchDepartmentListItemsHTML(departmentID int, tableName, columnName string
 		var sourceDeptID sql.NullInt64
 		if err := rows.Scan(&item.ID, &item.Text, &item.Visibility, &sourceDeptID); err == nil {
 			if sourceDeptID.Valid {
-				item.SourceDepartmentID = int(sourceDeptID.Int64)
+				item.SourceCurriculumID = int(sourceDeptID.Int64)
 			}
 			items = append(items, item)
 		}

@@ -14,16 +14,16 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// GetDepartmentOverview retrieves department overview data for a regulation
+// GetDepartmentOverview retrieves department overview data for a curriculum
 func GetDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	vars := mux.Vars(r)
-	regulationID, err := strconv.Atoi(vars["id"])
+	curriculumID, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid regulation ID"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid curriculum ID"})
 		return
 	}
 
@@ -31,7 +31,7 @@ func GetDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 
 	var overview models.DepartmentOverview
 
-	err = db.DB.QueryRow(query, regulationID).Scan(
+	err = db.DB.QueryRow(query, curriculumID).Scan(
 		&overview.ID,
 		&overview.CurriculumID,
 		&overview.Vision,
@@ -40,7 +40,7 @@ func GetDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 	if err == sql.ErrNoRows {
 		// Return empty structure with default values
 		overview = models.DepartmentOverview{
-			CurriculumID: regulationID,
+			CurriculumID: curriculumID,
 			Vision:       "",
 			Mission:      []models.DepartmentListItem{},
 			PEOs:         []models.DepartmentListItem{},
@@ -57,36 +57,30 @@ func GetDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	departmentID := overview.ID
-
-	// Fetch mission items ordered by position
-	overview.Mission = fetchDepartmentList(departmentID, "curriculum_mission", "mission_text")
-
-	// Fetch PEOs ordered by position
-	overview.PEOs = fetchDepartmentList(departmentID, "curriculum_peos", "peo_text")
-
-	// Fetch POs ordered by position
-	overview.POs = fetchDepartmentList(departmentID, "curriculum_pos", "po_text")
-
-	// Fetch PSOs ordered by position
-	overview.PSOs = fetchDepartmentList(departmentID, "curriculum_psos", "pso_text")
+	// Fetch mission, PEOs, POs, PSOs ordered by position (all now use curriculum_id FK to curriculum.id)
+	overview.Mission = fetchDepartmentList(curriculumID, "curriculum_mission", "mission_text")
+	overview.PEOs = fetchDepartmentList(curriculumID, "curriculum_peos", "peo_text")
+	overview.POs = fetchDepartmentList(curriculumID, "curriculum_pos", "po_text")
+	overview.PSOs = fetchDepartmentList(curriculumID, "curriculum_psos", "pso_text")
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(overview)
 }
 
 // Helper function to fetch list items from normalized tables
-// Note: Shared items are now physically replicated in the database with source_department_id,
-// so we only need to fetch items for this department (includes both owned and shared items)
-func fetchDepartmentList(departmentID int, tableName, columnName string) []models.DepartmentListItem {
+// Note: Shared items are now physically replicated in the database with source tracking,
+// so we only need to fetch items for this curriculum (includes both owned and shared items)
+func fetchDepartmentList(curriculumID int, tableName, columnName string) []models.DepartmentListItem {
 	// Only fetch items with status=1 for curriculum_mission, curriculum_peos, curriculum_pos, curriculum_psos
 	statusFilter := ""
 	if tableName == "curriculum_mission" || tableName == "curriculum_peos" || tableName == "curriculum_pos" || tableName == "curriculum_psos" {
 		statusFilter = " AND status = 1"
 	}
-	query := fmt.Sprintf("SELECT id, %s, visibility, source_department_id FROM %s WHERE curriculum_id = ?%s ORDER BY position", columnName, tableName, statusFilter)
-	rows, err := db.DB.Query(query, departmentID)
+
+	query := fmt.Sprintf("SELECT id, %s, visibility, source_curriculum_id FROM %s WHERE curriculum_id = ?%s ORDER BY position", columnName, tableName, statusFilter)
+	rows, err := db.DB.Query(query, curriculumID)
 	if err != nil {
+		log.Printf("Error fetching %s: %v\n", tableName, err)
 		return []models.DepartmentListItem{}
 	}
 	defer rows.Close()
@@ -97,7 +91,7 @@ func fetchDepartmentList(departmentID int, tableName, columnName string) []model
 		var sourceDeptID sql.NullInt64
 		if err := rows.Scan(&item.ID, &item.Text, &item.Visibility, &sourceDeptID); err == nil {
 			if sourceDeptID.Valid {
-				item.SourceDepartmentID = int(sourceDeptID.Int64)
+				item.SourceCurriculumID = int(sourceDeptID.Int64)
 			}
 			items = append(items, item)
 		}
@@ -118,10 +112,10 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vars := mux.Vars(r)
-	regulationID, err := strconv.Atoi(vars["id"])
+	curriculumID, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid regulation ID"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid curriculum ID"})
 		return
 	}
 
@@ -134,31 +128,31 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	overview.CurriculumID = regulationID
+	overview.CurriculumID = curriculumID
 
 	// Fetch existing data for diff
 	var oldOverview models.DepartmentOverview
-	var departmentID int
+	var visionID int
 	fetchQuery := "SELECT id, vision FROM curriculum_vision WHERE curriculum_id = ?"
-	fetchErr := db.DB.QueryRow(fetchQuery, regulationID).Scan(&departmentID, &oldOverview.Vision)
+	fetchErr := db.DB.QueryRow(fetchQuery, curriculumID).Scan(&visionID, &oldOverview.Vision)
 
 	hasExisting := fetchErr != sql.ErrNoRows
 	if hasExisting {
-		oldOverview.ID = departmentID
-		oldOverview.Mission = fetchDepartmentList(departmentID, "curriculum_mission", "mission_text")
-		oldOverview.PEOs = fetchDepartmentList(departmentID, "curriculum_peos", "peo_text")
-		oldOverview.POs = fetchDepartmentList(departmentID, "curriculum_pos", "po_text")
-		oldOverview.PSOs = fetchDepartmentList(departmentID, "curriculum_psos", "pso_text")
+		oldOverview.ID = visionID
+		oldOverview.Mission = fetchDepartmentList(curriculumID, "curriculum_mission", "mission_text")
+		oldOverview.PEOs = fetchDepartmentList(curriculumID, "curriculum_peos", "peo_text")
+		oldOverview.POs = fetchDepartmentList(curriculumID, "curriculum_pos", "po_text")
+		oldOverview.PSOs = fetchDepartmentList(curriculumID, "curriculum_psos", "pso_text")
 	}
 
 	// Check if record exists
 	var existingID int
 	checkQuery := "SELECT id FROM curriculum_vision WHERE curriculum_id = ?"
-	err = db.DB.QueryRow(checkQuery, regulationID).Scan(&existingID)
+	err = db.DB.QueryRow(checkQuery, curriculumID).Scan(&existingID)
 
 	if overview.Vision == "" {
 		// If vision is empty, delete the record if it exists
-		_, err := db.DB.Exec("DELETE FROM curriculum_vision WHERE curriculum_id = ?", regulationID)
+		_, err := db.DB.Exec("DELETE FROM curriculum_vision WHERE curriculum_id = ?", curriculumID)
 		if err != nil && err != sql.ErrNoRows {
 			log.Println("Error deleting empty vision record:", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -166,11 +160,10 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		overview.ID = 0
-		departmentID = 0
 	} else if err == sql.ErrNoRows {
 		// INSERT new record
 		insertQuery := `INSERT INTO curriculum_vision (curriculum_id, vision) VALUES (?, ?)`
-		result, err := db.DB.Exec(insertQuery, regulationID, overview.Vision)
+		result, err := db.DB.Exec(insertQuery, curriculumID, overview.Vision)
 		if err != nil {
 			log.Println("Error inserting department overview:", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -179,7 +172,6 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 		}
 		id, _ := result.LastInsertId()
 		overview.ID = int(id)
-		departmentID = int(id)
 	} else if err != nil {
 		log.Println("Error checking existing record:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -188,7 +180,7 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// UPDATE existing record
 		updateQuery := `UPDATE curriculum_vision SET vision = ? WHERE curriculum_id = ?`
-		_, err := db.DB.Exec(updateQuery, overview.Vision, regulationID)
+		_, err := db.DB.Exec(updateQuery, overview.Vision, curriculumID)
 		if err != nil {
 			log.Println("Error updating department overview:", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -196,14 +188,13 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		overview.ID = existingID
-		departmentID = existingID
 	}
 
-	// Save list items to normalized tables
-	saveDepartmentList(departmentID, "curriculum_mission", "mission_text", overview.Mission)
-	saveDepartmentList(departmentID, "curriculum_peos", "peo_text", overview.PEOs)
-	saveDepartmentList(departmentID, "curriculum_pos", "po_text", overview.POs)
-	saveDepartmentList(departmentID, "curriculum_psos", "pso_text", overview.PSOs)
+	// Save list items to normalized tables (all now use curriculum_id FK to curriculum.id)
+	saveDepartmentList(curriculumID, "curriculum_mission", "mission_text", overview.Mission)
+	saveDepartmentList(curriculumID, "curriculum_peos", "peo_text", overview.PEOs)
+	saveDepartmentList(curriculumID, "curriculum_pos", "po_text", overview.POs)
+	saveDepartmentList(curriculumID, "curriculum_psos", "pso_text", overview.PSOs)
 
 	// Generate granular diff and log the activity
 	if hasExisting {
@@ -212,23 +203,23 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 			diff := map[string]map[string]interface{}{
 				"vision": {"old": oldOverview.Vision, "new": overview.Vision},
 			}
-			LogCurriculumActivityWithDiff(regulationID, "Vision Updated",
+			LogCurriculumActivityWithDiff(curriculumID, "Vision Updated",
 				"Updated department vision", "System", diff)
 		}
 
 		// Mission changes (per index)
-		detectArrayChanges(regulationID, "Mission", oldOverview.Mission, overview.Mission)
+		detectArrayChanges(curriculumID, "Mission", oldOverview.Mission, overview.Mission)
 
 		// PEO changes (per index)
-		detectArrayChanges(regulationID, "PEO", oldOverview.PEOs, overview.PEOs)
+		detectArrayChanges(curriculumID, "PEO", oldOverview.PEOs, overview.PEOs)
 
 		// PO changes (per index)
-		detectArrayChanges(regulationID, "PO", oldOverview.POs, overview.POs)
+		detectArrayChanges(curriculumID, "PO", oldOverview.POs, overview.POs)
 
 		// PSO changes (per index)
-		detectArrayChanges(regulationID, "PSO", oldOverview.PSOs, overview.PSOs)
+		detectArrayChanges(curriculumID, "PSO", oldOverview.PSOs, overview.PSOs)
 	} else {
-		LogCurriculumActivity(regulationID, "Department Overview Created",
+		LogCurriculumActivity(curriculumID, "Department Overview Created",
 			"Created department vision, mission, PEOs, POs, and PSOs", "System")
 	}
 
@@ -237,16 +228,24 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 }
 
 // Helper function to save list items to normalized tables with proper update/insert/delete logic
-func saveDepartmentList(departmentID int, tableName, columnName string, items []models.DepartmentListItem) error {
-	// Fetch existing items from database
+func saveDepartmentList(curriculumID int, tableName, columnName string, items []models.DepartmentListItem) error {
+	log.Printf("Saving %d items to %s for curriculum %d\n", len(items), tableName, curriculumID)
+
+	// Fetch existing ACTIVE items from database (status = 1 or NULL)
+	// Soft-deleted items (status = 0) are kept for history but excluded from active operations
 	existingItems := make(map[int]struct {
 		text               string
 		visibility         string
 		sourceDepartmentID sql.NullInt64
 	})
 
-	query := fmt.Sprintf("SELECT id, %s, visibility, source_department_id FROM %s WHERE curriculum_id = ?", columnName, tableName)
-	rows, err := db.DB.Query(query, departmentID)
+	statusFilter := ""
+	if tableName == "curriculum_mission" || tableName == "curriculum_peos" || tableName == "curriculum_pos" || tableName == "curriculum_psos" {
+		statusFilter = " AND (status = 1 OR status IS NULL)"
+	}
+
+	query := fmt.Sprintf("SELECT id, %s, visibility, source_curriculum_id FROM %s WHERE curriculum_id = ?%s", columnName, tableName, statusFilter)
+	rows, err := db.DB.Query(query, curriculumID)
 	if err != nil {
 		log.Printf("Error fetching existing items: %v\n", err)
 		return err
@@ -288,14 +287,14 @@ func saveDepartmentList(departmentID int, tableName, columnName string, items []
 			// Check if text changed
 			textChanged := existing.text != item.Text
 
-			// Handle shared items from other departments
-			if existing.sourceDepartmentID.Valid && existing.sourceDepartmentID.Int64 != int64(departmentID) {
-				// This is a shared item from another department
+			// Handle shared items from other curricula
+			if existing.sourceDepartmentID.Valid && existing.sourceDepartmentID.Int64 != int64(curriculumID) {
+				// This is a shared item from another curriculum
 				if textChanged {
 					// User is modifying a shared item - make it their own
-					sourceDeptID := int(existing.sourceDepartmentID.Int64)
-					log.Printf("Item %d from department %d is being modified - converting to owned item\n",
-						item.ID, sourceDeptID)
+					sourceCurrID := int(existing.sourceDepartmentID.Int64)
+					log.Printf("Item %d from curriculum %d is being modified - converting to owned item\n",
+						item.ID, sourceCurrID)
 
 					// Determine item type for tracking table
 					itemType := ""
@@ -315,37 +314,38 @@ func saveDepartmentList(departmentID int, tableName, columnName string, items []
 					_, err := db.DB.Exec(`
 						DELETE FROM sharing_tracking 
 						WHERE target_curriculum_id = ? AND copied_item_id = ? AND item_type = ?
-					`, departmentID, item.ID, itemType)
+					`, curriculumID, item.ID, itemType)
 					if err != nil {
 						log.Printf("Error removing from tracking table: %v\n", err)
 					}
 
-					// STEP 2: Update this item to be owned by this department with the new text
+					// STEP 2: Update this item to be owned by this curriculum with the new text
 					visibility := "UNIQUE"
-					updateQuery := fmt.Sprintf("UPDATE %s SET %s = ?, visibility = ?, position = ?, source_department_id = NULL WHERE id = ?", tableName, columnName)
+
+					updateQuery := fmt.Sprintf("UPDATE %s SET %s = ?, visibility = ?, position = ?, source_curriculum_id = NULL WHERE id = ?", tableName, columnName)
 					_, err = db.DB.Exec(updateQuery, item.Text, visibility, i, item.ID)
 					if err != nil {
 						log.Printf("Error converting shared item to owned: %v\n", err)
 						return err
 					}
 
-					// STEP 3: Find and unshare the original item in the source department
+					// STEP 3: Find and unshare the original item in the source curriculum
 					// Now when we unshare, this item won't be deleted since it's no longer in tracking
 					var originalItemID int
 					findOriginalQuery := fmt.Sprintf(`
-						SELECT id FROM %s 
-						WHERE curriculum_id = ? 
-						AND %s = ? 
-						AND (source_department_id IS NULL OR source_curriculum_id = ?)
-						AND visibility = 'CLUSTER'
-						LIMIT 1
-					`, tableName, columnName)
+							SELECT id FROM %s 
+							WHERE curriculum_id = ? 
+							AND %s = ? 
+							AND (source_curriculum_id IS NULL OR source_curriculum_id = ?)
+							AND visibility = 'CLUSTER'
+							LIMIT 1
+						`, tableName, columnName)
 
-					err = db.DB.QueryRow(findOriginalQuery, sourceDeptID, existing.text, sourceDeptID).Scan(&originalItemID)
+					err = db.DB.QueryRow(findOriginalQuery, sourceCurrID, existing.text, sourceCurrID).Scan(&originalItemID)
 					if err == nil {
-						// Found the original item - unshare it from remaining departments
-						log.Printf("Unsharing original item %d in source department %d\n", originalItemID, sourceDeptID)
-						if err := unshareItemFromCluster(sourceDeptID, originalItemID, tableName); err != nil {
+						// Found the original item - unshare it from remaining curricula
+						log.Printf("Unsharing original item %d in source curriculum %d\n", originalItemID, sourceCurrID)
+						if err := unshareItemFromCluster(sourceCurrID, originalItemID, tableName); err != nil {
 							log.Printf("Error unsharing original item: %v\n", err)
 						}
 
@@ -353,7 +353,7 @@ func saveDepartmentList(departmentID int, tableName, columnName string, items []
 						updateOriginalQuery := fmt.Sprintf("UPDATE %s SET visibility = 'UNIQUE' WHERE id = ?", tableName)
 						db.DB.Exec(updateOriginalQuery, originalItemID)
 					} else {
-						log.Printf("Could not find original item in source department: %v\n", err)
+						log.Printf("Could not find original item in source curriculum: %v\n", err)
 					}
 				} else {
 					// Text not changed, just update position
@@ -367,13 +367,13 @@ func saveDepartmentList(departmentID int, tableName, columnName string, items []
 				continue
 			}
 
-			// Item is owned by this department - allow modification
+			// Item is owned by this curriculum - allow modification
 			if textChanged && existing.visibility == "CLUSTER" {
 				// Text was modified on a shared item - update all shared copies with the new text
 				log.Printf("Item %d was modified and is currently shared - updating all shared copies\n", item.ID)
 
-				// Update all shared copies in other departments
-				if err := updateSharedItemInCluster(departmentID, item.ID, tableName, columnName, item.Text); err != nil {
+				// Update all shared copies in other curricula
+				if err := updateSharedItemInCluster(curriculumID, item.ID, tableName, columnName, item.Text); err != nil {
 					log.Printf("Error updating shared items in cluster: %v\n", err)
 				}
 
@@ -381,34 +381,57 @@ func saveDepartmentList(departmentID int, tableName, columnName string, items []
 				item.Visibility = "CLUSTER"
 			}
 
-			// Update the item
+			// Update the item and ensure status=1 for soft-delete tables
 			visibility := item.Visibility
 			if visibility == "" {
 				visibility = existing.visibility // Preserve existing visibility if not specified
 			}
 
-			updateQuery := fmt.Sprintf("UPDATE %s SET %s = ?, visibility = ?, position = ? WHERE id = ?", tableName, columnName)
-			_, err := db.DB.Exec(updateQuery, item.Text, visibility, i, item.ID)
-			if err != nil {
-				log.Printf("Error updating item %d: %v\n", item.ID, err)
-				return err
+			if tableName == "curriculum_mission" || tableName == "curriculum_peos" || tableName == "curriculum_pos" || tableName == "curriculum_psos" {
+				updateQuery := fmt.Sprintf("UPDATE %s SET %s = ?, visibility = ?, position = ?, status = 1 WHERE id = ?", tableName, columnName)
+				_, err := db.DB.Exec(updateQuery, item.Text, visibility, i, item.ID)
+				if err != nil {
+					log.Printf("Error updating item %d: %v\n", item.ID, err)
+					return err
+				}
+			} else {
+				updateQuery := fmt.Sprintf("UPDATE %s SET %s = ?, visibility = ?, position = ? WHERE id = ?", tableName, columnName)
+				_, err := db.DB.Exec(updateQuery, item.Text, visibility, i, item.ID)
+				if err != nil {
+					log.Printf("Error updating item %d: %v\n", item.ID, err)
+					return err
+				}
 			}
 		} else {
-			// New item - insert it
+			// New item - insert it with status=1
 			visibility := item.Visibility
 			if visibility == "" {
 				visibility = "UNIQUE"
 			}
 
-			insertQuery := fmt.Sprintf(`
-			INSERT INTO %s (curriculum_id, %s, visibility, position, source_department_id) 
-				VALUES (?, ?, ?, ?, NULL)
-			`, tableName, columnName)
-
-			_, err := db.DB.Exec(insertQuery, departmentID, item.Text, visibility, i)
-			if err != nil {
-				log.Printf("Error inserting new item: %v\n", err)
-				return err
+			// Set status=1 for tables that support soft delete
+			if tableName == "curriculum_mission" || tableName == "curriculum_peos" || tableName == "curriculum_pos" || tableName == "curriculum_psos" {
+				insertQuery := fmt.Sprintf(`
+				INSERT INTO %s (curriculum_id, %s, visibility, position, source_curriculum_id, status) 
+					VALUES (?, ?, ?, ?, NULL, 1)
+				`, tableName, columnName)
+				log.Printf("Inserting new item into %s at position %d with status=1\n", tableName, i)
+				_, err := db.DB.Exec(insertQuery, curriculumID, item.Text, visibility, i)
+				if err != nil {
+					log.Printf("Error inserting new item into %s: %v\n", tableName, err)
+					return err
+				}
+				log.Printf("Successfully inserted new item into %s at position %d\n", tableName, i)
+			} else {
+				insertQuery := fmt.Sprintf(`
+				INSERT INTO %s (curriculum_id, %s, visibility, position, source_curriculum_id) 
+					VALUES (?, ?, ?, ?, NULL)
+				`, tableName, columnName)
+				_, err := db.DB.Exec(insertQuery, curriculumID, item.Text, visibility, i)
+				if err != nil {
+					log.Printf("Error inserting new item: %v\n", err)
+					return err
+				}
 			}
 		}
 	}
@@ -418,21 +441,21 @@ func saveDepartmentList(departmentID int, tableName, columnName string, items []
 		if !presentIDs[id] {
 			// Item was removed from the list
 
-			// Check if this is owned by this department
-			isOwnedItem := !existing.sourceDepartmentID.Valid || existing.sourceDepartmentID.Int64 == int64(departmentID)
+			// Check if this is owned by this curriculum
+			isOwnedItem := !existing.sourceDepartmentID.Valid || existing.sourceDepartmentID.Int64 == int64(curriculumID)
 
 			if isOwnedItem {
 				// Owned item being deleted
 				// If it was shared (CLUSTER), unshare it first
 				if existing.visibility == "CLUSTER" {
 					log.Printf("Deleting owned item %d which was shared - unsharing first\n", id)
-					if err := unshareItemFromCluster(departmentID, id, tableName); err != nil {
+					if err := unshareItemFromCluster(curriculumID, id, tableName); err != nil {
 						log.Printf("Error unsharing deleted item: %v\n", err)
 					}
 				}
 			} else {
-				// Shared item from another department being deleted
-				log.Printf("Deleting shared item %d from department %d\n", id, existing.sourceDepartmentID.Int64)
+				// Shared item from another curriculum being deleted
+				log.Printf("Deleting shared item %d from curriculum %d\n", id, existing.sourceDepartmentID.Int64)
 			}
 
 			// SOFT DELETE for curriculum_mission, curriculum_peos, curriculum_pos, curriculum_psos: set status=0 instead of deleting

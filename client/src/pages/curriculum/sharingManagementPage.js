@@ -8,7 +8,7 @@ function SharingManagementPage() {
   const [clusters, setClusters] = useState([])
   const [selectedCluster, setSelectedCluster] = useState(null)
   const [clusterDepartments, setClusterDepartments] = useState([])
-  const [selectedRegulation, setSelectedRegulation] = useState(null)
+  const [selectedCurriculum, setSelectedCurriculum] = useState(null)
   const [sharingInfo, setSharingInfo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -58,15 +58,15 @@ function SharingManagementPage() {
 
   const handleSelectCluster = (cluster) => {
     setSelectedCluster(cluster)
-    setSelectedRegulation(null)
+    setSelectedCurriculum(null)
     setSharingInfo(null)
     fetchClusterDepartments(cluster.id)
     fetchClusterContent(cluster.id)
   }
 
-  const fetchSharingInfo = async (regulationId) => {
+  const fetchSharingInfo = async (curriculumId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/curriculum/${regulationId}/sharing`)
+      const response = await fetch(`${API_BASE_URL}/curriculum/${curriculumId}/sharing`)
       if (!response.ok) {
         throw new Error('Failed to fetch sharing info')
       }
@@ -91,9 +91,9 @@ function SharingManagementPage() {
     }
   }
 
-  const handleSelectRegulation = (dept) => {
-    setSelectedRegulation(dept)
-    fetchSharingInfo(dept.regulation_id)
+  const handleSelectCurriculum = (dept) => {
+    setSelectedCurriculum(dept)
+    fetchSharingInfo(dept.curriculum_id)
   }
 
   const handleToggleVisibility = async (itemType, itemId, currentVisibility, targetDepartments = null, mode = 'replace') => {
@@ -146,8 +146,8 @@ function SharingManagementPage() {
       setTimeout(() => setSuccess(''), 3000)
       
       // Refresh sharing info and cluster content
-      if (selectedRegulation) {
-        await fetchSharingInfo(selectedRegulation.regulation_id)
+      if (selectedCurriculum) {
+        await fetchSharingInfo(selectedCurriculum.curriculum_id)
       }
       if (selectedCluster) {
         await fetchClusterContent(selectedCluster.id)
@@ -1001,15 +1001,15 @@ function SharingManagementPage() {
                 {clusterDepartments.map(dept => (
                   <button
                     key={dept.department_id}
-                    onClick={() => handleSelectRegulation(dept)}
+                    onClick={() => handleSelectCurriculum(dept)}
                     className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                      selectedRegulation?.department_id === dept.department_id
+                      selectedCurriculum?.department_id === dept.department_id
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
                     }`}
                   >
-                    <p className="font-semibold text-gray-900">{dept.name || `Department ${dept.regulation_id}`}</p>
-                    <p className="text-xs text-gray-500 mt-1">ID: {dept.regulation_id}</p>
+                    <p className="font-semibold text-gray-900">{dept.name || `Department ${dept.curriculum_id}`}</p>
+                    <p className="text-xs text-gray-500 mt-1">ID: {dept.curriculum_id}</p>
                   </button>
                 ))}
               </div>
@@ -1025,12 +1025,12 @@ function SharingManagementPage() {
                 </svg>
                 <p className="text-sm text-gray-500">Select a cluster to get started</p>
               </div>
-            ) : !selectedRegulation ? (
+            ) : !selectedCurriculum ? (
               <div className="card-custom p-12 text-center">
                 <svg className="w-16 h-16 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-sm text-gray-500">Select a department to manage sharing</p>
+                <p className="text-sm text-gray-500">Select a curriculum to manage sharing</p>
               </div>
             ) : !sharingInfo ? (
               <div className="card-custom p-12 text-center">

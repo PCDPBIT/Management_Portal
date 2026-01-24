@@ -14,7 +14,7 @@ type DepartmentListItem struct {
 	ID                 int    `json:"id,omitempty"`
 	Text               string `json:"text"`
 	Visibility         string `json:"visibility"` // "UNIQUE" or "CLUSTER"
-	SourceDepartmentID int    `json:"source_department_id,omitempty"`
+	SourceCurriculumID int    `json:"source_curriculum_id,omitempty"`
 }
 
 type Cluster struct {

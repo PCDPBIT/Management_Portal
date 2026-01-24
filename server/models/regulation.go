@@ -66,7 +66,6 @@ type LegacyRegulation struct {
 	Name               string    `json:"name"`
 	AcademicYear       string    `json:"academic_year"`
 	CurriculumTemplate string    `json:"curriculum_template"`
-	TemplateConfig     *string   `json:"template_config,omitempty"`
 	MaxCredits         int       `json:"max_credits"`
 	CreatedAt          time.Time `json:"created_at"`
 }

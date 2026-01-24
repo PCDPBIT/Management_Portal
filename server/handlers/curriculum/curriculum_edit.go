@@ -38,7 +38,6 @@ func UpdateCurriculum(w http.ResponseWriter, r *http.Request) {
 		AcademicYear       string `json:"academic_year"`
 		MaxCredits         int    `json:"max_credits"`
 		CurriculumTemplate string `json:"curriculum_template"`
-		TemplateConfig     string `json:"template_config"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&updateData)
@@ -54,8 +53,7 @@ func UpdateCurriculum(w http.ResponseWriter, r *http.Request) {
 	var oldAcademicYear string
 	var oldMaxCredits int
 	var oldTemplate string
-	var oldTemplateConfig sql.NullString
-	err = db.DB.QueryRow("SELECT name, academic_year, max_credits, curriculum_template, template_config FROM curriculum WHERE id = ?", curriculumID).Scan(&oldName, &oldAcademicYear, &oldMaxCredits, &oldTemplate, &oldTemplateConfig)
+	err = db.DB.QueryRow("SELECT name, academic_year, max_credits, curriculum_template FROM curriculum WHERE id = ?", curriculumID).Scan(&oldName, &oldAcademicYear, &oldMaxCredits, &oldTemplate)
 	if err != nil {
 		log.Println("Error fetching old curriculum data:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -86,16 +84,8 @@ func UpdateCurriculum(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Handle template_config - if empty, use NULL for JSON column
-	var templateConfigValue interface{}
-	if updateData.TemplateConfig == "" {
-		templateConfigValue = nil
-	} else {
-		templateConfigValue = updateData.TemplateConfig
-	}
-
-	query := "UPDATE curriculum SET name = ?, academic_year = ?, max_credits = ?, curriculum_template = ?, template_config = ? WHERE id = ?"
-	_, err = db.DB.Exec(query, updateData.Name, updateData.AcademicYear, updateData.MaxCredits, updateData.CurriculumTemplate, templateConfigValue, curriculumID)
+	query := "UPDATE curriculum SET name = ?, academic_year = ?, max_credits = ?, curriculum_template = ? WHERE id = ?"
+	_, err = db.DB.Exec(query, updateData.Name, updateData.AcademicYear, updateData.MaxCredits, updateData.CurriculumTemplate, curriculumID)
 	if err != nil {
 		log.Println("Error updating curriculum:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -116,13 +106,6 @@ func UpdateCurriculum(w http.ResponseWriter, r *http.Request) {
 	}
 	if oldTemplate != updateData.CurriculumTemplate {
 		diff["curriculum_template"] = map[string]interface{}{"old": oldTemplate, "new": updateData.CurriculumTemplate}
-	}
-	oldConfig := ""
-	if oldTemplateConfig.Valid {
-		oldConfig = oldTemplateConfig.String
-	}
-	if oldConfig != updateData.TemplateConfig {
-		diff["template_config"] = map[string]interface{}{"old": oldConfig, "new": updateData.TemplateConfig}
 	}
 
 	if len(diff) > 0 {

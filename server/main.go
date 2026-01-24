@@ -62,6 +62,11 @@ func main() {
 		log.Fatal("Failed to create sharing tracking table:", err)
 	}
 
+	// Remove UNIQUE constraints on position to allow soft deletes
+	if err := db.RemoveUniquePositionConstraints(); err != nil {
+		log.Fatal("Failed to remove unique position constraints:", err)
+	}
+
 	// Create regulation management tables (PHASE 1 - isolated, zero breakage)
 	if err := db.CreateRegulationTables(); err != nil {
 		log.Fatal("Failed to create regulation tables:", err)
@@ -90,8 +95,13 @@ func main() {
 	// Setup routes
 	router := routes.SetupRoutes()
 
-	// Wrap with Recovery middleware (catches panics) then CORS middleware
-	handler := middleware.CORSMiddleware(middleware.RecoveryMiddleware(router))
+	// Serve static files from uploads directory
+	uploadDir := http.Dir("./uploads")
+	fileServer := http.FileServer(uploadDir)
+	router.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/", fileServer))
+
+	// Wrap with CORS middleware
+	handler := middleware.CORSMiddleware(router)
 
 	fmt.Println("Server started at http://localhost:5000")
 	log.Fatal(http.ListenAndServe(":5000", handler))

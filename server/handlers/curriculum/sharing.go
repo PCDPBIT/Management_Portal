@@ -43,7 +43,7 @@ func GetDepartmentSharingInfo(w http.ResponseWriter, r *http.Request) {
 	var curriculumTemplate string
 	db.DB.QueryRow(`SELECT COALESCE(curriculum_template, '2026') FROM curriculum WHERE id = ?`, curriculumID).Scan(&curriculumTemplate)
 
-	// Get department_id from curriculum_vision (these tables still use curriculum_vision.id as FK)
+	// Get department_id from curriculum_vision (for tables that still use curriculum_vision.id as FK)
 	var departmentID int
 	err = db.DB.QueryRow(`SELECT id FROM curriculum_vision WHERE curriculum_id = ?`, curriculumID).Scan(&departmentID)
 	if err != nil {
@@ -67,11 +67,11 @@ func GetDepartmentSharingInfo(w http.ResponseWriter, r *http.Request) {
 		response["cluster_departments"] = fetchClusterCurriculumsSameTemplate(int(clusterID.Int64), curriculumID, curriculumTemplate)
 	}
 
-	// Fetch mission items (using department_id since these tables FK to curriculum_vision)
-	response["mission"] = fetchItemsWithVisibilityDepartment(departmentID, "curriculum_mission", "mission_text")
-	// Fetch PEOs
+	// Fetch mission items (curriculum_mission uses curriculum_id FK to curriculum.id)
+	response["mission"] = fetchItemsWithVisibilityDepartment(curriculumID, "curriculum_mission", "mission_text")
+	// Fetch PEOs (still uses curriculum_vision.id)
 	response["peos"] = fetchItemsWithVisibilityDepartment(departmentID, "curriculum_peos", "peo_text")
-	// Fetch PSOs
+	// Fetch PSOs (still uses curriculum_vision.id)
 	response["psos"] = fetchItemsWithVisibilityDepartment(departmentID, "curriculum_psos", "pso_text")
 
 	// Fetch normal cards (semesters, verticals, electives, etc.) with visibility
@@ -205,7 +205,7 @@ func fetchCoursesForSemester(regulationID, semesterID int) []map[string]interfac
 
 // Helper to fetch items with visibility
 func fetchItemsWithVisibility(deptID int, tableName, columnName string) []map[string]interface{} {
-	query := fmt.Sprintf("SELECT id, %s, visibility, position, source_department_id FROM %s WHERE department_id = ? ORDER BY position", columnName, tableName)
+	query := fmt.Sprintf("SELECT id, %s, visibility, position, source_curriculum_id FROM %s WHERE curriculum_id = ? ORDER BY position", columnName, tableName)
 	rows, err := db.DB.Query(query, deptID)
 	if err != nil {
 		return []map[string]interface{}{}
@@ -226,7 +226,7 @@ func fetchItemsWithVisibility(deptID int, tableName, columnName string) []map[st
 				"is_owner":   !sourceDeptID.Valid || sourceDeptID.Int64 == int64(deptID), // Owner if no source or source is self
 			}
 			if sourceDeptID.Valid && sourceDeptID.Int64 != int64(deptID) {
-				item["source_department_id"] = sourceDeptID.Int64
+				item["source_curriculum_id"] = sourceDeptID.Int64
 			}
 			items = append(items, item)
 		}
@@ -503,7 +503,7 @@ func UpdateItemVisibility(w http.ResponseWriter, r *http.Request) {
 	var deptID int
 	var currentVisibility string
 	var sourceDeptID sql.NullInt64
-	query := fmt.Sprintf("SELECT department_id, visibility, source_department_id FROM %s WHERE id = ?", tableInfo.Table)
+	query := fmt.Sprintf("SELECT curriculum_id, visibility, source_curriculum_id FROM %s WHERE id = ?", tableInfo.Table)
 	err := db.DB.QueryRow(query, reqData.ItemID).Scan(&deptID, &currentVisibility, &sourceDeptID)
 	if err != nil {
 		log.Println("Error fetching item:", err)
@@ -622,7 +622,7 @@ func shareItemToCluster(sourceDeptID, itemID int, tableName, columnName string, 
 
 	// Copy to each department
 	insertQuery := fmt.Sprintf(`
-		INSERT INTO %s (department_id, %s, visibility, position, source_department_id)
+		INSERT INTO %s (curriculum_id, %s, visibility, position, source_curriculum_id)
 		VALUES (?, ?, 'CLUSTER', ?, ?)
 	`, tableName, columnName)
 
@@ -636,7 +636,7 @@ func shareItemToCluster(sourceDeptID, itemID int, tableName, columnName string, 
 		var existsID int
 		checkQuery := fmt.Sprintf(`
 			SELECT id FROM %s 
-			WHERE department_id = ? AND source_department_id = ? AND %s = ?
+			WHERE curriculum_id = ? AND source_curriculum_id = ? AND %s = ?
 		`, tableName, columnName)
 		err := db.DB.QueryRow(checkQuery, targetDeptID, sourceDeptID, text).Scan(&existsID)
 		if err == nil {
@@ -1506,9 +1506,9 @@ func GetClusterSharedContent(w http.ResponseWriter, r *http.Request) {
 				"department_id": deptID,
 				"curriculum_id": regID,
 				"name":          name,
-				"mission":       fetchSharedItems(deptID, "curriculum_mission", "mission_text"),
-				"peos":          fetchSharedItems(deptID, "curriculum_peos", "peo_text"),
-				"psos":          fetchSharedItems(deptID, "curriculum_psos", "pso_text"),
+				"mission":       fetchSharedItems(regID, "curriculum_mission", "mission_text"), // Uses curriculum_id
+				"peos":          fetchSharedItems(deptID, "curriculum_peos", "peo_text"),       // Uses curriculum_vision.id
+				"psos":          fetchSharedItems(deptID, "curriculum_psos", "pso_text"),       // Uses curriculum_vision.id
 				"semesters":     fetchSharedSemesters(regID),
 				"honour_cards":  fetchSharedHonourCards(regID),
 			}
@@ -1607,7 +1607,7 @@ func fetchSharedCourses(regulationID, semesterID int) []map[string]interface{} {
 
 // Helper to fetch only shared (CLUSTER visibility) items
 func fetchSharedItems(deptID int, tableName, columnName string) []map[string]interface{} {
-	query := fmt.Sprintf("SELECT id, %s FROM %s WHERE department_id = ? AND visibility = 'CLUSTER' ORDER BY position", columnName, tableName)
+	query := fmt.Sprintf("SELECT id, %s FROM %s WHERE curriculum_id = ? AND visibility = 'CLUSTER' ORDER BY position", columnName, tableName)
 	rows, err := db.DB.Query(query, deptID)
 	if err != nil {
 		return []map[string]interface{}{}
