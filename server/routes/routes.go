@@ -167,5 +167,11 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/teachers/{id}", studentteacher.UpdateTeacher).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/teachers/{id}", studentteacher.DeleteTeacher).Methods("DELETE", "OPTIONS")
 
+	// Student-Teacher Mapping routes
+	router.HandleFunc("/api/student-teacher-mapping/filters", studentteacher.GetMappingFilters).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/student-teacher-mapping/data", studentteacher.GetMappingData).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/student-teacher-mapping/assign", studentteacher.AssignStudentsToTeachers).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/student-teacher-mapping/clear", studentteacher.ClearMappings).Methods("DELETE", "OPTIONS")
+
 	return router
 }
