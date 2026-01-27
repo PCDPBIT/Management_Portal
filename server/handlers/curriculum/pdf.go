@@ -69,7 +69,7 @@ func fetchRegulationData(curriculumID int) (*models.RegulationPDF, error) {
 	err = db.DB.QueryRow(`
 		SELECT id, vision 
 		FROM curriculum_vision 
-		WHERE curriculum_id = ?`, curriculumID).
+		WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)`, curriculumID).
 		Scan(&departmentID, &pdfData.Overview.Vision)
 
 	if err == nil {

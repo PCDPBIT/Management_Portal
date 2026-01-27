@@ -45,7 +45,7 @@ func GetDepartmentSharingInfo(w http.ResponseWriter, r *http.Request) {
 
 	// Get department_id from curriculum_vision (for tables that still use curriculum_vision.id as FK)
 	var departmentID int
-	err = db.DB.QueryRow(`SELECT id FROM curriculum_vision WHERE curriculum_id = ?`, curriculumID).Scan(&departmentID)
+	err = db.DB.QueryRow(`SELECT id FROM curriculum_vision WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)`, curriculumID).Scan(&departmentID)
 	if err != nil {
 		log.Printf("Warning: No curriculum_vision found for curriculum %d: %v", curriculumID, err)
 		// Set departmentID to 0 if no vision found, queries will return empty arrays
@@ -799,7 +799,7 @@ func updateSemesterVisibility(semesterID int, visibility string, targetDepartmen
 
 	// Get department_id from regulation
 	var deptID int
-	err = db.DB.QueryRow("SELECT id FROM curriculum_vision WHERE curriculum_id = ?", regulationID).Scan(&deptID)
+	err = db.DB.QueryRow("SELECT id FROM curriculum_vision WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)", regulationID).Scan(&deptID)
 	if err != nil {
 		return err
 	}
@@ -907,7 +907,7 @@ func updateCourseVisibility(courseID int, visibility string, targetDepartments [
 
 	// Get department_id
 	var deptID int
-	err = db.DB.QueryRow("SELECT id FROM curriculum_vision WHERE curriculum_id = ?", regulationID).Scan(&deptID)
+	err = db.DB.QueryRow("SELECT id FROM curriculum_vision WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)", regulationID).Scan(&deptID)
 	if err != nil {
 		return err
 	}
@@ -2069,7 +2069,7 @@ func updateHonourCardVisibility(cardID int, visibility string, targetDepartments
 
 	// Get department_id from regulation
 	var deptID int
-	err = db.DB.QueryRow("SELECT id FROM curriculum_vision WHERE curriculum_id = ?", regulationID).Scan(&deptID)
+	err = db.DB.QueryRow("SELECT id FROM curriculum_vision WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)", regulationID).Scan(&deptID)
 	if err != nil {
 		return err
 	}
@@ -2621,7 +2621,7 @@ func GetItemSharedDepartments(w http.ResponseWriter, r *http.Request) {
 				sourceDeptID = int(srcDept.Int64)
 			} else {
 				// Resolve owning department from regulation
-				_ = db.DB.QueryRow("SELECT id FROM curriculum_vision WHERE curriculum_id = ?", regID).Scan(&sourceDeptID)
+				_ = db.DB.QueryRow("SELECT id FROM curriculum_vision WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)", regID).Scan(&sourceDeptID)
 			}
 		}
 	default:

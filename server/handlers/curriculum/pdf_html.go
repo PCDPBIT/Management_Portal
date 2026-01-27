@@ -141,7 +141,7 @@ func fetchCompleteRegulationData(regulationID int) (*models.RegulationPDF, error
 	err = db.DB.QueryRow(`
 		SELECT id, vision 
 		FROM curriculum_vision 
-		WHERE curriculum_id = ?`, regulationID).
+		WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)`, regulationID).
 		Scan(&departmentID, &pdfData.Overview.Vision)
 
 	if err == nil {

@@ -27,7 +27,7 @@ func GetDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT id, curriculum_id, vision FROM curriculum_vision WHERE curriculum_id = ?`
+	query := `SELECT id, curriculum_id, vision FROM curriculum_vision WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)`
 
 	var overview models.DepartmentOverview
 
@@ -133,7 +133,7 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 	// Fetch existing data for diff
 	var oldOverview models.DepartmentOverview
 	var visionID int
-	fetchQuery := "SELECT id, vision FROM curriculum_vision WHERE curriculum_id = ?"
+	fetchQuery := "SELECT id, vision FROM curriculum_vision WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)"
 	fetchErr := db.DB.QueryRow(fetchQuery, curriculumID).Scan(&visionID, &oldOverview.Vision)
 
 	hasExisting := fetchErr != sql.ErrNoRows
@@ -147,22 +147,22 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 
 	// Check if record exists
 	var existingID int
-	checkQuery := "SELECT id FROM curriculum_vision WHERE curriculum_id = ?"
+	checkQuery := "SELECT id FROM curriculum_vision WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)"
 	err = db.DB.QueryRow(checkQuery, curriculumID).Scan(&existingID)
 
 	if overview.Vision == "" {
-		// If vision is empty, delete the record if it exists
-		_, err := db.DB.Exec("DELETE FROM curriculum_vision WHERE curriculum_id = ?", curriculumID)
+		// If vision is empty, soft delete the record if it exists (set status=0)
+		_, err := db.DB.Exec("UPDATE curriculum_vision SET status = 0 WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)", curriculumID)
 		if err != nil && err != sql.ErrNoRows {
-			log.Println("Error deleting empty vision record:", err)
+			log.Println("Error soft-deleting empty vision record:", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete empty vision record"})
 			return
 		}
 		overview.ID = 0
 	} else if err == sql.ErrNoRows {
-		// INSERT new record
-		insertQuery := `INSERT INTO curriculum_vision (curriculum_id, vision) VALUES (?, ?)`
+		// INSERT new record with status=1
+		insertQuery := `INSERT INTO curriculum_vision (curriculum_id, vision, status) VALUES (?, ?, 1)`
 		result, err := db.DB.Exec(insertQuery, curriculumID, overview.Vision)
 		if err != nil {
 			log.Println("Error inserting department overview:", err)
@@ -178,8 +178,8 @@ func SaveDepartmentOverview(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save department overview"})
 		return
 	} else {
-		// UPDATE existing record
-		updateQuery := `UPDATE curriculum_vision SET vision = ? WHERE curriculum_id = ?`
+		// UPDATE existing record and set status=1
+		updateQuery := `UPDATE curriculum_vision SET vision = ?, status = 1 WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)`
 		_, err := db.DB.Exec(updateQuery, overview.Vision, curriculumID)
 		if err != nil {
 			log.Println("Error updating department overview:", err)

@@ -103,6 +103,6 @@ func main() {
 	// Wrap with CORS middleware
 	handler := middleware.CORSMiddleware(router)
 
-	fmt.Println("Server started at http://localhost:5000")
-	log.Fatal(http.ListenAndServe(":5000", handler))
+	fmt.Println("Server started at http://localhost:5001")
+	log.Fatal(http.ListenAndServe(":5001", handler))
 }

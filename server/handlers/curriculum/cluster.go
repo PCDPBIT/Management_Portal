@@ -198,10 +198,10 @@ func AddDepartmentToCluster(w http.ResponseWriter, r *http.Request) {
 
 	// Get or create curriculum_vision entry for this regulation
 	var deptOverviewID int
-	err = db.DB.QueryRow("SELECT id FROM curriculum_vision WHERE curriculum_id = ?", req.DepartmentID).Scan(&deptOverviewID)
+	err = db.DB.QueryRow("SELECT id FROM curriculum_vision WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)", req.DepartmentID).Scan(&deptOverviewID)
 	if err == sql.ErrNoRows {
 		// Create curriculum_vision entry if it doesn't exist
-		result, err := db.DB.Exec("INSERT INTO curriculum_vision (curriculum_id, vision) VALUES (?, '')", req.DepartmentID)
+		result, err := db.DB.Exec("INSERT INTO curriculum_vision (curriculum_id, vision, status) VALUES (?, '', 1)", req.DepartmentID)
 		if err != nil {
 			log.Println("Error creating curriculum_vision:", err)
 			w.WriteHeader(http.StatusInternalServerError)

@@ -2,6 +2,7 @@ package curriculum
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -116,8 +117,19 @@ func DeleteRegulation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Start a transaction to ensure all deletions happen atomically
+	tx, err := db.DB.Begin()
+	if err != nil {
+		log.Println("Error starting transaction:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	// Soft delete the curriculum
 	query := "UPDATE curriculum SET status = 0 WHERE id = ? AND status = 1"
-	result, err := db.DB.Exec(query, id)
+	result, err := tx.Exec(query, id)
 	if err != nil {
 		log.Println("Error deleting curriculum:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -132,8 +144,36 @@ func DeleteRegulation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cascade soft-delete to related tables
+	relatedTables := []string{
+		"curriculum_vision",
+		"curriculum_mission",
+		"curriculum_peos",
+		"curriculum_pos",
+		"curriculum_psos",
+	}
+
+	for _, tableName := range relatedTables {
+		updateQuery := fmt.Sprintf("UPDATE %s SET status = 0 WHERE curriculum_id = ? AND (status = 1 OR status IS NULL)", tableName)
+		_, err := tx.Exec(updateQuery, id)
+		if err != nil {
+			log.Printf("Error soft-deleting from %s: %v\n", tableName, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to cascade delete to %s", tableName)})
+			return
+		}
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		log.Println("Error committing transaction:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
+		return
+	}
+
 	// Note: Log will be automatically deleted due to CASCADE on foreign key
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Curriculum deleted successfully"})
+	json.NewEncoder(w).Encode(map[string]string{"message": "Curriculum and related data deleted successfully"})
 }
