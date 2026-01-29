@@ -164,6 +164,107 @@ func DeleteRegulation(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Soft-delete all semesters (normal_cards) in this curriculum
+	_, err = tx.Exec("UPDATE normal_cards SET status = 0 WHERE curriculum_id = ? AND status = 1", id)
+	if err != nil {
+		log.Println("Error soft-deleting semesters:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to semesters"})
+		return
+	}
+
+	// Soft-delete all honour cards in this curriculum
+	_, err = tx.Exec("UPDATE honour_cards SET status = 0 WHERE curriculum_id = ? AND status = 1", id)
+	if err != nil {
+		log.Println("Error soft-deleting honour cards:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to honour cards"})
+		return
+	}
+
+	// Soft-delete all honour verticals in honour cards of this curriculum
+	_, err = tx.Exec(`UPDATE honour_verticals SET status = 0 
+		WHERE honour_card_id IN (SELECT id FROM honour_cards WHERE curriculum_id = ?) 
+		AND status = 1`, id)
+	if err != nil {
+		log.Println("Error soft-deleting honour verticals:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to honour verticals"})
+		return
+	}
+
+	// Soft-delete all honour_vertical_courses in honour verticals of this curriculum
+	_, err = tx.Exec(`UPDATE honour_vertical_courses SET status = 0 
+		WHERE honour_vertical_id IN (
+			SELECT id FROM honour_verticals WHERE honour_card_id IN (
+				SELECT id FROM honour_cards WHERE curriculum_id = ?
+			)
+		) AND status = 1`, id)
+	if err != nil {
+		log.Println("Error soft-deleting honour vertical courses:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to honour vertical courses"})
+		return
+	}
+
+	// Get all course IDs linked to this curriculum (from both semesters and honour verticals)
+	courseIDsMap := make(map[int]bool)
+
+	// Get courses from curriculum_courses
+	rows, err := tx.Query("SELECT DISTINCT course_id FROM curriculum_courses WHERE curriculum_id = ?", id)
+	if err != nil {
+		log.Println("Error fetching curriculum courses:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch curriculum courses"})
+		return
+	}
+	for rows.Next() {
+		var courseID int
+		if err := rows.Scan(&courseID); err == nil {
+			courseIDsMap[courseID] = true
+		}
+	}
+	rows.Close()
+
+	// Get courses from honour verticals
+	rows, err = tx.Query(`SELECT DISTINCT course_id FROM honour_vertical_courses 
+		WHERE honour_vertical_id IN (
+			SELECT id FROM honour_verticals WHERE honour_card_id IN (
+				SELECT id FROM honour_cards WHERE curriculum_id = ?
+			)
+		)`, id)
+	if err != nil {
+		log.Println("Error fetching honour vertical courses:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch honour vertical courses"})
+		return
+	}
+	for rows.Next() {
+		var courseID int
+		if err := rows.Scan(&courseID); err == nil {
+			courseIDsMap[courseID] = true
+		}
+	}
+	rows.Close()
+
+	// Soft-delete all courses and their children
+	for courseID := range courseIDsMap {
+		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+		if err != nil {
+			log.Printf("Error soft-deleting course %d: %v", courseID, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to courses"})
+			return
+		}
+		// Cascade soft-delete to all course children
+		if err := cascadeSoftDeleteCourse(courseID, tx); err != nil {
+			log.Printf("Error cascading course %d soft-delete: %v", courseID, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to course children"})
+			return
+		}
+	}
+
 	// Commit the transaction
 	if err := tx.Commit(); err != nil {
 		log.Println("Error committing transaction:", err)

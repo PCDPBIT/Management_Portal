@@ -413,7 +413,7 @@ func fetchModelsForPDF(courseID int) []models.SyllabusModelPDF {
 
 		// Fetch titles for this model
 		titleRows, err := db.DB.Query(`
-			SELECT id, title_name, hours, position 
+			SELECT id, title, hours, position 
 			FROM syllabus_titles 
 			WHERE model_id = ? 
 			ORDER BY position, id`, model.ID)

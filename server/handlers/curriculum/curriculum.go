@@ -14,6 +14,82 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// cascadeSoftDeleteCourse sets status=0 for all child records of a course
+// If tx is provided, uses transaction; otherwise uses direct DB connection
+func cascadeSoftDeleteCourse(courseID int, tx *sql.Tx) error {
+	execFunc := func(query string, args ...interface{}) (sql.Result, error) {
+		if tx != nil {
+			return tx.Exec(query, args...)
+		}
+		return db.DB.Exec(query, args...)
+	}
+
+	// Soft delete objectives
+	_, err := execFunc("UPDATE course_objectives SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+	if err != nil {
+		log.Printf("Error soft-deleting objectives for course %d: %v", courseID, err)
+		return err
+	}
+
+	// Soft delete outcomes
+	_, err = execFunc("UPDATE course_outcomes SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+	if err != nil {
+		log.Printf("Error soft-deleting outcomes for course %d: %v", courseID, err)
+		return err
+	}
+
+	// Soft delete references
+	_, err = execFunc("UPDATE course_references SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+	if err != nil {
+		log.Printf("Error soft-deleting references for course %d: %v", courseID, err)
+		return err
+	}
+
+	// Soft delete syllabus topics (cascade from titles)
+	_, err = execFunc(`UPDATE syllabus_topics SET status = 0 
+		WHERE title_id IN (SELECT id FROM syllabus_titles WHERE model_id IN (SELECT id FROM syllabus WHERE course_id = ?)) 
+		AND status = 1`, courseID)
+	if err != nil {
+		log.Printf("Error soft-deleting syllabus topics for course %d: %v", courseID, err)
+		return err
+	}
+
+	// Soft delete syllabus titles (cascade from models)
+	_, err = execFunc(`UPDATE syllabus_titles SET status = 0 
+		WHERE model_id IN (SELECT id FROM syllabus WHERE course_id = ?) 
+		AND status = 1`, courseID)
+	if err != nil {
+		log.Printf("Error soft-deleting syllabus titles for course %d: %v", courseID, err)
+		return err
+	}
+
+	// Soft delete syllabus models
+	_, err = execFunc("UPDATE syllabus SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+	if err != nil {
+		log.Printf("Error soft-deleting syllabus models for course %d: %v", courseID, err)
+		return err
+	}
+
+	// Soft delete experiment topics (cascade from experiments)
+	_, err = execFunc(`UPDATE course_experiment_topics SET status = 0 
+		WHERE experiment_id IN (SELECT id FROM course_experiments WHERE course_id = ?) 
+		AND status = 1`, courseID)
+	if err != nil {
+		log.Printf("Error soft-deleting experiment topics for course %d: %v", courseID, err)
+		return err
+	}
+
+	// Soft delete experiments
+	_, err = execFunc("UPDATE course_experiments SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+	if err != nil {
+		log.Printf("Error soft-deleting experiments for course %d: %v", courseID, err)
+		return err
+	}
+
+	log.Printf("Successfully cascaded soft-delete for course %d", courseID)
+	return nil
+}
+
 // GetSemesters retrieves all semesters for a regulation
 func GetSemesters(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -27,7 +103,7 @@ func GetSemesters(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "SELECT id, curriculum_id, semester_number, COALESCE(card_type, 'semester') as card_type FROM normal_cards WHERE curriculum_id = ? ORDER BY COALESCE(semester_number, 999), id"
+	query := "SELECT id, curriculum_id, semester_number, COALESCE(card_type, 'semester') as card_type FROM normal_cards WHERE curriculum_id = ? AND (status = 1 OR status IS NULL) ORDER BY COALESCE(semester_number, 999), id"
 	rows, err := db.DB.Query(query, curriculumID)
 	if err != nil {
 		log.Println("Error querying semesters:", err)
@@ -97,7 +173,7 @@ func CreateSemester(w http.ResponseWriter, r *http.Request) {
 	// Vertical numbers must be unique among vertical cards
 	if card.SemesterNumber != nil {
 		var existingCount int
-		err = db.DB.QueryRow("SELECT COUNT(*) FROM normal_cards WHERE curriculum_id = ? AND semester_number = ? AND card_type = ?",
+		err = db.DB.QueryRow("SELECT COUNT(*) FROM normal_cards WHERE curriculum_id = ? AND semester_number = ? AND card_type = ? AND (status = 1 OR status IS NULL)",
 			curriculumID, *card.SemesterNumber, card.CardType).Scan(&existingCount)
 		if err != nil {
 			log.Println("Error checking for duplicate number:", err)
@@ -166,9 +242,19 @@ func DeleteSemester(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete the semester (cascade will handle related records)
-	query := "DELETE FROM normal_cards WHERE id = ?"
-	result, err := db.DB.Exec(query, semesterID)
+	// Start a transaction for soft-delete cascade
+	tx, err := db.DB.Begin()
+	if err != nil {
+		log.Println("Error starting transaction:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	// Soft delete the normal card (semester)
+	query := "UPDATE normal_cards SET status = 0 WHERE id = ? AND status = 1"
+	result, err := tx.Exec(query, semesterID)
 	if err != nil {
 		log.Println("Error deleting semester:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -180,6 +266,57 @@ func DeleteSemester(w http.ResponseWriter, r *http.Request) {
 	if rowsAffected == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Semester not found"})
+		return
+	}
+
+	// Soft-delete all courses linked to this semester (keep curriculum_courses mappings intact)
+	rows, err := tx.Query(`
+		SELECT course_id FROM curriculum_courses WHERE semester_id = ?
+	`, semesterID)
+	if err != nil {
+		log.Println("Error fetching semester courses:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch semester courses"})
+		return
+	}
+
+	courseIDs := make([]int, 0)
+	for rows.Next() {
+		var courseID int
+		if err := rows.Scan(&courseID); err != nil {
+			rows.Close()
+			log.Println("Error scanning course ID:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch semester courses"})
+			return
+		}
+		courseIDs = append(courseIDs, courseID)
+	}
+	rows.Close()
+
+	// Soft-delete each course and cascade to its children
+	for _, courseID := range courseIDs {
+		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+		if err != nil {
+			log.Println("Error soft-deleting course:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to courses"})
+			return
+		}
+		// Cascade soft-delete to course children (in DeleteSemester transaction)
+		if err := cascadeSoftDeleteCourse(courseID, tx); err != nil {
+			log.Println("Error cascading course soft-delete:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to course children"})
+			return
+		}
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		log.Println("Error committing transaction:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
 		return
 	}
 
@@ -218,7 +355,7 @@ func GetSemesterCourses(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(rc.count_towards_limit, 1) as count_towards_limit
 		FROM courses c
 		INNER JOIN curriculum_courses rc ON c.course_id = rc.course_id
-		WHERE rc.curriculum_id = ? AND rc.semester_id = ? AND rc.status = 1 AND c.status = 1
+		WHERE rc.curriculum_id = ? AND rc.semester_id = ? AND c.status = 1
 		ORDER BY c.course_code
 	`
 
@@ -302,7 +439,7 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 
 	// Check if the current semester is a semester card type
 	var cardType string
-	err = db.DB.QueryRow("SELECT COALESCE(card_type, 'semester') FROM normal_cards WHERE id = ?", semesterID).Scan(&cardType)
+	err = db.DB.QueryRow("SELECT COALESCE(card_type, 'semester') FROM normal_cards WHERE id = ? AND (status = 1 OR status IS NULL)", semesterID).Scan(&cardType)
 	if err != nil {
 		log.Println("Error fetching semester card type:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -381,8 +518,8 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 			insertCourseQuery := `INSERT INTO courses (course_code, course_name, course_type, category, credit, 
 			                      lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, ` + "`tw/sl`" + `,
 			                      theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs,
-			                      cia_marks, see_marks) 
-			                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			                      cia_marks, see_marks, status) 
+			                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
 			result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, course.CourseType, course.Category, course.Credit,
 				course.LectureHrs, course.TutorialHrs, course.PracticalHrs, course.ActivityHrs, course.TwSlHrs,
 				theoryTotal, tutorialTotal, practicalTotal, activityTotal,
@@ -404,6 +541,8 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Course exists globally but not in this curriculum - reuse the existing course
 			courseID = globalCourseID
+			// Reactivate the course if it was soft-deleted
+			db.DB.Exec("UPDATE courses SET status = 1 WHERE course_id = ?", globalCourseID)
 			wasReused = true
 			log.Printf("Reusing existing course %s (ID: %d) for curriculum %d", course.CourseCode, globalCourseID, curriculumID)
 		}
@@ -515,17 +654,17 @@ func RemoveCourseFromSemester(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "UPDATE curriculum_courses SET status = 0 WHERE curriculum_id = ? AND semester_id = ? AND course_id = ? AND status = 1"
-	result, err := db.DB.Exec(query, curriculumID, semesterID, courseID)
+	// Check if mapping exists
+	var mappingExists bool
+	err = db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM curriculum_courses WHERE curriculum_id = ? AND semester_id = ? AND course_id = ?)", curriculumID, semesterID, courseID).Scan(&mappingExists)
 	if err != nil {
-		log.Println("Error removing course:", err)
+		log.Println("Error checking course mapping:", err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to remove course"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to check course mapping"})
 		return
 	}
 
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
+	if !mappingExists {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Course not found in semester"})
 		return
@@ -534,6 +673,29 @@ func RemoveCourseFromSemester(w http.ResponseWriter, r *http.Request) {
 	// Get course name for logging
 	var courseName string
 	db.DB.QueryRow("SELECT course_name FROM courses WHERE course_id = ?", courseID).Scan(&courseName)
+
+	// Soft-delete the course (keep the mapping intact)
+	result, err := db.DB.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+	if err != nil {
+		log.Println("Error soft-deleting course:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to remove course"})
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		// Course might already be soft-deleted, which is fine
+		log.Printf("Course %d was already inactive", courseID)
+	}
+
+	// Cascade soft-delete to all course children
+	if err := cascadeSoftDeleteCourse(courseID, nil); err != nil {
+		log.Println("Error cascading course soft-delete:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to course children"})
+		return
+	}
 
 	// Log the activity
 	LogCurriculumActivity(curriculumID, "Course Removed",

@@ -11,10 +11,27 @@ function HonourCardPage() {
   const [curriculumTemplate, setCurriculumTemplate] = useState('2026')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [showVerticalForm, setShowVerticalForm] = useState(false)
   const [newVerticalName, setNewVerticalName] = useState('')
   const [expandedVertical, setExpandedVertical] = useState(null)
   const [showAddCourse, setShowAddCourse] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingCourse, setEditingCourse] = useState(null)
+  const [editCourseData, setEditCourseData] = useState({
+    course_code: '',
+    course_name: '',
+    course_type: '',
+    category: '',
+    credit: '',
+    lecture_hrs: 0,
+    tutorial_hrs: 0,
+    practical_hrs: 0,
+    activity_hrs: 0,
+    tw_sl_hrs: 0,
+    cia_marks: 40,
+    see_marks: 60
+  })
   const [newCourse, setNewCourse] = useState({
     course_code: '',
     course_name: '',
@@ -120,6 +137,14 @@ function HonourCardPage() {
   const handleAddCourseToVertical = async (e, verticalId) => {
     e.preventDefault()
 
+    // Validate total marks
+    const totalMarks = (parseInt(newCourse.cia_marks) || 0) + (parseInt(newCourse.see_marks) || 0)
+    if (totalMarks > 100) {
+      setError('Total marks (CIA + SEE) cannot exceed 100. Please adjust the marks.')
+      setTimeout(() => setError(''), 5000)
+      return
+    }
+
     try {
       const lectureHrs = parseInt(newCourse.lecture_hrs) || 0
       const tutorialHrs = parseInt(newCourse.tutorial_hrs) || 0
@@ -134,8 +159,8 @@ function HonourCardPage() {
         practical_hrs: practicalHrs,
         activity_hrs: activityHrs,
         tw_sl_hrs: parseInt(newCourse.tw_sl_hrs) || 0,
-        cia_marks: parseInt(newCourse.cia_marks) || 40,
-        see_marks: parseInt(newCourse.see_marks) || 60
+        cia_marks: newCourse.cia_marks !== '' && newCourse.cia_marks !== null && newCourse.cia_marks !== undefined ? parseInt(newCourse.cia_marks) : 40,
+        see_marks: newCourse.see_marks !== '' && newCourse.see_marks !== null && newCourse.see_marks !== undefined ? parseInt(newCourse.see_marks) : 60
       }
       
       // Calculate total hours based on course type
@@ -149,7 +174,7 @@ function HonourCardPage() {
         courseData.tutorial_total_hrs = tutorialHrs * 15
         courseData.activity_total_hrs = activityHrs * 15
         courseData.practical_total_hrs = 0
-      } else if (newCourse.course_type === 'Theory&Lab') {
+      } else if (newCourse.course_type === 'Theory&Lab' || newCourse.course_type === 'NA') {
         courseData.theory_total_hrs = lectureHrs * 15
         courseData.tutorial_total_hrs = tutorialHrs * 15
         courseData.practical_total_hrs = practicalHrs * 15
@@ -173,6 +198,17 @@ function HonourCardPage() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => null)
         throw new Error(errorData?.error || 'Failed to add course to vertical')
+      }
+
+      const responseData = await response.json()
+      
+      // Check if course was reused and show info message
+      if (responseData.message) {
+        setSuccess(responseData.message)
+        setTimeout(() => setSuccess(''), 5000)
+      } else {
+        setSuccess('Course added successfully!')
+        setTimeout(() => setSuccess(''), 3000)
       }
 
       // Reset form state and close panel
@@ -216,6 +252,101 @@ function HonourCardPage() {
     } catch (err) {
       console.error('Error removing course:', err)
       setError('Failed to remove course')
+    }
+  }
+
+  const handleEditCourse = (course) => {
+    setEditingCourse(course)
+    setEditCourseData({
+      course_code: course.course_code,
+      course_name: course.course_name,
+      course_type: course.course_type,
+      category: course.category,
+      credit: course.credit,
+      lecture_hrs: course.lecture_hrs,
+      tutorial_hrs: course.tutorial_hrs,
+      practical_hrs: course.practical_hrs,
+      activity_hrs: course.activity_hrs,
+      tw_sl_hrs: course.tw_sl_hrs,
+      cia_marks: course.cia_marks,
+      see_marks: course.see_marks
+    })
+    setShowEditModal(true)
+  }
+
+  const handleUpdateCourse = async (e) => {
+    e.preventDefault()
+
+    // Validate total marks
+    const totalMarks = (parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0)
+    if (totalMarks > 100) {
+      setError('Total marks (CIA + SEE) cannot exceed 100. Please adjust the marks.')
+      setTimeout(() => setError(''), 5000)
+      return
+    }
+
+    try {
+      const lectureHrs = parseInt(editCourseData.lecture_hrs) || 0
+      const tutorialHrs = parseInt(editCourseData.tutorial_hrs) || 0
+      const practicalHrs = parseInt(editCourseData.practical_hrs) || 0
+      const activityHrs = parseInt(editCourseData.activity_hrs) || 0
+      
+      const courseData = {
+        ...editCourseData,
+        credit: parseInt(editCourseData.credit),
+        lecture_hrs: lectureHrs,
+        tutorial_hrs: tutorialHrs,
+        practical_hrs: practicalHrs,
+        activity_hrs: activityHrs,
+        tw_sl_hrs: parseInt(editCourseData.tw_sl_hrs) || 0,
+        cia_marks: parseInt(editCourseData.cia_marks),
+        see_marks: parseInt(editCourseData.see_marks)
+      }
+
+      // Calculate total hours based on course type and template
+      if (editCourseData.course_type === 'Lab') {
+        courseData.theory_total_hrs = 0
+        courseData.tutorial_total_hrs = 0
+        courseData.activity_total_hrs = 0
+        courseData.practical_total_hrs = practicalHrs * 15
+      } else if (editCourseData.course_type === 'Theory') {
+        courseData.theory_total_hrs = lectureHrs * 15
+        courseData.tutorial_total_hrs = tutorialHrs * 15
+        courseData.activity_total_hrs = activityHrs * 15
+        courseData.practical_total_hrs = 0
+      } else if (editCourseData.course_type === 'Theory&Lab' || editCourseData.course_type === 'NA') {
+        courseData.theory_total_hrs = lectureHrs * 15
+        courseData.tutorial_total_hrs = tutorialHrs * 15
+        courseData.practical_total_hrs = practicalHrs * 15
+        courseData.activity_total_hrs = 0
+      } else {
+        // Default: calculate all
+        courseData.theory_total_hrs = lectureHrs * 15
+        courseData.tutorial_total_hrs = tutorialHrs * 15
+        courseData.practical_total_hrs = practicalHrs * 15
+        courseData.activity_total_hrs = activityHrs * 15
+      }
+
+      const response = await fetch(`${API_BASE_URL}/course/${editingCourse.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(courseData),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update course')
+      }
+
+      setSuccess('Course updated successfully!')
+      setTimeout(() => setSuccess(''), 3000)
+      setShowEditModal(false)
+      setEditingCourse(null)
+      fetchHonourCard()
+    } catch (err) {
+      console.error('Error updating course:', err)
+      setError('Failed to update course')
     }
   }
 
@@ -302,6 +433,16 @@ function HonourCardPage() {
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
             <p className="text-sm font-medium text-red-600">{error}</p>
+          </div>
+        )}
+        
+        {/* Success Message */}
+        {success && (
+          <div className="flex items-start space-x-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <p className="text-sm font-medium text-green-600">{success}</p>
           </div>
         )}
 
@@ -464,6 +605,7 @@ function HonourCardPage() {
                           <option value="Theory">Theory</option>
                           <option value="Lab">Lab</option>
                           <option value="Theory&Lab">Theory&Lab</option>
+                          <option value="NA">NA</option>
                         </select>
                       </div>
 
@@ -498,6 +640,8 @@ function HonourCardPage() {
                         />
                       </div>
 
+                      {/* Lecture field - Hide for Lab in 2022 template */}
+                      {!(curriculumTemplate === '2022' && newCourse.course_type === 'Lab') && (
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Lecture (hrs per week) *</label>
                         <input
@@ -510,7 +654,10 @@ function HonourCardPage() {
                           className="input-custom"
                         />
                       </div>
+                      )}
 
+                      {/* Tutorial field - Hide for Lab in 2022 template */}
+                      {!(curriculumTemplate === '2022' && newCourse.course_type === 'Lab') && (
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Tutorial (hrs per week)</label>
                         <input
@@ -522,7 +669,9 @@ function HonourCardPage() {
                           className="input-custom"
                         />
                       </div>
+                      )}
 
+                      {/* Practical field - Show only for Lab, Theory&Lab, and NA */}
                       {newCourse.course_type !== 'Theory' && (
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">Practical (hrs per week)</label>
@@ -537,7 +686,8 @@ function HonourCardPage() {
                         </div>
                       )}
 
-                      {curriculumTemplate !== '2022' && (
+                      {/* Activity field - Only for 2026 template, hide for Lab in 2022 */}
+                      {curriculumTemplate !== '2022' && newCourse.course_type !== 'Lab' && (
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">Activity (hrs per week)</label>
                           <input
@@ -585,8 +735,11 @@ function HonourCardPage() {
                           type="number"
                           value={(parseInt(newCourse.cia_marks) || 0) + (parseInt(newCourse.see_marks) || 0)}
                           readOnly
-                          className="input-custom bg-gray-100 cursor-not-allowed"
+                          className={`input-custom bg-gray-100 cursor-not-allowed ${(parseInt(newCourse.cia_marks) || 0) + (parseInt(newCourse.see_marks) || 0) > 100 ? 'border-red-500 border-2' : ''}`}
                         />
+                        {(parseInt(newCourse.cia_marks) || 0) + (parseInt(newCourse.see_marks) || 0) > 100 && (
+                          <p className="text-red-600 text-xs mt-1 font-medium">⚠ Total marks cannot exceed 100</p>
+                        )}
                       </div>
 
                       {/* Course Type Specific Fields - Total Hours for whole semester */}
@@ -674,7 +827,7 @@ function HonourCardPage() {
                         </>
                       )}
 
-                      {newCourse.course_type === 'Theory&Lab' && (
+                      {(newCourse.course_type === 'Theory&Lab' || newCourse.course_type === 'NA') && (
                         <>
                           <div className="md:col-span-2">
                             <h3 className="text-sm font-bold text-gray-900 mb-3 mt-4 pt-4 border-t border-gray-200">Total Hours (for whole semester)</h3>
@@ -883,16 +1036,32 @@ function HonourCardPage() {
                                   </span>
                                 </div>
                               </div>
-                              <button
-                                onClick={() => handleRemoveCourseFromVertical(vertical.id, course.id)}
-                                className="px-4 py-2.5 bg-red-50 text-red-600 font-semibold rounded-lg hover:bg-red-100 transition-all duration-200 flex items-center gap-2 flex-shrink-0 self-start lg:self-auto text-sm"
-                                title="Remove from vertical"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Remove
-                              </button>
+                              <div className="flex flex-wrap gap-2 flex-shrink-0 self-start lg:self-auto">
+                                <button
+                                  onClick={() => handleEditCourse(course)}
+                                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-all"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => navigate(`/course/${course.id}/syllabus`)}
+                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-all"
+                                >
+                                  Syllabus
+                                </button>
+                                <button
+                                  onClick={() => navigate(`/course/${course.id}/mapping`)}
+                                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition-all"
+                                >
+                                  Mapping
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveCourseFromVertical(vertical.id, course.id)}
+                                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-all"
+                                >
+                                  Remove
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -905,6 +1074,213 @@ function HonourCardPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Course Modal */}
+      {showEditModal && editingCourse && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-5 flex items-center justify-between sticky top-0 rounded-t-2xl">
+              <div>
+                <h3 className="text-xl font-bold">Edit Course</h3>
+                <p className="text-sm text-green-100">Update course details</p>
+              </div>
+              <button 
+                onClick={() => setShowEditModal(false)}
+                className="text-white hover:bg-white/20 rounded-lg p-2 transition-all"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateCourse} className="p-8 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Course Code</label>
+                  <input
+                    type="text"
+                    value={editCourseData.course_code}
+                    onChange={(e) => setEditCourseData({ ...editCourseData, course_code: e.target.value })}
+                    placeholder="e.g., CS101"
+                    required
+                    className="input-custom"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Course Name</label>
+                  <input
+                    type="text"
+                    value={editCourseData.course_name}
+                    onChange={(e) => setEditCourseData({ ...editCourseData, course_name: e.target.value })}
+                    placeholder="e.g., Introduction to Programming"
+                    required
+                    className="input-custom"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Course Type</label>
+                  <select
+                    value={editCourseData.course_type}
+                    onChange={(e) => setEditCourseData({ ...editCourseData, course_type: e.target.value })}
+                    required
+                    className="input-custom"
+                  >
+                    <option value="">Select Type</option>
+                    <option value="Theory">Theory</option>
+                    <option value="Lab">Lab</option>
+                    <option value="Theory&Lab">Theory&Lab</option>
+                    <option value="NA">NA</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
+                  <select
+                    value={editCourseData.category}
+                    onChange={(e) => setEditCourseData({ ...editCourseData, category: e.target.value })}
+                    required
+                    className="input-custom"
+                  >
+                    <option value="">Select Category</option>
+                    <option value="BS - Basic Sciences">BS - Basic Sciences</option>
+                    <option value="ES - Engineering Sciences">ES - Engineering Sciences</option>
+                    <option value="HSS - Humanities and Social Sciences">HSS - Humanities and Social Sciences</option>
+                    <option value="PC - Professional Core">PC - Professional Core</option>
+                    <option value="PE - Professional Elective">PE - Professional Elective</option>
+                    <option value="EEC - Employability Enhancement Course">EEC - Employability Enhancement Course</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Credits</label>
+                  <input
+                    type="number"
+                    value={editCourseData.credit}
+                    onChange={(e) => setEditCourseData({ ...editCourseData, credit: e.target.value })}
+                    placeholder="e.g., 3"
+                    required
+                    min="0"
+                    className="input-custom"
+                  />
+                </div>
+
+                {!(curriculumTemplate === '2022' && editCourseData.course_type === 'Lab') && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Lecture (hrs per week)</label>
+                  <input
+                    type="number"
+                    value={editCourseData.lecture_hrs}
+                    onChange={(e) => setEditCourseData({ ...editCourseData, lecture_hrs: e.target.value })}
+                    placeholder="3"
+                    min="0"
+                    className="input-custom"
+                  />
+                </div>
+                )}
+
+                {!(curriculumTemplate === '2022' && editCourseData.course_type === 'Lab') && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tutorial (hrs per week)</label>
+                  <input
+                    type="number"
+                    value={editCourseData.tutorial_hrs}
+                    onChange={(e) => setEditCourseData({ ...editCourseData, tutorial_hrs: e.target.value })}
+                    placeholder="0"
+                    min="0"
+                    className="input-custom"
+                  />
+                </div>
+                )}
+
+                {editCourseData.course_type !== 'Theory' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Practical (hrs per week)</label>
+                  <input
+                    type="number"
+                    value={editCourseData.practical_hrs}
+                    onChange={(e) => setEditCourseData({ ...editCourseData, practical_hrs: e.target.value })}
+                    placeholder="2"
+                    min="0"
+                    className="input-custom"
+                  />
+                </div>
+                )}
+
+                {curriculumTemplate !== '2022' && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Activity (hrs per week)</label>
+                    <input
+                      type="number"
+                      value={editCourseData.activity_hrs}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, activity_hrs: e.target.value })}
+                      placeholder="0"
+                      min="0"
+                      className="input-custom"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">CIA Marks</label>
+                  <input
+                    type="number"
+                    value={editCourseData.cia_marks}
+                    onChange={(e) => setEditCourseData({ ...editCourseData, cia_marks: e.target.value })}
+                    placeholder="40"
+                    required
+                    min="0"
+                    max="100"
+                    className="input-custom"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">SEE Marks</label>
+                  <input
+                    type="number"
+                    value={editCourseData.see_marks}
+                    onChange={(e) => setEditCourseData({ ...editCourseData, see_marks: e.target.value })}
+                    placeholder="60"
+                    required
+                    min="0"
+                    max="100"
+                    className="input-custom"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">TOTAL MARKS (Auto)</label>
+                  <input
+                    type="number"
+                    value={(parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0)}
+                    readOnly
+                    className={`input-custom bg-gray-100 cursor-not-allowed ${(parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0) > 100 ? 'border-red-500 border-2' : ''}`}
+                  />
+                  {(parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0) > 100 && (
+                    <p className="text-red-600 text-xs mt-1 font-medium">⚠ Total marks cannot exceed 100</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="btn-secondary-custom"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary-custom">
+                  Update Course
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </MainLayout>
   )
 }

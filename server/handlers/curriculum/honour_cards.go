@@ -255,8 +255,10 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 		TutorialTotalHrs  int    `json:"tutorial_total_hrs,omitempty"`
 		PracticalTotalHrs int    `json:"practical_total_hrs,omitempty"`
 		ActivityTotalHrs  int    `json:"activity_total_hrs,omitempty"`
+		TotalHrs          int    `json:"total_hrs,omitempty"`
 		CIAMarks          int    `json:"cia_marks,omitempty"`
 		SEEMarks          int    `json:"see_marks,omitempty"`
+		TotalMarks        int    `json:"total_marks,omitempty"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&payload)
@@ -283,6 +285,7 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var courseID int
+	var wasReused bool
 
 	if payload.CourseID != nil && *payload.CourseID > 0 {
 		// Legacy path: link an existing course by ID
@@ -327,8 +330,8 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 				insertCourseQuery := `INSERT INTO courses (course_code, course_name, course_type, category, credit,
 					lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, ` + "`tw/sl`" + `,
 					theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs,
-					cia_marks, see_marks)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+					cia_marks, see_marks, status)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
 				result, err := db.DB.Exec(insertCourseQuery,
 					payload.CourseCode,
 					payload.CourseName,
@@ -363,6 +366,9 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 			} else {
 				// Course exists globally but not in this curriculum - reuse the existing course
 				courseID = globalCourseID
+				wasReused = true
+				// Reactivate the course if it was soft-deleted
+				db.DB.Exec("UPDATE courses SET status = 1 WHERE course_id = ?", globalCourseID)
 				log.Printf("Reusing existing course %s (ID: %d) for honour vertical curriculum %d", payload.CourseCode, globalCourseID, curriculumID)
 			}
 		} else if err != nil {
@@ -373,12 +379,18 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Course code already exists in this curriculum - use the existing one
 			courseID = existingCourseID
+			wasReused = true
 			log.Printf("Reusing existing course %s (ID: %d) in curriculum %d for honour vertical", payload.CourseCode, existingCourseID, curriculumID)
 		}
 	}
 
+	// Note: Honour courses are NOT added to curriculum_courses table
+	// They are tracked via honour_cards -> honour_verticals -> honour_vertical_courses
+	// This is different from semester courses which use curriculum_courses
+
+	// Insert into honour_vertical_courses mapping table
 	query := "INSERT INTO honour_vertical_courses (honour_vertical_id, course_id) VALUES (?, ?)"
-	result, err := db.DB.Exec(query, verticalID, courseID)
+	_, err = db.DB.Exec(query, verticalID, courseID)
 	if err != nil {
 		log.Println("Error adding course to vertical:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -386,14 +398,76 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, _ := result.LastInsertId()
+	// Fetch the complete course details including computed fields (matching normal card behavior)
+	var fullCourse models.CourseWithDetails
+	fetchQuery := `SELECT course_id, course_code, course_name, course_type, category, credit, 
+	               lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, COALESCE(` + "`tw/sl`" + `, 0) as tw_sl,
+	               COALESCE(theory_total_hrs, 0), COALESCE(tutorial_total_hrs, 0), COALESCE(practical_total_hrs, 0), COALESCE(activity_total_hrs, 0), COALESCE(total_hrs, 0),
+	               cia_marks, see_marks, total_marks 
+	               FROM courses WHERE course_id = ?`
+	err = db.DB.QueryRow(fetchQuery, courseID).Scan(&fullCourse.CourseID, &fullCourse.CourseCode, &fullCourse.CourseName,
+		&fullCourse.CourseType, &fullCourse.Category, &fullCourse.Credit,
+		&fullCourse.LectureHrs, &fullCourse.TutorialHrs, &fullCourse.PracticalHrs, &fullCourse.ActivityHrs, &fullCourse.TwSlHrs,
+		&fullCourse.TheoryTotalHrs, &fullCourse.TutorialTotalHrs, &fullCourse.PracticalTotalHrs, &fullCourse.ActivityTotalHrs, &fullCourse.TotalHrs,
+		&fullCourse.CIAMarks, &fullCourse.SEEMarks, &fullCourse.TotalMarks)
+	if err != nil {
+		log.Println("Error fetching full course details:", err)
+		// Fallback to sent values
+		fullCourse = models.CourseWithDetails{
+			CourseID:          courseID,
+			CourseCode:        payload.CourseCode,
+			CourseName:        payload.CourseName,
+			CourseType:        payload.CourseType,
+			Category:          payload.Category,
+			Credit:            payload.Credit,
+			LectureHrs:        payload.LectureHrs,
+			TutorialHrs:       payload.TutorialHrs,
+			PracticalHrs:      payload.PracticalHrs,
+			ActivityHrs:       payload.ActivityHrs,
+			TwSlHrs:           payload.TwSlHrs,
+			TheoryTotalHrs:    payload.TheoryTotalHrs,
+			TutorialTotalHrs:  payload.TutorialTotalHrs,
+			PracticalTotalHrs: payload.PracticalTotalHrs,
+			ActivityTotalHrs:  payload.ActivityTotalHrs,
+			TotalHrs:          payload.TotalHrs,
+			CIAMarks:          payload.CIAMarks,
+			SEEMarks:          payload.SEEMarks,
+			TotalMarks:        payload.TotalMarks,
+		}
+	}
+	fullCourse.CurriculumTemplate = curriculumTemplate
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"id":                 id,
-		"honour_vertical_id": verticalID,
-		"course_id":          courseID,
-	})
+
+	// Return course with optional message if it was reused
+	if wasReused {
+		response := map[string]interface{}{
+			"course_id":           fullCourse.CourseID,
+			"course_code":         fullCourse.CourseCode,
+			"course_name":         fullCourse.CourseName,
+			"course_type":         fullCourse.CourseType,
+			"category":            fullCourse.Category,
+			"credit":              fullCourse.Credit,
+			"lecture_hrs":         fullCourse.LectureHrs,
+			"tutorial_hrs":        fullCourse.TutorialHrs,
+			"practical_hrs":       fullCourse.PracticalHrs,
+			"activity_hrs":        fullCourse.ActivityHrs,
+			"tw_sl_hrs":           fullCourse.TwSlHrs,
+			"theory_total_hrs":    fullCourse.TheoryTotalHrs,
+			"tutorial_total_hrs":  fullCourse.TutorialTotalHrs,
+			"practical_total_hrs": fullCourse.PracticalTotalHrs,
+			"activity_total_hrs":  fullCourse.ActivityTotalHrs,
+			"total_hrs":           fullCourse.TotalHrs,
+			"cia_marks":           fullCourse.CIAMarks,
+			"see_marks":           fullCourse.SEEMarks,
+			"total_marks":         fullCourse.TotalMarks,
+			"curriculum_template": fullCourse.CurriculumTemplate,
+			"message":             "Course already exists in another curriculum and has been reused",
+		}
+		json.NewEncoder(w).Encode(response)
+	} else {
+		json.NewEncoder(w).Encode(fullCourse)
+	}
 }
 
 // RemoveCourseFromVertical removes a course from a vertical
@@ -422,19 +496,45 @@ func RemoveCourseFromVertical(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "UPDATE honour_vertical_courses SET status = 0 WHERE honour_vertical_id = ? AND course_id = ? AND status = 1"
-	result, err := db.DB.Exec(query, verticalID, courseID)
+	// Check if mapping exists
+	var mappingExists bool
+	err = db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM honour_vertical_courses WHERE honour_vertical_id = ? AND course_id = ? AND status = 1)", verticalID, courseID).Scan(&mappingExists)
 	if err != nil {
-		log.Println("Error removing course from vertical:", err)
+		log.Println("Error checking course mapping:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to check course mapping"})
+		return
+	}
+
+	if !mappingExists {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Course not found in vertical"})
+		return
+	}
+
+	// Soft-delete honour_vertical_courses mapping (keep the record)
+	_, err = db.DB.Exec("UPDATE honour_vertical_courses SET status = 0 WHERE honour_vertical_id = ? AND course_id = ? AND status = 1", verticalID, courseID)
+	if err != nil {
+		log.Println("Error soft-deleting vertical course mapping:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to remove course"})
 		return
 	}
 
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Course not found in vertical"})
+	// Soft-delete the course itself
+	_, err = db.DB.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+	if err != nil {
+		log.Println("Error soft-deleting course:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete course"})
+		return
+	}
+
+	// Cascade soft-delete to all course children
+	if err := cascadeSoftDeleteCourse(courseID, nil); err != nil {
+		log.Println("Error cascading course soft-delete:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to course children"})
 		return
 	}
 
@@ -461,8 +561,19 @@ func DeleteHonourVertical(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Start a transaction for soft-delete cascade
+	tx, err := db.DB.Begin()
+	if err != nil {
+		log.Println("Error starting transaction:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	// Soft delete the honour vertical
 	query := "UPDATE honour_verticals SET status = 0 WHERE id = ? AND status = 1"
-	result, err := db.DB.Exec(query, verticalID)
+	result, err := tx.Exec(query, verticalID)
 	if err != nil {
 		log.Println("Error deleting vertical:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -474,6 +585,63 @@ func DeleteHonourVertical(w http.ResponseWriter, r *http.Request) {
 	if rowsAffected == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Vertical not found"})
+		return
+	}
+
+	// Soft delete honour_vertical_courses for this vertical
+	_, err = tx.Exec("UPDATE honour_vertical_courses SET status = 0 WHERE honour_vertical_id = ? AND status = 1", verticalID)
+	if err != nil {
+		log.Println("Error soft-deleting honour_vertical_courses:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to honour_vertical_courses"})
+		return
+	}
+
+	// Get course IDs and soft delete courses + their children
+	rows, err := tx.Query("SELECT course_id FROM honour_vertical_courses WHERE honour_vertical_id = ?", verticalID)
+	if err != nil {
+		log.Println("Error fetching vertical courses:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch vertical courses"})
+		return
+	}
+
+	courseIDs := make([]int, 0)
+	for rows.Next() {
+		var courseID int
+		if err := rows.Scan(&courseID); err != nil {
+			rows.Close()
+			log.Println("Error scanning course ID:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch vertical courses"})
+			return
+		}
+		courseIDs = append(courseIDs, courseID)
+	}
+	rows.Close()
+
+	for _, courseID := range courseIDs {
+		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+		if err != nil {
+			log.Println("Error soft-deleting course:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to courses"})
+			return
+		}
+		// Cascade soft-delete to course children (DeleteHonourVertical)
+		if err := cascadeSoftDeleteCourse(courseID, tx); err != nil {
+			log.Println("Error cascading course soft-delete:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to course children"})
+			return
+		}
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		log.Println("Error committing transaction:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
 		return
 	}
 
@@ -500,8 +668,19 @@ func DeleteHonourCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Start a transaction for soft-delete cascade
+	tx, err := db.DB.Begin()
+	if err != nil {
+		log.Println("Error starting transaction:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	// Soft delete the honour card
 	query := "UPDATE honour_cards SET status = 0 WHERE id = ? AND status = 1"
-	result, err := db.DB.Exec(query, cardID)
+	result, err := tx.Exec(query, cardID)
 	if err != nil {
 		log.Println("Error deleting honour card:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -513,6 +692,83 @@ func DeleteHonourCard(w http.ResponseWriter, r *http.Request) {
 	if rowsAffected == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Honour card not found"})
+		return
+	}
+
+	// Soft delete honour_verticals for this card
+	_, err = tx.Exec("UPDATE honour_verticals SET status = 0 WHERE honour_card_id = ? AND status = 1", cardID)
+	if err != nil {
+		log.Println("Error soft-deleting honour_verticals:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to honour_verticals"})
+		return
+	}
+
+	// Soft delete honour_vertical_courses for all verticals in this card
+	_, err = tx.Exec(`
+		UPDATE honour_vertical_courses 
+		SET status = 0 
+		WHERE honour_vertical_id IN (
+			SELECT id FROM honour_verticals WHERE honour_card_id = ?
+		) AND status = 1
+	`, cardID)
+	if err != nil {
+		log.Println("Error soft-deleting honour_vertical_courses:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to honour_vertical_courses"})
+		return
+	}
+
+	// Get all course IDs from verticals in this card, soft-delete courses + their children
+	rows, err := tx.Query(`
+		SELECT DISTINCT course_id FROM honour_vertical_courses 
+		WHERE honour_vertical_id IN (
+			SELECT id FROM honour_verticals WHERE honour_card_id = ?
+		)
+	`, cardID)
+	if err != nil {
+		log.Println("Error fetching card courses:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch card courses"})
+		return
+	}
+
+	courseIDs := make([]int, 0)
+	for rows.Next() {
+		var courseID int
+		if err := rows.Scan(&courseID); err != nil {
+			rows.Close()
+			log.Println("Error scanning course ID:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch card courses"})
+			return
+		}
+		courseIDs = append(courseIDs, courseID)
+	}
+	rows.Close()
+
+	for _, courseID := range courseIDs {
+		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+		if err != nil {
+			log.Println("Error soft-deleting course:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to courses"})
+			return
+		}
+		// Cascade soft-delete to course children (DeleteHonourCard)
+		if err := cascadeSoftDeleteCourse(courseID, tx); err != nil {
+			log.Println("Error cascading course soft-delete:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to cascade delete to course children"})
+			return
+		}
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		log.Println("Error committing transaction:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
 		return
 	}
 

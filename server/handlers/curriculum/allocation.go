@@ -328,7 +328,7 @@ func GetUnassignedCourses(w http.ResponseWriter, r *http.Request) {
 		SELECT c.course_id, c.course_code, c.course_name, c.course_type, c.credit
 		FROM courses c
 		JOIN curriculum_courses cc ON c.course_id = cc.course_id
-		WHERE cc.semester_id = ? AND c.status = 1 AND cc.status = 1
+		WHERE cc.semester_id = ? AND c.status = 1
 		AND NOT EXISTS (
 			SELECT 1 FROM teacher_course_allocation ca
 			WHERE ca.course_id = c.course_id 

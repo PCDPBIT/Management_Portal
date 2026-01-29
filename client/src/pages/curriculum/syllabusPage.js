@@ -485,7 +485,7 @@ function SyllabusPage() {
     }
   }
 
-  const handleUpdateModel = async (modelId, currentName) => {
+  const handleUpdateModel = async (modelId, currentName, currentPosition) => {
     const newName = prompt('Enter new model name:', currentName)
     if (!newName || newName === currentName) return
 
@@ -495,7 +495,7 @@ function SyllabusPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model_name: newName,
-          position: models.findIndex(m => m.id === modelId)
+          position: typeof currentPosition === 'number' ? currentPosition : models.findIndex(m => m.id === modelId)
         })
       })
 
@@ -567,7 +567,7 @@ function SyllabusPage() {
     }
   }
 
-  const handleUpdateTitle = async (titleId, currentName, currentHours) => {
+  const handleUpdateTitle = async (titleId, currentName, currentHours, currentPosition) => {
     const newName = prompt('Enter new title name:', currentName)
     if (!newName) return
     
@@ -581,7 +581,7 @@ function SyllabusPage() {
         body: JSON.stringify({
           title_name: newName,
           hours: hoursNum,
-          position: 0 // You can enhance this to maintain order
+          position: typeof currentPosition === 'number' ? currentPosition : 0
         })
       })
 
@@ -651,7 +651,7 @@ function SyllabusPage() {
     }
   }
 
-  const handleUpdateTopic = async (topicId, currentTopic) => {
+  const handleUpdateTopic = async (topicId, currentTopic, currentPosition) => {
     const newTopic = prompt('Enter new topic:', currentTopic)
     if (!newTopic || newTopic === currentTopic) return
 
@@ -661,7 +661,7 @@ function SyllabusPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: newTopic,
-          position: 0
+          position: typeof currentPosition === 'number' ? currentPosition : 0
         })
       })
 
@@ -985,10 +985,16 @@ function SyllabusPage() {
                       <div key={topicIndex} className="flex gap-2 items-center">
                         <input
                           type="text"
-                          value={topic}
-                          onChange={(e) => {
-                            const newTopics = [...experiment.topics]
-                            newTopics[topicIndex] = e.target.value
+                          key={`topic-${experiment.id}-${topicIndex}-${topic}`}
+                          defaultValue={topic}
+                          onBlur={(e) => {
+                            const nextValue = e.target.value
+                            const currentValue = topic
+
+                            if ((nextValue ?? '').trim() === (currentValue ?? '').trim()) return
+
+                            const newTopics = [...(experiment.topics || [])]
+                            newTopics[topicIndex] = nextValue
                             handleUpdateExperimentTopics(experiment.id, newTopics)
                           }}
                           className="input-custom flex-1"
@@ -1046,7 +1052,7 @@ function SyllabusPage() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleUpdateModel(model.id, model.model_name)}
+                  onClick={() => handleUpdateModel(model.id, model.model_name, model.position)}
                   className="px-3 py-1 bg-sky-500 text-white text-sm rounded hover:bg-sky-600 transition-colors"
                 >
                   Edit
@@ -1093,7 +1099,7 @@ function SyllabusPage() {
                           </div>
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleUpdateTitle(title.id, title.title_name, title.hours)}
+                              onClick={() => handleUpdateTitle(title.id, title.title_name, title.hours, title.position)}
                               className="px-2 py-1 bg-sky-500 text-white text-xs rounded hover:bg-sky-600 transition-colors"
                             >
                               Edit
@@ -1129,7 +1135,7 @@ function SyllabusPage() {
                                     <span>{topic.topic}</span>
                                     <div className="flex gap-2">
                                       <button
-                                        onClick={() => handleUpdateTopic(topic.id, topic.topic)}
+                                        onClick={() => handleUpdateTopic(topic.id, topic.topic, topic.position)}
                                         className="px-2 py-0.5 bg-sky-500 text-white text-xs rounded hover:bg-sky-600 transition-colors"
                                       >
                                         Edit

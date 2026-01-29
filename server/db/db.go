@@ -95,7 +95,6 @@ func InitDB() error {
 		return err
 	}
 
-	fmt.Println("Database connected successfully!")
 	return nil
 }
 
@@ -148,6 +147,9 @@ func CreateCoursesTable() error {
 			_ = ensureColumnExists("courses", "see_marks", "INT")
 			_ = ensureColumnExists("courses", "total_marks", "INT")
 			_ = ensureColumnExists("courses", "total_hours", "INT")
+			_ = ensureColumnExists("courses", "status", "TINYINT(1) DEFAULT 1")
+			// Set existing NULL status rows to 1 (active)
+			DB.Exec("UPDATE courses SET status = 1 WHERE status IS NULL")
 			return nil
 		}
 	}
@@ -170,6 +172,7 @@ func CreateCoursesTable() error {
 		see_marks INT,
 		total_marks INT,
 		total_hours INT,
+		status TINYINT(1) DEFAULT 1,
 		UNIQUE KEY unique_course_code (course_code)
 	) ENGINE=InnoDB
 	`
@@ -281,7 +284,6 @@ func CreateClusterTables() error {
 		return err
 	}
 
-	fmt.Println("Cluster tables created/verified successfully!")
 	return nil
 }
 
@@ -375,7 +377,6 @@ func CreateDepartmentOverviewTables() error {
 		return err
 	}
 
-	fmt.Println("Department overview tables created/verified successfully!")
 	return nil
 }
 
@@ -390,7 +391,6 @@ func AddVisibilityColumns() error {
 		}
 	}
 
-	fmt.Println("Visibility columns added/verified successfully!")
 	return nil
 }
 
@@ -482,6 +482,11 @@ func CreateNormalizedSyllabusTables() error {
 		}
 	}
 
+	// Ensure status columns exist for tables where we soft-delete
+	_ = ensureColumnExists("course_references", "status", "TINYINT(1) DEFAULT 1")
+	_ = ensureColumnExists("course_outcomes", "status", "TINYINT(1) DEFAULT 1")
+	_ = ensureColumnExists("course_objectives", "status", "TINYINT(1) DEFAULT 1")
+
 	fmt.Println("Normalized syllabus tables created/verified successfully!")
 	return nil
 }
@@ -511,6 +516,7 @@ func CreateSyllabusRelationalTables() error {
 	_ = ensureColumnExists("syllabus", "name", "VARCHAR(255) NOT NULL DEFAULT ''")
 	_ = ensureColumnExists("syllabus", "model_name", "VARCHAR(255) NOT NULL DEFAULT ''")
 	_ = ensureColumnExists("syllabus", "position", "INT DEFAULT 0")
+	_ = ensureColumnExists("syllabus", "status", "TINYINT(1) DEFAULT 1")
 	// Index for filtering by course_id
 	_, _ = DB.Exec("CREATE INDEX IF NOT EXISTS idx_models_course ON syllabus(course_id)")
 	// titles
@@ -532,6 +538,7 @@ func CreateSyllabusRelationalTables() error {
 	_ = ensureColumnExists("syllabus_titles", "title_name", "VARCHAR(512) NOT NULL DEFAULT ''")
 	_ = ensureColumnExists("syllabus_titles", "hours", "INT DEFAULT 0")
 	_ = ensureColumnExists("syllabus_titles", "position", "INT DEFAULT 0")
+	_ = ensureColumnExists("syllabus_titles", "status", "TINYINT(1) DEFAULT 1")
 	_, _ = DB.Exec("CREATE INDEX IF NOT EXISTS idx_titles_model ON syllabus_titles(model_id)")
 	// topics
 	if _, err := DB.Exec(`
@@ -550,6 +557,7 @@ func CreateSyllabusRelationalTables() error {
 	_ = ensureColumnExists("syllabus_topics", "topic", "VARCHAR(1024) NOT NULL DEFAULT ''")
 	_ = ensureColumnExists("syllabus_topics", "content", "TEXT NOT NULL")
 	_ = ensureColumnExists("syllabus_topics", "position", "INT DEFAULT 0")
+	_ = ensureColumnExists("syllabus_topics", "status", "TINYINT(1) DEFAULT 1")
 	_, _ = DB.Exec("CREATE INDEX IF NOT EXISTS idx_topics_title ON syllabus_topics(title_id)")
 	fmt.Println("Syllabus relational tables created/verified successfully!")
 	return nil
@@ -575,7 +583,6 @@ func ensureColumnExists(table, column, colType string) error {
 	if _, err := DB.Exec(alter2); err != nil {
 		return err
 	}
-	fmt.Println("Added column", column, "to", table)
 	return nil
 }
 
@@ -609,8 +616,6 @@ func dropColumnIfExists(table, column string) error {
 
 // AddVisibilitySemestersCourses adds visibility columns to normal_cards and courses tables
 func AddVisibilitySemestersCourses() error {
-	fmt.Println("Adding visibility columns to normal_cards and courses tables...")
-
 	// Add visibility to normal_cards table
 	if err := ensureColumnExists("normal_cards", "visibility", "ENUM('UNIQUE', 'CLUSTER') DEFAULT 'UNIQUE'"); err != nil {
 		return fmt.Errorf("failed to add visibility to normal_cards: %w", err)
@@ -621,14 +626,11 @@ func AddVisibilitySemestersCourses() error {
 		return fmt.Errorf("failed to add visibility to courses: %w", err)
 	}
 
-	fmt.Println("Visibility columns added to normal_cards and courses successfully!")
 	return nil
 }
 
 // AddSourceDepartmentColumns adds source_curriculum_id to track shared item origins
 func AddSourceDepartmentColumns() error {
-	fmt.Println("Adding source_curriculum_id columns to track shared items...")
-
 	// Add to department tables
 	tables := []string{"curriculum_mission", "curriculum_peos", "curriculum_pos", "curriculum_psos"}
 	for _, table := range tables {
@@ -647,14 +649,11 @@ func AddSourceDepartmentColumns() error {
 		return fmt.Errorf("failed to add source_curriculum_id to courses: %w", err)
 	}
 
-	fmt.Println("Source tracking columns added successfully!")
 	return nil
 }
 
 // CreateSharingTrackingTable creates a table to track shared items
 func CreateSharingTrackingTable() error {
-	fmt.Println("Creating sharing tracking table...")
-
 	query := `
 		CREATE TABLE IF NOT EXISTS sharing_tracking (
 			id INT AUTO_INCREMENT PRIMARY KEY,
@@ -674,15 +673,12 @@ func CreateSharingTrackingTable() error {
 		return fmt.Errorf("failed to create sharing_tracking table: %w", err)
 	}
 
-	fmt.Println("Sharing tracking table created successfully!")
 	return nil
 }
 
 // RemoveUniquePositionConstraints removes UNIQUE constraints on (curriculum_id, position)
 // to allow soft deletes - multiple records can have same position if only one has status=1
 func RemoveUniquePositionConstraints() error {
-	fmt.Println("Removing UNIQUE position constraints to support soft deletes...")
-
 	tables := []string{"curriculum_mission", "curriculum_peos", "curriculum_pos", "curriculum_psos"}
 
 	for _, table := range tables {
@@ -718,8 +714,6 @@ func RemoveUniquePositionConstraints() error {
 
 // CreateRegulationTables creates the regulation management tables
 func CreateRegulationTables() error {
-	fmt.Println("Creating regulation management tables...")
-
 	// Create regulations table
 	regulationsTable := `
 		CREATE TABLE IF NOT EXISTS regulations (
@@ -801,7 +795,6 @@ func CreateRegulationTables() error {
 		return fmt.Errorf("failed to create regulation_clause_history table: %w", err)
 	}
 
-	fmt.Println("Regulation management tables created successfully!")
 	return nil
 }
 
@@ -813,8 +806,6 @@ func AddRegulationRefColumns() error {
 
 // CreateHonourCardTables creates tables for honour cards and verticals
 func CreateHonourCardTables() error {
-	fmt.Println("Creating honour card and vertical tables...")
-
 	// Create honour_cards table
 	honourCardsQuery := `
 	CREATE TABLE IF NOT EXISTS honour_cards (
@@ -875,14 +866,11 @@ func CreateHonourCardTables() error {
 		return fmt.Errorf("failed to create honour_vertical_courses table: %w", err)
 	}
 
-	fmt.Println("Honour card and vertical tables created successfully!")
 	return nil
 }
 
 // RenameSemestersToNormalCards renames the semesters table to normal_cards
 func RenameSemestersToNormalCards() error {
-	fmt.Println("Renaming semesters table to normal_cards...")
-
 	// Check if semesters table exists
 	var semestersExists bool
 	err := DB.QueryRow("SELECT COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'semesters'").Scan(&semestersExists)
@@ -907,7 +895,8 @@ func RenameSemestersToNormalCards() error {
 	} else if normalCardsExists {
 		fmt.Println("normal_cards table already exists, skipping rename")
 	} else {
-		fmt.Println("semesters table doesn't exist, skipping rename")
+		// semesters table doesn't exist, nothing to rename
+		return nil
 	}
 
 	return nil
@@ -915,9 +904,7 @@ func RenameSemestersToNormalCards() error {
 
 // AddSemesterNameColumn adds a name column to normal_cards table
 func AddSemesterNameColumn() error {
-	fmt.Println("Adding name and card_type columns to normal_cards table...")
-
-	// Add name column to normal_cards
+	// Add name column to normal_cards	// Add name column to normal_cards
 	if err := ensureColumnExists("normal_cards", "name", "VARCHAR(255) DEFAULT NULL"); err != nil {
 		return fmt.Errorf("failed to add name to normal_cards: %w", err)
 	}
@@ -934,14 +921,11 @@ func AddSemesterNameColumn() error {
 		log.Println("Note: semester_number column modification might have failed (may already be nullable):", err)
 	}
 
-	fmt.Println("Name and card_type columns added to semesters successfully!")
 	return nil
 }
 
 // RemoveNameColumnFromNormalCards drops the name column from normal_cards table
 func RemoveNameColumnFromNormalCards() error {
-	fmt.Println("Removing name column from normal_cards table...")
-
 	// Check if column exists first
 	var columnExists bool
 	err := DB.QueryRow(`

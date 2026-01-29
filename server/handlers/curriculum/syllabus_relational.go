@@ -39,7 +39,7 @@ func GetCourseSyllabusNested(w http.ResponseWriter, r *http.Request) {
 	modelRows, err := db.DB.Query(`
 		SELECT id, course_id, model_name, position 
 		FROM syllabus 
-		WHERE course_id = ? 
+		WHERE course_id = ? AND (status = 1 OR status IS NULL)
 		ORDER BY position, id`, courseID)
 
 	if err != nil {
@@ -59,9 +59,9 @@ func GetCourseSyllabusNested(w http.ResponseWriter, r *http.Request) {
 
 		// 3. Get titles for this model
 		titleRows, err := db.DB.Query(`
-			SELECT id, model_id, title_name, hours, position 
+			SELECT id, model_id, title, hours, position 
 			FROM syllabus_titles 
-			WHERE model_id = ? 
+			WHERE model_id = ? AND (status = 1 OR status IS NULL)
 			ORDER BY position, id`, model.ID)
 
 		if err != nil {
@@ -83,7 +83,7 @@ func GetCourseSyllabusNested(w http.ResponseWriter, r *http.Request) {
 			topicRows, err := db.DB.Query(`
 				SELECT id, title_id, topic, position 
 				FROM syllabus_topics 
-				WHERE title_id = ? 
+				WHERE title_id = ? AND (status = 1 OR status IS NULL)
 				ORDER BY position, id`, title.ID)
 
 			if err != nil {
@@ -121,7 +121,7 @@ func GetCourseSyllabusNested(w http.ResponseWriter, r *http.Request) {
 		expRows, err := db.DB.Query(`
 			SELECT id, course_id, experiment_number, experiment_name, hours
 			FROM course_experiments
-			WHERE course_id = ?
+			WHERE course_id = ? AND status = 1
 			ORDER BY experiment_number`, courseID)
 		if err == nil {
 			defer expRows.Close()
@@ -135,7 +135,7 @@ func GetCourseSyllabusNested(w http.ResponseWriter, r *http.Request) {
 				topicRows, err := db.DB.Query(`
 					SELECT topic_text
 					FROM course_experiment_topics
-					WHERE experiment_id = ?
+					WHERE experiment_id = ? AND status = 1
 					ORDER BY topic_order`, exp.ID)
 				if err != nil {
 					exp.Topics = []string{}
@@ -178,14 +178,17 @@ func CreateModel(w http.ResponseWriter, r *http.Request) {
 		Position  int    `json:"position"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		log.Println("CreateModel decode error:", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
+	log.Printf("DEBUG CreateModel: courseID=%d, ModelName=%s, Position=%d", courseID, body.ModelName, body.Position)
+
 	// Insert model with course_id directly (course-centric design)
 	result, err := db.DB.Exec(`
-		INSERT INTO syllabus (course_id, model_name, name, position) 
-		VALUES (?, ?, ?, ?)`, courseID, body.ModelName, body.ModelName, body.Position)
+		INSERT INTO syllabus (course_id, model_name, name, position, status)
+		VALUES (?, ?, ?, ?, 1)`, courseID, body.ModelName, body.ModelName, body.Position)
 
 	if err != nil {
 		log.Println("CreateModel error:", err)
@@ -194,6 +197,7 @@ func CreateModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	modelID, _ := result.LastInsertId()
+	log.Printf("DEBUG CreateModel: successfully created model with ID=%d", modelID)
 	json.NewEncoder(w).Encode(map[string]int{"id": int(modelID)})
 }
 
@@ -218,7 +222,7 @@ func UpdateModel(w http.ResponseWriter, r *http.Request) {
 	_, err = db.DB.Exec(`
 		UPDATE syllabus 
 		SET model_name = ?, name = ?, position = ? 
-		WHERE id = ?`, body.ModelName, body.ModelName, body.Position, modelID)
+		WHERE id = ? AND (status = 1 OR status IS NULL)`, body.ModelName, body.ModelName, body.Position, modelID)
 
 	if err != nil {
 		log.Println("UpdateModel error:", err)
@@ -238,9 +242,59 @@ func DeleteModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.DB.Exec("DELETE FROM syllabus WHERE id = ?", modelID)
+	tx, err := db.DB.Begin()
 	if err != nil {
-		log.Println("DeleteModel error:", err)
+		log.Println("DeleteModel begin tx error:", err)
+		http.Error(w, "Failed to delete model", http.StatusInternalServerError)
+		return
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Get parent course + current position so we can shift the remaining models
+	var courseID, pos int
+	if err := tx.QueryRow(
+		"SELECT course_id, position FROM syllabus WHERE id = ? AND (status = 1 OR status IS NULL)",
+		modelID,
+	).Scan(&courseID, &pos); err != nil {
+		log.Println("DeleteModel lookup error:", err)
+		http.Error(w, "Failed to delete model", http.StatusInternalServerError)
+		return
+	}
+
+	// Soft delete the model
+	if _, err := tx.Exec("UPDATE syllabus SET status = 0 WHERE id = ? AND (status = 1 OR status IS NULL)", modelID); err != nil {
+		log.Println("DeleteModel soft delete error:", err)
+		http.Error(w, "Failed to delete model", http.StatusInternalServerError)
+		return
+	}
+
+	// Cascade soft delete titles and topics under this model
+	if _, err := tx.Exec("UPDATE syllabus_titles SET status = 0 WHERE model_id = ? AND (status = 1 OR status IS NULL)", modelID); err != nil {
+		log.Println("DeleteModel cascade titles error:", err)
+		http.Error(w, "Failed to delete model", http.StatusInternalServerError)
+		return
+	}
+	if _, err := tx.Exec(
+		"UPDATE syllabus_topics SET status = 0 WHERE title_id IN (SELECT id FROM syllabus_titles WHERE model_id = ?) AND (status = 1 OR status IS NULL)",
+		modelID,
+	); err != nil {
+		log.Println("DeleteModel cascade topics error:", err)
+		http.Error(w, "Failed to delete model", http.StatusInternalServerError)
+		return
+	}
+
+	// Shift positions of remaining active models
+	if _, err := tx.Exec(
+		"UPDATE syllabus SET position = position - 1 WHERE course_id = ? AND position > ? AND (status = 1 OR status IS NULL)",
+		courseID, pos,
+	); err != nil {
+		log.Println("DeleteModel shift positions error:", err)
+		http.Error(w, "Failed to delete model", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Println("DeleteModel commit error:", err)
 		http.Error(w, "Failed to delete model", http.StatusInternalServerError)
 		return
 	}
@@ -267,13 +321,16 @@ func CreateTitle(w http.ResponseWriter, r *http.Request) {
 		Position  int    `json:"position"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		log.Println("CreateTitle decode error:", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
+	log.Printf("DEBUG CreateTitle: modelID=%d, TitleName=%s, Hours=%d, Position=%d", modelID, body.TitleName, body.Hours, body.Position)
+
 	result, err := db.DB.Exec(`
-		INSERT INTO syllabus_titles (model_id, title_name, title, hours, position) 
-		VALUES (?, ?, ?, ?, ?)`, modelID, body.TitleName, body.TitleName, body.Hours, body.Position)
+		INSERT INTO syllabus_titles (model_id, title, hours, position, status)
+		VALUES (?, ?, ?, ?, 1)`, modelID, body.TitleName, body.Hours, body.Position)
 
 	if err != nil {
 		log.Println("CreateTitle error:", err)
@@ -282,6 +339,7 @@ func CreateTitle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	titleID, _ := result.LastInsertId()
+	log.Printf("DEBUG CreateTitle: successfully created title with ID=%d", titleID)
 	json.NewEncoder(w).Encode(map[string]int{"id": int(titleID)})
 }
 
@@ -306,8 +364,8 @@ func UpdateTitle(w http.ResponseWriter, r *http.Request) {
 
 	_, err = db.DB.Exec(`
 		UPDATE syllabus_titles 
-		SET title_name = ?, title = ?, hours = ?, position = ? 
-		WHERE id = ?`, body.TitleName, body.TitleName, body.Hours, body.Position, titleID)
+		SET title = ?, hours = ?, position = ? 
+		WHERE id = ? AND (status = 1 OR status IS NULL)`, body.TitleName, body.Hours, body.Position, titleID)
 
 	if err != nil {
 		log.Println("UpdateTitle error:", err)
@@ -327,9 +385,51 @@ func DeleteTitle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.DB.Exec("DELETE FROM syllabus_titles WHERE id = ?", titleID)
+	tx, err := db.DB.Begin()
 	if err != nil {
-		log.Println("DeleteTitle error:", err)
+		log.Println("DeleteTitle begin tx error:", err)
+		http.Error(w, "Failed to delete title", http.StatusInternalServerError)
+		return
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Get parent model + current position so we can shift remaining titles
+	var modelID, pos int
+	if err := tx.QueryRow(
+		"SELECT model_id, position FROM syllabus_titles WHERE id = ? AND (status = 1 OR status IS NULL)",
+		titleID,
+	).Scan(&modelID, &pos); err != nil {
+		log.Println("DeleteTitle lookup error:", err)
+		http.Error(w, "Failed to delete title", http.StatusInternalServerError)
+		return
+	}
+
+	// Soft delete the title
+	if _, err := tx.Exec("UPDATE syllabus_titles SET status = 0 WHERE id = ? AND (status = 1 OR status IS NULL)", titleID); err != nil {
+		log.Println("DeleteTitle soft delete error:", err)
+		http.Error(w, "Failed to delete title", http.StatusInternalServerError)
+		return
+	}
+
+	// Cascade soft delete topics under this title
+	if _, err := tx.Exec("UPDATE syllabus_topics SET status = 0 WHERE title_id = ? AND (status = 1 OR status IS NULL)", titleID); err != nil {
+		log.Println("DeleteTitle cascade topics error:", err)
+		http.Error(w, "Failed to delete title", http.StatusInternalServerError)
+		return
+	}
+
+	// Shift positions of remaining active titles
+	if _, err := tx.Exec(
+		"UPDATE syllabus_titles SET position = position - 1 WHERE model_id = ? AND position > ? AND (status = 1 OR status IS NULL)",
+		modelID, pos,
+	); err != nil {
+		log.Println("DeleteTitle shift positions error:", err)
+		http.Error(w, "Failed to delete title", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Println("DeleteTitle commit error:", err)
 		http.Error(w, "Failed to delete title", http.StatusInternalServerError)
 		return
 	}
@@ -355,13 +455,16 @@ func CreateTopic(w http.ResponseWriter, r *http.Request) {
 		Position int    `json:"position"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		log.Println("CreateTopic decode error:", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
+	log.Printf("DEBUG CreateTopic: titleID=%d, Topic=%s, Position=%d", titleID, body.Topic, body.Position)
+
 	result, err := db.DB.Exec(`
-		INSERT INTO syllabus_topics (title_id, topic, content, position) 
-		VALUES (?, ?, ?, ?)`, titleID, body.Topic, body.Topic, body.Position)
+		INSERT INTO syllabus_topics (title_id, topic, position, status)
+		VALUES (?, ?, ?, 1)`, titleID, body.Topic, body.Position)
 
 	if err != nil {
 		log.Println("CreateTopic error:", err)
@@ -370,6 +473,7 @@ func CreateTopic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	topicID, _ := result.LastInsertId()
+	log.Printf("DEBUG CreateTopic: successfully created topic with ID=%d", topicID)
 	json.NewEncoder(w).Encode(map[string]int{"id": int(topicID)})
 }
 
@@ -393,8 +497,8 @@ func UpdateTopic(w http.ResponseWriter, r *http.Request) {
 
 	_, err = db.DB.Exec(`
 		UPDATE syllabus_topics 
-		SET topic = ?, content = ?, position = ? 
-		WHERE id = ?`, body.Topic, body.Topic, body.Position, topicID)
+		SET topic = ?, position = ? 
+		WHERE id = ? AND (status = 1 OR status IS NULL)`, body.Topic, body.Position, topicID)
 
 	if err != nil {
 		log.Println("UpdateTopic error:", err)
@@ -414,9 +518,44 @@ func DeleteTopic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.DB.Exec("DELETE FROM syllabus_topics WHERE id = ?", topicID)
+	tx, err := db.DB.Begin()
 	if err != nil {
-		log.Println("DeleteTopic error:", err)
+		log.Println("DeleteTopic begin tx error:", err)
+		http.Error(w, "Failed to delete topic", http.StatusInternalServerError)
+		return
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Get parent title + current position so we can shift remaining topics
+	var titleID, pos int
+	if err := tx.QueryRow(
+		"SELECT title_id, position FROM syllabus_topics WHERE id = ? AND (status = 1 OR status IS NULL)",
+		topicID,
+	).Scan(&titleID, &pos); err != nil {
+		log.Println("DeleteTopic lookup error:", err)
+		http.Error(w, "Failed to delete topic", http.StatusInternalServerError)
+		return
+	}
+
+	// Soft delete topic
+	if _, err := tx.Exec("UPDATE syllabus_topics SET status = 0 WHERE id = ? AND (status = 1 OR status IS NULL)", topicID); err != nil {
+		log.Println("DeleteTopic soft delete error:", err)
+		http.Error(w, "Failed to delete topic", http.StatusInternalServerError)
+		return
+	}
+
+	// Shift positions of remaining active topics
+	if _, err := tx.Exec(
+		"UPDATE syllabus_topics SET position = position - 1 WHERE title_id = ? AND position > ? AND (status = 1 OR status IS NULL)",
+		titleID, pos,
+	); err != nil {
+		log.Println("DeleteTopic shift positions error:", err)
+		http.Error(w, "Failed to delete topic", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Println("DeleteTopic commit error:", err)
 		http.Error(w, "Failed to delete topic", http.StatusInternalServerError)
 		return
 	}

@@ -1748,7 +1748,7 @@ func copySyllabusModels(sourceSyllabusID, targetSyllabusID, sourceCourseID, targ
 func copySyllabusTitles(sourceModelID, targetModelID int) error {
 	// Get all titles from source model
 	rows, err := db.DB.Query(`
-		SELECT id, title_name, title, hours, position
+		SELECT id, title, title, hours, position
 		FROM syllabus_titles
 		WHERE model_id = ?
 		ORDER BY position
@@ -1771,7 +1771,7 @@ func copySyllabusTitles(sourceModelID, targetModelID int) error {
 
 		// Create title in target model
 		result, err := db.DB.Exec(`
-			INSERT INTO syllabus_titles (model_id, title_name, title, hours, position)
+			INSERT INTO syllabus_titles (model_id, title, hours, position)
 			VALUES (?, ?, ?, ?, ?)
 		`, targetModelID, titleName, title, hours, position)
 
@@ -1795,7 +1795,7 @@ func copySyllabusTitles(sourceModelID, targetModelID int) error {
 func copySyllabusTopics(sourceTitleID, targetTitleID int) error {
 	// Get all topics from source title
 	rows, err := db.DB.Query(`
-		SELECT topic, content, position
+		SELECT topic, position
 		FROM syllabus_topics
 		WHERE title_id = ?
 		ORDER BY position
@@ -1807,19 +1807,19 @@ func copySyllabusTopics(sourceTitleID, targetTitleID int) error {
 	defer rows.Close()
 
 	for rows.Next() {
-		var topic, content sql.NullString
+		var topic sql.NullString
 		var position int
 
-		if err := rows.Scan(&topic, &content, &position); err != nil {
+		if err := rows.Scan(&topic, &position); err != nil {
 			log.Printf("Error scanning topic: %v\\n", err)
 			continue
 		}
 
 		// Create topic in target title
 		_, err := db.DB.Exec(`
-			INSERT INTO syllabus_topics (title_id, topic, content, position)
-			VALUES (?, ?, ?, ?)
-		`, targetTitleID, topic, content, position)
+			INSERT INTO syllabus_topics (title_id, topic, position)
+			VALUES (?, ?, ?)
+		`, targetTitleID, topic, position)
 
 		if err != nil {
 			log.Printf("Error creating topic: %v\\n", err)

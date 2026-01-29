@@ -5,6 +5,7 @@ import (
 	"log"
 	"server/db"
 	"server/models"
+	"strings"
 )
 
 // Helper functions for normalized syllabus data access
@@ -15,7 +16,7 @@ func fetchObjectives(courseID int) ([]string, error) {
 	rows, err := db.DB.Query(`
 		SELECT objective 
 		FROM course_objectives 
-		WHERE course_id = ? 
+		WHERE course_id = ? AND (status = 1 OR status IS NULL)
 		ORDER BY position`, courseID)
 	if err != nil {
 		return []string{}, err
@@ -37,7 +38,7 @@ func fetchOutcomes(courseID int) ([]string, error) {
 	rows, err := db.DB.Query(`
 		SELECT outcome 
 		FROM course_outcomes 
-		WHERE course_id = ? 
+		WHERE course_id = ? AND (status = 1 OR status IS NULL)
 		ORDER BY position`, courseID)
 	if err != nil {
 		return []string{}, err
@@ -59,7 +60,7 @@ func fetchReferences(courseID int) ([]string, error) {
 	rows, err := db.DB.Query(`
 		SELECT reference_text 
 		FROM course_references 
-		WHERE course_id = ? 
+		WHERE course_id = ? AND (status = 1 OR status IS NULL)
 		ORDER BY position`, courseID)
 	if err != nil {
 		return []string{}, err
@@ -203,70 +204,469 @@ func fetchSelfLearning(courseID int) (*models.SelfLearning, error) {
 
 // saveObjectives saves objectives for a course, replacing existing ones
 func saveObjectives(courseID int, objectives []string) error {
-	// Delete existing
-	_, err := db.DB.Exec("DELETE FROM course_objectives WHERE course_id = ?", courseID)
+	log.Printf("DEBUG saveObjectives: courseID=%d, count=%d", courseID, len(objectives))
+
+	// Normalize input (keep order; skip empty)
+	incoming := make([]string, 0, len(objectives))
+	for _, o := range objectives {
+		norm := strings.TrimSpace(o)
+		if norm == "" {
+			continue
+		}
+		incoming = append(incoming, norm)
+	}
+
+	tx, err := db.DB.Begin()
 	if err != nil {
+		log.Printf("ERROR saveObjectives begin tx: %v", err)
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	type existingObjective struct {
+		ID       int
+		Text     string
+		Position int
+	}
+
+	existing := make([]existingObjective, 0)
+	rows, err := tx.Query(`
+		SELECT id, objective, position
+		FROM course_objectives
+		WHERE course_id = ? AND (status = 1 OR status IS NULL)
+		ORDER BY position, id`, courseID)
+	if err != nil {
+		log.Printf("ERROR saveObjectives load existing: %v", err)
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var o existingObjective
+		if err := rows.Scan(&o.ID, &o.Text, &o.Position); err == nil {
+			existing = append(existing, o)
+		}
+	}
+
+	// Case 1: edit-only (same count) => update same records by index
+	if len(incoming) == len(existing) {
+		for i := range incoming {
+			if _, err := tx.Exec(
+				"UPDATE course_objectives SET objective = ?, position = ?, status = 1 WHERE id = ?",
+				incoming[i], i, existing[i].ID,
+			); err != nil {
+				log.Printf("ERROR saveObjectives update id=%d: %v", existing[i].ID, err)
+				return err
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			log.Printf("ERROR saveObjectives commit: %v", err)
+			return err
+		}
+		log.Printf("DEBUG saveObjectives: updated %d objectives (edit-only)", len(incoming))
+		return nil
+	}
+
+	// Case 2: add/remove => diff by text, shift positions without overwriting texts
+	existingTexts := make([]string, 0, len(existing))
+	for _, o := range existing {
+		existingTexts = append(existingTexts, strings.TrimSpace(o.Text))
+	}
+	n := len(existingTexts)
+	m := len(incoming)
+	dp := make([][]int, n+1)
+	for i := range dp {
+		dp[i] = make([]int, m+1)
+	}
+	for i := 1; i <= n; i++ {
+		for j := 1; j <= m; j++ {
+			if existingTexts[i-1] == incoming[j-1] {
+				dp[i][j] = dp[i-1][j-1] + 1
+			} else {
+				if dp[i-1][j] >= dp[i][j-1] {
+					dp[i][j] = dp[i-1][j]
+				} else {
+					dp[i][j] = dp[i][j-1]
+				}
+			}
+		}
+	}
+
+	matchedExisting := make(map[int]int)
+	matchedIncoming := make(map[int]bool)
+	i := n
+	j := m
+	for i > 0 && j > 0 {
+		if existingTexts[i-1] == incoming[j-1] {
+			matchedExisting[i-1] = j - 1
+			matchedIncoming[j-1] = true
+			i--
+			j--
+		} else if dp[i-1][j] >= dp[i][j-1] {
+			i--
+		} else {
+			j--
+		}
+	}
+
+	// Soft delete removed
+	for idx, o := range existing {
+		if _, ok := matchedExisting[idx]; !ok {
+			if _, err := tx.Exec("UPDATE course_objectives SET status = 0 WHERE id = ?", o.ID); err != nil {
+				log.Printf("ERROR saveObjectives soft delete id=%d: %v", o.ID, err)
+				return err
+			}
+		}
+	}
+
+	// Avoid unique(course_id,position) collisions while shifting positions
+	if _, err := tx.Exec(
+		"UPDATE course_objectives SET position = position + 10000 WHERE course_id = ? AND (status = 1 OR status IS NULL)",
+		courseID,
+	); err != nil {
+		log.Printf("ERROR saveObjectives temp bump: %v", err)
 		return err
 	}
 
-	// Insert new ones with position
-	for i, text := range objectives {
-		if text == "" {
-			continue
-		}
-		_, err := db.DB.Exec(`
-			INSERT INTO course_objectives (course_id, objective, position) 
-			VALUES (?, ?, ?)`, courseID, text, i)
-		if err != nil {
+	// Shift kept objectives (position only)
+	for oldIdx, newIdx := range matchedExisting {
+		id := existing[oldIdx].ID
+		if _, err := tx.Exec("UPDATE course_objectives SET position = ?, status = 1 WHERE id = ?", newIdx, id); err != nil {
+			log.Printf("ERROR saveObjectives shift id=%d: %v", id, err)
 			return err
 		}
 	}
+
+	// Insert new objectives
+	for idx, text := range incoming {
+		if matchedIncoming[idx] {
+			continue
+		}
+		if _, err := tx.Exec(
+			"INSERT INTO course_objectives (course_id, objective, position, status) VALUES (?, ?, ?, 1)",
+			courseID, text, idx,
+		); err != nil {
+			log.Printf("ERROR saveObjectives insert position=%d: %v", idx, err)
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("ERROR saveObjectives commit: %v", err)
+		return err
+	}
+	log.Printf("DEBUG saveObjectives: successfully saved %d objectives", len(incoming))
 	return nil
 }
 
 // saveOutcomes saves outcomes for a course, replacing existing ones
 func saveOutcomes(courseID int, outcomes []string) error {
-	// Delete existing
-	_, err := db.DB.Exec("DELETE FROM course_outcomes WHERE course_id = ?", courseID)
+	log.Printf("DEBUG saveOutcomes: courseID=%d, count=%d", courseID, len(outcomes))
+
+	// Normalize input (keep order; skip empty)
+	incoming := make([]string, 0, len(outcomes))
+	for _, o := range outcomes {
+		norm := strings.TrimSpace(o)
+		if norm == "" {
+			continue
+		}
+		incoming = append(incoming, norm)
+	}
+
+	tx, err := db.DB.Begin()
 	if err != nil {
+		log.Printf("ERROR saveOutcomes begin tx: %v", err)
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	type existingOutcome struct {
+		ID       int
+		Text     string
+		Position int
+	}
+
+	existing := make([]existingOutcome, 0)
+	rows, err := tx.Query(`
+		SELECT id, outcome, position
+		FROM course_outcomes
+		WHERE course_id = ? AND (status = 1 OR status IS NULL)
+		ORDER BY position, id`, courseID)
+	if err != nil {
+		log.Printf("ERROR saveOutcomes load existing: %v", err)
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var o existingOutcome
+		if err := rows.Scan(&o.ID, &o.Text, &o.Position); err == nil {
+			existing = append(existing, o)
+		}
+	}
+
+	// Case 1: edit-only (same count) => update same records by index
+	if len(incoming) == len(existing) {
+		for i := range incoming {
+			if _, err := tx.Exec(
+				"UPDATE course_outcomes SET outcome = ?, position = ?, status = 1 WHERE id = ?",
+				incoming[i], i, existing[i].ID,
+			); err != nil {
+				log.Printf("ERROR saveOutcomes update id=%d: %v", existing[i].ID, err)
+				return err
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			log.Printf("ERROR saveOutcomes commit: %v", err)
+			return err
+		}
+		log.Printf("DEBUG saveOutcomes: updated %d outcomes (edit-only)", len(incoming))
+		return nil
+	}
+
+	// Case 2: add/remove => diff by text, shift positions without overwriting texts
+	existingTexts := make([]string, 0, len(existing))
+	for _, o := range existing {
+		existingTexts = append(existingTexts, strings.TrimSpace(o.Text))
+	}
+	n := len(existingTexts)
+	m := len(incoming)
+	dp := make([][]int, n+1)
+	for i := range dp {
+		dp[i] = make([]int, m+1)
+	}
+	for i := 1; i <= n; i++ {
+		for j := 1; j <= m; j++ {
+			if existingTexts[i-1] == incoming[j-1] {
+				dp[i][j] = dp[i-1][j-1] + 1
+			} else {
+				if dp[i-1][j] >= dp[i][j-1] {
+					dp[i][j] = dp[i-1][j]
+				} else {
+					dp[i][j] = dp[i][j-1]
+				}
+			}
+		}
+	}
+
+	matchedExisting := make(map[int]int)
+	matchedIncoming := make(map[int]bool)
+	i := n
+	j := m
+	for i > 0 && j > 0 {
+		if existingTexts[i-1] == incoming[j-1] {
+			matchedExisting[i-1] = j - 1
+			matchedIncoming[j-1] = true
+			i--
+			j--
+		} else if dp[i-1][j] >= dp[i][j-1] {
+			i--
+		} else {
+			j--
+		}
+	}
+
+	// Soft delete removed
+	for idx, o := range existing {
+		if _, ok := matchedExisting[idx]; !ok {
+			if _, err := tx.Exec("UPDATE course_outcomes SET status = 0 WHERE id = ?", o.ID); err != nil {
+				log.Printf("ERROR saveOutcomes soft delete id=%d: %v", o.ID, err)
+				return err
+			}
+		}
+	}
+
+	// Avoid unique(course_id,position) collisions while shifting positions
+	if _, err := tx.Exec(
+		"UPDATE course_outcomes SET position = position + 10000 WHERE course_id = ? AND (status = 1 OR status IS NULL)",
+		courseID,
+	); err != nil {
+		log.Printf("ERROR saveOutcomes temp bump: %v", err)
 		return err
 	}
 
-	// Insert new ones with position
-	for i, text := range outcomes {
-		if text == "" {
-			continue
-		}
-		_, err := db.DB.Exec(`
-			INSERT INTO course_outcomes (course_id, outcome, position) 
-			VALUES (?, ?, ?)`, courseID, text, i)
-		if err != nil {
+	// Shift kept outcomes (position only)
+	for oldIdx, newIdx := range matchedExisting {
+		id := existing[oldIdx].ID
+		if _, err := tx.Exec("UPDATE course_outcomes SET position = ?, status = 1 WHERE id = ?", newIdx, id); err != nil {
+			log.Printf("ERROR saveOutcomes shift id=%d: %v", id, err)
 			return err
 		}
 	}
+
+	// Insert new outcomes
+	for idx, text := range incoming {
+		if matchedIncoming[idx] {
+			continue
+		}
+		if _, err := tx.Exec(
+			"INSERT INTO course_outcomes (course_id, outcome, position, status) VALUES (?, ?, ?, 1)",
+			courseID, text, idx,
+		); err != nil {
+			log.Printf("ERROR saveOutcomes insert position=%d: %v", idx, err)
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("ERROR saveOutcomes commit: %v", err)
+		return err
+	}
+	log.Printf("DEBUG saveOutcomes: successfully saved %d outcomes", len(incoming))
 	return nil
 }
 
 // saveReferences saves references for a course, replacing existing ones
 func saveReferences(courseID int, references []string) error {
-	// Delete existing
-	_, err := db.DB.Exec("DELETE FROM course_references WHERE course_id = ?", courseID)
+	log.Printf("DEBUG saveReferences: courseID=%d, count=%d", courseID, len(references))
+
+	// Normalize input (keep order; skip empty)
+	incoming := make([]string, 0, len(references))
+	for _, r := range references {
+		norm := strings.TrimSpace(r)
+		if norm == "" {
+			continue
+		}
+		incoming = append(incoming, norm)
+	}
+
+	tx, err := db.DB.Begin()
 	if err != nil {
+		log.Printf("ERROR saveReferences begin tx: %v", err)
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	type existingRef struct {
+		ID       int
+		Text     string
+		Position int
+	}
+
+	existing := make([]existingRef, 0)
+	rows, err := tx.Query(`
+		SELECT id, reference_text, position
+		FROM course_references
+		WHERE course_id = ? AND (status = 1 OR status IS NULL)
+		ORDER BY position, id`, courseID)
+	if err != nil {
+		log.Printf("ERROR saveReferences load existing: %v", err)
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r existingRef
+		if err := rows.Scan(&r.ID, &r.Text, &r.Position); err == nil {
+			existing = append(existing, r)
+		}
+	}
+
+	// Case 1: edit-only (same count) => update same records by index
+	if len(incoming) == len(existing) {
+		for i := range incoming {
+			if _, err := tx.Exec(
+				"UPDATE course_references SET reference_text = ?, position = ?, status = 1 WHERE id = ?",
+				incoming[i], i, existing[i].ID,
+			); err != nil {
+				log.Printf("ERROR saveReferences update id=%d: %v", existing[i].ID, err)
+				return err
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			log.Printf("ERROR saveReferences commit: %v", err)
+			return err
+		}
+		log.Printf("DEBUG saveReferences: updated %d references (edit-only)", len(incoming))
+		return nil
+	}
+
+	// Case 2: add/remove => diff by text, shift positions without overwriting texts
+	existingTexts := make([]string, 0, len(existing))
+	for _, r := range existing {
+		existingTexts = append(existingTexts, strings.TrimSpace(r.Text))
+	}
+	n := len(existingTexts)
+	m := len(incoming)
+	dp := make([][]int, n+1)
+	for i := range dp {
+		dp[i] = make([]int, m+1)
+	}
+	for i := 1; i <= n; i++ {
+		for j := 1; j <= m; j++ {
+			if existingTexts[i-1] == incoming[j-1] {
+				dp[i][j] = dp[i-1][j-1] + 1
+			} else {
+				if dp[i-1][j] >= dp[i][j-1] {
+					dp[i][j] = dp[i-1][j]
+				} else {
+					dp[i][j] = dp[i][j-1]
+				}
+			}
+		}
+	}
+
+	matchedExisting := make(map[int]int)
+	matchedIncoming := make(map[int]bool)
+	i := n
+	j := m
+	for i > 0 && j > 0 {
+		if existingTexts[i-1] == incoming[j-1] {
+			matchedExisting[i-1] = j - 1
+			matchedIncoming[j-1] = true
+			i--
+			j--
+		} else if dp[i-1][j] >= dp[i][j-1] {
+			i--
+		} else {
+			j--
+		}
+	}
+
+	// Soft delete removed
+	for idx, r := range existing {
+		if _, ok := matchedExisting[idx]; !ok {
+			if _, err := tx.Exec("UPDATE course_references SET status = 0 WHERE id = ?", r.ID); err != nil {
+				log.Printf("ERROR saveReferences soft delete id=%d: %v", r.ID, err)
+				return err
+			}
+		}
+	}
+
+	// Avoid unique(course_id,position) collisions while shifting positions
+	if _, err := tx.Exec(
+		"UPDATE course_references SET position = position + 10000 WHERE course_id = ? AND (status = 1 OR status IS NULL)",
+		courseID,
+	); err != nil {
+		log.Printf("ERROR saveReferences temp bump: %v", err)
 		return err
 	}
 
-	// Insert new ones with position
-	for i, text := range references {
-		if text == "" {
-			continue
-		}
-		_, err := db.DB.Exec(`
-			INSERT INTO course_references (course_id, reference_text, position) 
-			VALUES (?, ?, ?)`, courseID, text, i)
-		if err != nil {
+	// Shift kept refs (position only)
+	for oldIdx, newIdx := range matchedExisting {
+		id := existing[oldIdx].ID
+		if _, err := tx.Exec("UPDATE course_references SET position = ?, status = 1 WHERE id = ?", newIdx, id); err != nil {
+			log.Printf("ERROR saveReferences shift id=%d: %v", id, err)
 			return err
 		}
 	}
+
+	// Insert new refs
+	for idx, text := range incoming {
+		if matchedIncoming[idx] {
+			continue
+		}
+		if _, err := tx.Exec(
+			"INSERT INTO course_references (course_id, reference_text, position, status) VALUES (?, ?, ?, 1)",
+			courseID, text, idx,
+		); err != nil {
+			log.Printf("ERROR saveReferences insert position=%d: %v", idx, err)
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("ERROR saveReferences commit: %v", err)
+		return err
+	}
+	log.Printf("DEBUG saveReferences: successfully saved %d references", len(incoming))
 	return nil
 }
 

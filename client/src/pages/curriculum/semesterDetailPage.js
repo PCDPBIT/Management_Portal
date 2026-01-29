@@ -165,8 +165,8 @@ function SemesterDetailPage() {
         practical_hrs: practicalHrs,
         activity_hrs: activityHrs,
         tw_sl_hrs: parseInt(newCourse.tw_sl_hrs) || 0,
-        cia_marks: parseInt(newCourse.cia_marks) || 40,
-        see_marks: parseInt(newCourse.see_marks) || 60
+        cia_marks: newCourse.cia_marks !== '' && newCourse.cia_marks !== null && newCourse.cia_marks !== undefined ? parseInt(newCourse.cia_marks) : 40,
+        see_marks: newCourse.see_marks !== '' && newCourse.see_marks !== null && newCourse.see_marks !== undefined ? parseInt(newCourse.see_marks) : 60
       }
       
       // Calculate total hours based on course type
@@ -256,8 +256,8 @@ function SemesterDetailPage() {
       practical_hrs: course.practical_hrs || 0,
       activity_hrs: course.activity_hrs || 0,
       tw_sl_hrs: course.tw_sl_hrs || 0,
-      cia_marks: course.cia_marks || 40,
-      see_marks: course.see_marks || 60,
+      cia_marks: course.cia_marks !== null && course.cia_marks !== undefined ? course.cia_marks : 40,
+      see_marks: course.see_marks !== null && course.see_marks !== undefined ? course.see_marks : 60,
       theory_hours: course.theory_total_hrs || 0,
       tutorial_hours: course.tutorial_total_hrs || 0,
       practical_hours: course.practical_total_hrs || 0,
@@ -291,8 +291,8 @@ function SemesterDetailPage() {
         practical_hrs: practicalHrs,
         activity_hrs: activityHrs,
         tw_sl_hrs: parseInt(editCourseData.tw_sl_hrs) || 0,
-        cia_marks: parseInt(editCourseData.cia_marks) || 40,
-        see_marks: parseInt(editCourseData.see_marks) || 60
+        cia_marks: editCourseData.cia_marks !== '' && editCourseData.cia_marks !== null && editCourseData.cia_marks !== undefined ? parseInt(editCourseData.cia_marks) : 40,
+        see_marks: editCourseData.see_marks !== '' && editCourseData.see_marks !== null && editCourseData.see_marks !== undefined ? parseInt(editCourseData.see_marks) : 60
       }
       
       // Calculate total hours based on course type (for 2026 template, auto-calculate; for 2022, use manual inputs)
