@@ -249,7 +249,7 @@ func DeleteRegulation(w http.ResponseWriter, r *http.Request) {
 
 	// Soft-delete all courses and their children
 	for courseID := range courseIDsMap {
-		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE id = ? AND status = 1", courseID)
 		if err != nil {
 			log.Printf("Error soft-deleting course %d: %v", courseID, err)
 			w.WriteHeader(http.StatusInternalServerError)

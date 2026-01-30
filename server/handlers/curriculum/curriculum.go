@@ -296,7 +296,7 @@ func DeleteSemester(w http.ResponseWriter, r *http.Request) {
 
 	// Soft-delete each course and cascade to its children
 	for _, courseID := range courseIDs {
-		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE id = ? AND status = 1", courseID)
 		if err != nil {
 			log.Println("Error soft-deleting course:", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -347,14 +347,14 @@ func GetSemesterCourses(w http.ResponseWriter, r *http.Request) {
 	curriculumTemplate := getCurriculumTemplateByRegulation(curriculumID)
 
 	query := `
-		SELECT c.course_id, c.course_code, c.course_name, c.course_type, c.category, c.credit, 
+		SELECT c.id, c.course_code, c.course_name, c.course_type, c.category, c.credit, 
 		       c.lecture_hrs, c.tutorial_hrs, c.practical_hrs, c.activity_hrs, COALESCE(c.` + "`tw/sl`" + `, 0) as tw_sl,
 		       COALESCE(c.theory_total_hrs, 0), COALESCE(c.tutorial_total_hrs, 0), COALESCE(c.practical_total_hrs, 0), COALESCE(c.activity_total_hrs, 0), COALESCE(c.total_hrs, 0),
 		       c.cia_marks, c.see_marks, c.total_marks,
 		       rc.id as reg_course_id,
 		       COALESCE(rc.count_towards_limit, 1) as count_towards_limit
 		FROM courses c
-		INNER JOIN curriculum_courses rc ON c.course_id = rc.course_id
+		INNER JOIN curriculum_courses rc ON c.id = rc.course_id
 		WHERE rc.curriculum_id = ? AND rc.semester_id = ? AND c.status = 1
 		ORDER BY c.course_code
 	`
@@ -457,7 +457,7 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 		// Calculate current total credits for this curriculum (across all semester cards with count_towards_limit=true)
 		var currentCredits sql.NullInt64
 		creditQuery := `SELECT SUM(c.credit) FROM courses c 
-		                INNER JOIN curriculum_courses cc ON c.course_id = cc.course_id 
+		                INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
 		                INNER JOIN normal_cards nc ON cc.semester_id = nc.id
 		                WHERE cc.curriculum_id = ? 
 		                AND nc.card_type = 'semester'
@@ -500,8 +500,8 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 
 	// Check if course code already exists in this curriculum
 	var existingCourseID int
-	checkQuery := `SELECT c.course_id FROM courses c 
-	               INNER JOIN curriculum_courses cc ON c.course_id = cc.course_id 
+	checkQuery := `SELECT c.id FROM courses c 
+	               INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
 	               WHERE c.course_code = ? AND cc.curriculum_id = ?`
 	err = db.DB.QueryRow(checkQuery, course.CourseCode, curriculumID).Scan(&existingCourseID)
 
@@ -510,7 +510,7 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 	if err == sql.ErrNoRows {
 		// Course code doesn't exist in this curriculum, check if it exists globally
 		var globalCourseID int
-		globalCheckQuery := "SELECT course_id FROM courses WHERE course_code = ?"
+		globalCheckQuery := "SELECT id FROM courses WHERE course_code = ?"
 		globalErr := db.DB.QueryRow(globalCheckQuery, course.CourseCode).Scan(&globalCourseID)
 
 		if globalErr == sql.ErrNoRows {
@@ -542,7 +542,7 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 			// Course exists globally but not in this curriculum - reuse the existing course
 			courseID = globalCourseID
 			// Reactivate the course if it was soft-deleted
-			db.DB.Exec("UPDATE courses SET status = 1 WHERE course_id = ?", globalCourseID)
+			db.DB.Exec("UPDATE courses SET status = 1 WHERE id = ?", globalCourseID)
 			wasReused = true
 			log.Printf("Reusing existing course %s (ID: %d) for curriculum %d", course.CourseCode, globalCourseID, curriculumID)
 		}
@@ -574,11 +574,11 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch the complete course details including computed fields
 	var fullCourse models.CourseWithDetails
-	fetchQuery := `SELECT course_id, course_code, course_name, course_type, category, credit, 
+	fetchQuery := `SELECT id, course_code, course_name, course_type, category, credit, 
 	               lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, COALESCE(` + "`tw/sl`" + `, 0) as tw_sl,
 	               COALESCE(theory_total_hrs, 0), COALESCE(tutorial_total_hrs, 0), COALESCE(practical_total_hrs, 0), COALESCE(activity_total_hrs, 0), COALESCE(total_hrs, 0),
 	               cia_marks, see_marks, total_marks 
-	               FROM courses WHERE course_id = ?`
+	               FROM courses WHERE id = ?`
 	err = db.DB.QueryRow(fetchQuery, courseID).Scan(&fullCourse.CourseID, &fullCourse.CourseCode, &fullCourse.CourseName,
 		&fullCourse.CourseType, &fullCourse.Category, &fullCourse.Credit,
 		&fullCourse.LectureHrs, &fullCourse.TutorialHrs, &fullCourse.PracticalHrs, &fullCourse.ActivityHrs, &fullCourse.TwSlHrs,
@@ -672,10 +672,10 @@ func RemoveCourseFromSemester(w http.ResponseWriter, r *http.Request) {
 
 	// Get course name for logging
 	var courseName string
-	db.DB.QueryRow("SELECT course_name FROM courses WHERE course_id = ?", courseID).Scan(&courseName)
+	db.DB.QueryRow("SELECT course_name FROM courses WHERE id = ?", courseID).Scan(&courseName)
 
 	// Soft-delete the course (keep the mapping intact)
-	result, err := db.DB.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+	result, err := db.DB.Exec("UPDATE courses SET status = 0 WHERE id = ? AND status = 1", courseID)
 	if err != nil {
 		log.Println("Error soft-deleting course:", err)
 		w.WriteHeader(http.StatusInternalServerError)

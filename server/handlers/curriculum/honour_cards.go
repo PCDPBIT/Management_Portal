@@ -83,17 +83,15 @@ func fetchVerticalsForCard(honourCardID int) []models.HonourVerticalWithCourses 
 
 // fetchCoursesForVertical retrieves all courses for a given vertical
 func fetchCoursesForVertical(verticalID int) []models.CourseWithDetails {
-	query := `
-		SELECT c.course_id, c.course_code, c.course_name, c.course_type, c.category, 
-		       c.credit, c.lecture_hrs, c.tutorial_hrs, c.practical_hrs, c.activity_hrs, COALESCE(c.` + "`tw/sl`" + `, 0) as tw_sl,
-		       COALESCE(c.theory_total_hrs, 0), COALESCE(c.tutorial_total_hrs, 0), COALESCE(c.practical_total_hrs, 0), COALESCE(c.activity_total_hrs, 0), COALESCE(c.total_hrs, 0),
-		       c.cia_marks, c.see_marks, c.total_marks,
-		       hvc.id as honour_vertical_course_id
+	query := `SELECT c.id, c.course_code, c.course_name, c.course_type, c.category, 
+	       c.credit, c.lecture_hrs, c.tutorial_hrs, c.practical_hrs, c.activity_hrs, COALESCE(c.` + "`tw/sl`" + `, 0) as tw_sl,
+	       COALESCE(c.theory_total_hrs, 0), COALESCE(c.tutorial_total_hrs, 0), COALESCE(c.practical_total_hrs, 0), COALESCE(c.activity_total_hrs, 0), COALESCE(c.total_hrs, 0),
+	       c.cia_marks, c.see_marks, c.total_marks,
+	       hvc.id as honour_vertical_course_id
 		FROM courses c
-		INNER JOIN honour_vertical_courses hvc ON c.course_id = hvc.course_id
+		INNER JOIN honour_vertical_courses hvc ON c.id = hvc.course_id
 		WHERE hvc.honour_vertical_id = ? AND hvc.status = 1 AND c.status = 1
-		ORDER BY c.course_code
-	`
+		ORDER BY c.course_code`
 	rows, err := db.DB.Query(query, verticalID)
 	if err != nil {
 		log.Println("Error querying courses for vertical:", err)
@@ -290,7 +288,7 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 	if payload.CourseID != nil && *payload.CourseID > 0 {
 		// Legacy path: link an existing course by ID
 		var exists bool
-		checkQuery := "SELECT EXISTS(SELECT 1 FROM courses WHERE course_id = ?)"
+		checkQuery := "SELECT EXISTS(SELECT 1 FROM courses WHERE id = ?)"
 		err = db.DB.QueryRow(checkQuery, *payload.CourseID).Scan(&exists)
 		if err != nil || !exists {
 			w.WriteHeader(http.StatusNotFound)
@@ -314,23 +312,23 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 
 		// Check if course code already exists in this curriculum
 		var existingCourseID int
-		checkQuery := `SELECT c.course_id FROM courses c 
-		               INNER JOIN curriculum_courses cc ON c.course_id = cc.course_id 
+		checkQuery := `SELECT c.id FROM courses c 
+		               INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
 		               WHERE c.course_code = ? AND cc.curriculum_id = ?`
 		err = db.DB.QueryRow(checkQuery, payload.CourseCode, curriculumID).Scan(&existingCourseID)
 
 		if err == sql.ErrNoRows {
 			// Course code doesn't exist in this curriculum, check if it exists globally
 			var globalCourseID int
-			globalCheckQuery := "SELECT course_id FROM courses WHERE course_code = ?"
+			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ?"
 			globalErr := db.DB.QueryRow(globalCheckQuery, payload.CourseCode).Scan(&globalCourseID)
 
 			if globalErr == sql.ErrNoRows {
 				// Course doesn't exist globally - create new course
-				insertCourseQuery := `INSERT INTO courses (course_code, course_name, course_type, category, credit,
+				insertCourseQuery := `INSERT INTO courses (course_code, course_name, course_type, category, credit, 
 					lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, ` + "`tw/sl`" + `,
-					theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs,
-					cia_marks, see_marks, status)
+					theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs, 
+					cia_marks, see_marks, status) 
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
 				result, err := db.DB.Exec(insertCourseQuery,
 					payload.CourseCode,
@@ -368,7 +366,7 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 				courseID = globalCourseID
 				wasReused = true
 				// Reactivate the course if it was soft-deleted
-				db.DB.Exec("UPDATE courses SET status = 1 WHERE course_id = ?", globalCourseID)
+				db.DB.Exec("UPDATE courses SET status = 1 WHERE id = ?", globalCourseID)
 				log.Printf("Reusing existing course %s (ID: %d) for honour vertical curriculum %d", payload.CourseCode, globalCourseID, curriculumID)
 			}
 		} else if err != nil {
@@ -400,11 +398,11 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch the complete course details including computed fields (matching normal card behavior)
 	var fullCourse models.CourseWithDetails
-	fetchQuery := `SELECT course_id, course_code, course_name, course_type, category, credit, 
+	fetchQuery := `SELECT id, course_code, course_name, course_type, category, credit, 
 	               lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, COALESCE(` + "`tw/sl`" + `, 0) as tw_sl,
 	               COALESCE(theory_total_hrs, 0), COALESCE(tutorial_total_hrs, 0), COALESCE(practical_total_hrs, 0), COALESCE(activity_total_hrs, 0), COALESCE(total_hrs, 0),
 	               cia_marks, see_marks, total_marks 
-	               FROM courses WHERE course_id = ?`
+	               FROM courses WHERE id = ?`
 	err = db.DB.QueryRow(fetchQuery, courseID).Scan(&fullCourse.CourseID, &fullCourse.CourseCode, &fullCourse.CourseName,
 		&fullCourse.CourseType, &fullCourse.Category, &fullCourse.Credit,
 		&fullCourse.LectureHrs, &fullCourse.TutorialHrs, &fullCourse.PracticalHrs, &fullCourse.ActivityHrs, &fullCourse.TwSlHrs,
@@ -522,7 +520,7 @@ func RemoveCourseFromVertical(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Soft-delete the course itself
-	_, err = db.DB.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+	_, err = db.DB.Exec("UPDATE courses SET status = 0 WHERE id = ? AND status = 1", courseID)
 	if err != nil {
 		log.Println("Error soft-deleting course:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -621,7 +619,7 @@ func DeleteHonourVertical(w http.ResponseWriter, r *http.Request) {
 	rows.Close()
 
 	for _, courseID := range courseIDs {
-		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE id = ? AND status = 1", courseID)
 		if err != nil {
 			log.Println("Error soft-deleting course:", err)
 			w.WriteHeader(http.StatusInternalServerError)
