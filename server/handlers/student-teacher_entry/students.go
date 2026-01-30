@@ -19,7 +19,7 @@ func GetStudents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	query := `
 			SELECT 
-				student_id, 
+				id, 
 				COALESCE(enrollment_no, ''), 
 				COALESCE(register_no, ''), 
 				COALESCE(dte_reg_no, ''), 
@@ -45,7 +45,7 @@ func GetStudents(w http.ResponseWriter, r *http.Request) {
 				COALESCE(status, 1)
 			FROM students
 			WHERE status = 1
-			ORDER BY student_id DESC
+			ORDER BY id DESC
 		`
 
 	rows, err := db.DB.Query(query)
@@ -96,7 +96,7 @@ func GetStudent(w http.ResponseWriter, r *http.Request) {
 	// 1. Fetch Basic Details
 	query := `
 			SELECT 
-				student_id, 
+				id, 
 				COALESCE(enrollment_no, ''), 
 				COALESCE(register_no, ''), 
 				COALESCE(dte_reg_no, ''), 
@@ -121,7 +121,7 @@ func GetStudent(w http.ResponseWriter, r *http.Request) {
 				COALESCE(parent_income, 0), 
 				COALESCE(status, 1)
 			FROM students
-			WHERE student_id = ?
+			WHERE id = ?
 		`
 
 	var student models.Student
@@ -565,7 +565,7 @@ func UpdateStudent(w http.ResponseWriter, r *http.Request) {
 
 	// First, verify the student exists
 	var exists bool
-	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM students WHERE student_id = ?)", studentIDInt).Scan(&exists)
+	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM students WHERE id = ?)", studentIDInt).Scan(&exists)
 	if err != nil {
 		log.Printf("Error checking if student exists: %v", err)
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -603,7 +603,7 @@ func UpdateStudent(w http.ResponseWriter, r *http.Request) {
             mother_tongue = ?, blood_group = ?, aadhar_no = ?,
             parent_occupation = ?, designation = ?, place_of_work = ?,
             parent_income = ?
-        WHERE student_id = ?
+        WHERE id = ?
     `
 
 	log.Printf("Attempting to update student %d with: name=%s, enrollment=%s, income=%s",
@@ -931,7 +931,7 @@ func DeleteStudent(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	studentID := vars["id"]
 
-	query := `UPDATE students SET status = 0 WHERE student_id = ?`
+	query := `UPDATE students SET status = 0 WHERE id = ?`
 	result, err := db.DB.Exec(query, studentID)
 	if err != nil {
 		log.Printf("Error deleting student: %v", err)
