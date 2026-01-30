@@ -184,8 +184,8 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT 
-			ca.id, ca.course_id, c.course_code, c.course_name, c.course_type, 
-			c.credit, ca.academic_year, ca.semester, ca.section, ca.role
+			ca.id, ca.course_id, c.course_code, c.course_name, COALESCE(c.course_type, 'Theory'), 
+			c.credit, ca.academic_year, ca.semester, ca.section, ca.role, COALESCE(c.category, 'General')
 		FROM teacher_course_allocation ca
 		JOIN courses c ON ca.course_id = c.course_id
 		WHERE ca.teacher_id = ? AND ca.status = 1
@@ -210,17 +210,24 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
+	type StudentEnrollment struct {
+		StudentID   int    `json:"student_id"`
+		StudentName string `json:"student_name"`
+	}
+
 	type TeacherCourse struct {
-		ID           int    `json:"id"`
-		CourseID     int    `json:"course_id"`
-		CourseCode   string `json:"course_code"`
-		CourseName   string `json:"course_name"`
-		CourseType   string `json:"course_type"`
-		Credit       int    `json:"credit"`
-		AcademicYear string `json:"academic_year"`
-		Semester     int    `json:"semester"`
-		Section      string `json:"section"`
-		Role         string `json:"role"`
+		ID           int                 `json:"id"`
+		CourseID     int                 `json:"course_id"`
+		CourseCode   string              `json:"course_code"`
+		CourseName   string              `json:"course_name"`
+		CourseType   string              `json:"course_type"`
+		Credit       int                 `json:"credit"`
+		Category     string              `json:"category"`
+		AcademicYear string              `json:"academic_year"`
+		Semester     int                 `json:"semester"`
+		Section      string              `json:"section"`
+		Role         string              `json:"role"`
+		Enrollments  []StudentEnrollment `json:"enrollments"`
 	}
 
 	var courses []TeacherCourse
@@ -228,11 +235,41 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 		var course TeacherCourse
 		err := rows.Scan(&course.ID, &course.CourseID, &course.CourseCode, &course.CourseName,
 			&course.CourseType, &course.Credit, &course.AcademicYear, &course.Semester,
-			&course.Section, &course.Role)
+			&course.Section, &course.Role, &course.Category)
 		if err != nil {
 			log.Printf("Error scanning course row: %v", err)
 			continue
 		}
+
+		// Fetch enrolled students for this course
+		studentQuery := `
+			SELECT DISTINCT s.id, s.name
+			FROM student_courses sc
+			JOIN students s ON sc.student_id = s.id
+			WHERE sc.course_id = ?
+			ORDER BY s.name
+		`
+		sRows, err := db.DB.Query(studentQuery, course.CourseID)
+		if err != nil {
+			log.Printf("Error fetching students for course %d: %v", course.CourseID, err)
+		} else {
+			defer sRows.Close()
+			course.Enrollments = []StudentEnrollment{}
+			for sRows.Next() {
+				var enrollment StudentEnrollment
+				if err := sRows.Scan(&enrollment.StudentID, &enrollment.StudentName); err != nil {
+					log.Printf("Error scanning student row: %v", err)
+					continue
+				}
+				course.Enrollments = append(course.Enrollments, enrollment)
+			}
+			sRows.Close()
+		}
+
+		if course.Enrollments == nil {
+			course.Enrollments = []StudentEnrollment{}
+		}
+
 		courses = append(courses, course)
 	}
 
