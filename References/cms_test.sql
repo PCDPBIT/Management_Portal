@@ -43,7 +43,7 @@ CREATE TABLE `academic_details` (
   KEY `fk_academic_student` (`student_id`) USING BTREE,
   KEY `fk_academic_curriculum` (`curriculum_id`) USING BTREE,
   CONSTRAINT `fk_academic_curriculum` FOREIGN KEY (`curriculum_id`) REFERENCES `curriculum` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `fk_academic_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `fk_academic_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -53,7 +53,6 @@ CREATE TABLE `academic_details` (
 
 LOCK TABLES `academic_details` WRITE;
 /*!40000 ALTER TABLE `academic_details` DISABLE KEYS */;
-INSERT INTO `academic_details` VALUES (3,'2024 - 2028',2026,5,'Bachelors','1','CSE','','','','','','',0,0,'',1),(10,'2024-2028',2024,1,NULL,NULL,'Computer Science and Engineering',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(11,'2024-2028',2024,1,NULL,NULL,'Computer Science and Engineering',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(12,'2024-2028',2024,1,NULL,NULL,'Computer Science and Engineering',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(13,'2024-2028',2024,1,NULL,NULL,'Computer Science and Engineering',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(14,'2024-2028',2024,1,NULL,NULL,'Computer Science and Engineering',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(20,'2024-2028',2024,1,NULL,NULL,'Information Technology',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(21,'2024-2028',2024,1,NULL,NULL,'Information Technology',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(22,'2024-2028',2024,1,NULL,NULL,'Information Technology',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(23,'2024-2028',2024,1,NULL,NULL,'Information Technology',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(24,'2024-2028',2024,1,NULL,NULL,'Information Technology',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(30,'2024-2028',2024,1,NULL,NULL,'Electronics and Communication Engineering',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(31,'2024-2028',2024,1,NULL,NULL,'Electronics and Communication Engineering',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(32,'2024-2028',2024,1,NULL,NULL,'Electronics and Communication Engineering',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1),(33,'2024-2028',2024,1,'wf','e','kmkjmjm','','','','','','',0,0,'',1),(34,'2024-2028',2024,1,NULL,NULL,'Electronics and Communication Engineering',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1);
 /*!40000 ALTER TABLE `academic_details` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -70,7 +69,7 @@ CREATE TABLE `address` (
   `present_address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
   `residence_location` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
   KEY `student_id` (`student_id`) USING BTREE,
-  CONSTRAINT `address_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `address_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -80,7 +79,6 @@ CREATE TABLE `address` (
 
 LOCK TABLES `address` WRITE;
 /*!40000 ALTER TABLE `address` DISABLE KEYS */;
-INSERT INTO `address` VALUES (3,'48 Yadhavar ','48 Yadhavar ','48 Yadhavar '),(33,'ffv233vsdv','கேடகாரஅள்ளி ,4/178','');
 /*!40000 ALTER TABLE `address` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -100,7 +98,7 @@ CREATE TABLE `admission_payment` (
   `amount` decimal(10,2) DEFAULT NULL,
   `bank_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   KEY `student_id` (`student_id`) USING BTREE,
-  CONSTRAINT `admission_payment_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `admission_payment_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -239,7 +237,7 @@ CREATE TABLE `contact_details` (
   `parent_email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `official_email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   KEY `student_id` (`student_id`) USING BTREE,
-  CONSTRAINT `contact_details_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `contact_details_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -249,7 +247,6 @@ CREATE TABLE `contact_details` (
 
 LOCK TABLES `contact_details` WRITE;
 /*!40000 ALTER TABLE `contact_details` DISABLE KEYS */;
-INSERT INTO `contact_details` VALUES (3,'0830015502','0830015502','sanjeevirajanramajayam.cs24@bitsathy.ac.in','sanjeevirajanramajayam.cs24@bitsathy.ac.in','sanjeevirajanramajayam.cs24@bitsathy.ac.in'),(33,'0838879911','','mithul0605@gmail.com','mithul0605@gmail.com','mithul0605@gmail.com');
 /*!40000 ALTER TABLE `contact_details` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -266,6 +263,7 @@ CREATE TABLE `course_experiment_topics` (
   `topic_text` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `topic_order` int DEFAULT '0',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `idx_exp_topics` (`experiment_id`) USING BTREE,
   CONSTRAINT `course_experiment_topics_ibfk_1` FOREIGN KEY (`experiment_id`) REFERENCES `course_experiments` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
@@ -296,6 +294,7 @@ CREATE TABLE `course_experiments` (
   `hours` int DEFAULT '0',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `idx_course_exp` (`course_id`) USING BTREE,
   CONSTRAINT `course_experiments_ibfk_1` FOREIGN KEY (`course_id`) REFERENCES `courses` (`course_id`) ON DELETE CASCADE ON UPDATE RESTRICT
@@ -323,8 +322,9 @@ CREATE TABLE `course_objectives` (
   `course_id` int NOT NULL,
   `objective` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `position` int NOT NULL,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE KEY `unique_course_position` (`course_id`,`position`) USING BTREE,
+  KEY `idx_course_id` (`course_id`),
   CONSTRAINT `course_objectives_ibfk_1` FOREIGN KEY (`course_id`) REFERENCES `courses` (`course_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -350,8 +350,9 @@ CREATE TABLE `course_outcomes` (
   `course_id` int NOT NULL,
   `outcome` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `position` int NOT NULL,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE KEY `uniq_course_outcome_position` (`course_id`,`position`) USING BTREE,
+  KEY `idx_course_id` (`course_id`),
   CONSTRAINT `fk_course_outcomes_courses` FOREIGN KEY (`course_id`) REFERENCES `courses` (`course_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB AUTO_INCREMENT=140 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -377,8 +378,9 @@ CREATE TABLE `course_prerequisites` (
   `course_id` int NOT NULL,
   `prerequisite` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `position` int NOT NULL,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE KEY `uniq_course_prerequisite_position` (`course_id`,`position`) USING BTREE,
+  KEY `idx_course_id` (`course_id`),
   CONSTRAINT `fk_course_prerequisites_courses` FOREIGN KEY (`course_id`) REFERENCES `courses` (`course_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -404,8 +406,9 @@ CREATE TABLE `course_references` (
   `course_id` int NOT NULL,
   `reference_text` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `position` int NOT NULL,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE KEY `uniq_course_reference_position` (`course_id`,`position`) USING BTREE,
+  KEY `idx_course_id` (`course_id`),
   CONSTRAINT `fk_course_references_courses` FOREIGN KEY (`course_id`) REFERENCES `courses` (`course_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -429,6 +432,7 @@ DROP TABLE IF EXISTS `course_selflearning`;
 CREATE TABLE `course_selflearning` (
   `course_id` int NOT NULL,
   `total_hours` int NOT NULL,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`course_id`) USING BTREE,
   CONSTRAINT `fk_course_selflearning_courses` FOREIGN KEY (`course_id`) REFERENCES `courses` (`course_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -455,8 +459,9 @@ CREATE TABLE `course_selflearning_resources` (
   `main_id` int NOT NULL,
   `internal_text` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `position` int NOT NULL,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE KEY `unique_main_position` (`main_id`,`position`) USING BTREE,
+  KEY `idx_main_id` (`main_id`),
   CONSTRAINT `course_selflearning_resources_ibfk_1` FOREIGN KEY (`main_id`) REFERENCES `course_selflearning_topics` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -482,8 +487,9 @@ CREATE TABLE `course_selflearning_topics` (
   `course_id` int NOT NULL,
   `main_text` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `position` int NOT NULL,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE KEY `unique_course_position` (`course_id`,`position`) USING BTREE,
+  KEY `idx_course_id` (`course_id`),
   CONSTRAINT `course_selflearning_topics_ibfk_1` FOREIGN KEY (`course_id`) REFERENCES `courses` (`course_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -507,6 +513,7 @@ DROP TABLE IF EXISTS `course_teamwork`;
 CREATE TABLE `course_teamwork` (
   `course_id` int NOT NULL,
   `total_hours` int NOT NULL,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`course_id`) USING BTREE,
   CONSTRAINT `course_teamwork_ibfk_1` FOREIGN KEY (`course_id`) REFERENCES `courses` (`course_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -533,8 +540,9 @@ CREATE TABLE `course_teamwork_activities` (
   `course_id` int NOT NULL,
   `activity` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `position` int NOT NULL,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE KEY `course_id` (`course_id`,`position`) USING BTREE,
+  KEY `idx_course_id` (`course_id`),
   CONSTRAINT `course_teamwork_activities_ibfk_1` FOREIGN KEY (`course_id`) REFERENCES `courses` (`course_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -577,8 +585,8 @@ CREATE TABLE `courses` (
   `visibility` enum('UNIQUE','CLUSTER') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'UNIQUE',
   `source_curriculum_id` int DEFAULT NULL,
   `curriculum_ref_id` int DEFAULT NULL,
-  `status` tinyint(1) DEFAULT '1',
   `total_hrs` int GENERATED ALWAYS AS ((((`theory_total_hrs` + `activity_total_hrs`) + `tutorial_total_hrs`) + coalesce(`practical_total_hrs`,0))) STORED,
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`course_id`) USING BTREE
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -610,7 +618,7 @@ CREATE TABLE `curriculum` (
   `status` tinyint(1) DEFAULT '1',
   `curriculum_ref_id` int DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -619,7 +627,7 @@ CREATE TABLE `curriculum` (
 
 LOCK TABLES `curriculum` WRITE;
 /*!40000 ALTER TABLE `curriculum` DISABLE KEYS */;
-INSERT INTO `curriculum` VALUES (1,'R2025-2026 B.E CSE','2025-2026','2022','2026-01-23 09:37:12',163,1,NULL);
+INSERT INTO `curriculum` VALUES (1,'R2025-2026 B.E CSE','2025-2026','2022','2026-01-23 09:37:12',163,1,NULL),(2,'Andrew Clark','sf','2022','2026-01-27 08:21:46',43,0,NULL);
 /*!40000 ALTER TABLE `curriculum` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -675,7 +683,7 @@ CREATE TABLE `curriculum_logs` (
   PRIMARY KEY (`id`) USING BTREE,
   KEY `curriculum_id` (`curriculum_id`) USING BTREE,
   CONSTRAINT `curriculum_logs_ibfk_1` FOREIGN KEY (`curriculum_id`) REFERENCES `curriculum` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE=InnoDB AUTO_INCREMENT=342 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=343 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -684,7 +692,7 @@ CREATE TABLE `curriculum_logs` (
 
 LOCK TABLES `curriculum_logs` WRITE;
 /*!40000 ALTER TABLE `curriculum_logs` DISABLE KEYS */;
-INSERT INTO `curriculum_logs` VALUES (319,1,'Curriculum Created','Created new curriculum: R2025-2026 B.E CSE (2025-2026)','System','2026-01-23 09:37:12',NULL),(320,1,'Department Overview Created','Created department vision, mission, PEOs, POs, and PSOs','System','2026-01-23 09:38:00',NULL),(321,1,'Mission[0] Deleted','Deleted Mission item at index 0','System','2026-01-23 10:14:32','{\"Mission[0]\": {\"new\": \"\", \"old\": \"mission 1\"}}'),(322,1,'PO[0] Deleted','Deleted PO item at index 0','System','2026-01-23 10:14:32','{\"PO[0]\": {\"new\": \"\", \"old\": \"PO 1\"}}'),(323,1,'PEO[0] Deleted','Deleted PEO item at index 0','System','2026-01-23 10:14:32','{\"PEO[0]\": {\"new\": \"\", \"old\": \"PEO 1\"}}'),(324,1,'PSO[0] Deleted','Deleted PSO item at index 0','System','2026-01-23 10:14:32','{\"PSO[0]\": {\"new\": \"\", \"old\": \"PSO 1\"}}'),(325,1,'Vision Updated','Updated department vision','System','2026-01-23 10:15:12','{\"vision\": {\"new\": \"\", \"old\": \"vision\"}}'),(326,1,'Department Overview Created','Created department vision, mission, PEOs, POs, and PSOs','System','2026-01-23 10:16:00',NULL),(327,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:17:12','{\"Mission[0]\": {\"new\": \"mission\", \"old\": \"\"}}'),(328,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:26:27','{\"Mission[0]\": {\"new\": \"mission 1\", \"old\": \"\"}}'),(329,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:27:05','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(330,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:29:39','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(331,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:31:50','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(332,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:32:51','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(333,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:37:58','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(334,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-24 04:07:13','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(335,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-24 05:01:10','{\"Mission[0]\": {\"new\": \"MISSION 1\", \"old\": \"\"}}'),(336,1,'PEO[0] Added','Added PEO item at index 0','System','2026-01-24 05:05:27','{\"PEO[0]\": {\"new\": \"PEO 1\", \"old\": \"\"}}'),(337,1,'PO[0] Added','Added PO item at index 0','System','2026-01-24 05:10:37','{\"PO[0]\": {\"new\": \"PO 1\", \"old\": \"\"}}'),(338,1,'PSO[0] Added','Added PSO item at index 0','System','2026-01-24 05:12:51','{\"PSO[0]\": {\"new\": \"PSOSs\", \"old\": \"\"}}'),(339,1,'Card Added','Added Semester 2','System','2026-01-27 05:23:54',NULL),(340,1,'Course Added','Added course Maths - Introduction to Mathematics to Semester 74','System','2026-01-27 05:24:46',NULL),(341,1,'Course Added','Added course 22CH103 - Chemistry to Semester 74','System','2026-01-27 05:26:12',NULL);
+INSERT INTO `curriculum_logs` VALUES (319,1,'Curriculum Created','Created new curriculum: R2025-2026 B.E CSE (2025-2026)','System','2026-01-23 09:37:12',NULL),(320,1,'Department Overview Created','Created department vision, mission, PEOs, POs, and PSOs','System','2026-01-23 09:38:00',NULL),(321,1,'Mission[0] Deleted','Deleted Mission item at index 0','System','2026-01-23 10:14:32','{\"Mission[0]\": {\"new\": \"\", \"old\": \"mission 1\"}}'),(322,1,'PO[0] Deleted','Deleted PO item at index 0','System','2026-01-23 10:14:32','{\"PO[0]\": {\"new\": \"\", \"old\": \"PO 1\"}}'),(323,1,'PEO[0] Deleted','Deleted PEO item at index 0','System','2026-01-23 10:14:32','{\"PEO[0]\": {\"new\": \"\", \"old\": \"PEO 1\"}}'),(324,1,'PSO[0] Deleted','Deleted PSO item at index 0','System','2026-01-23 10:14:32','{\"PSO[0]\": {\"new\": \"\", \"old\": \"PSO 1\"}}'),(325,1,'Vision Updated','Updated department vision','System','2026-01-23 10:15:12','{\"vision\": {\"new\": \"\", \"old\": \"vision\"}}'),(326,1,'Department Overview Created','Created department vision, mission, PEOs, POs, and PSOs','System','2026-01-23 10:16:00',NULL),(327,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:17:12','{\"Mission[0]\": {\"new\": \"mission\", \"old\": \"\"}}'),(328,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:26:27','{\"Mission[0]\": {\"new\": \"mission 1\", \"old\": \"\"}}'),(329,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:27:05','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(330,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:29:39','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(331,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:31:50','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(332,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:32:51','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(333,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-23 10:37:58','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(334,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-24 04:07:13','{\"Mission[0]\": {\"new\": \"Mission 1\", \"old\": \"\"}}'),(335,1,'Mission[0] Added','Added Mission item at index 0','System','2026-01-24 05:01:10','{\"Mission[0]\": {\"new\": \"MISSION 1\", \"old\": \"\"}}'),(336,1,'PEO[0] Added','Added PEO item at index 0','System','2026-01-24 05:05:27','{\"PEO[0]\": {\"new\": \"PEO 1\", \"old\": \"\"}}'),(337,1,'PO[0] Added','Added PO item at index 0','System','2026-01-24 05:10:37','{\"PO[0]\": {\"new\": \"PO 1\", \"old\": \"\"}}'),(338,1,'PSO[0] Added','Added PSO item at index 0','System','2026-01-24 05:12:51','{\"PSO[0]\": {\"new\": \"PSOSs\", \"old\": \"\"}}'),(339,1,'Card Added','Added Semester 2','System','2026-01-27 05:23:54',NULL),(340,1,'Course Added','Added course Maths - Introduction to Mathematics to Semester 74','System','2026-01-27 05:24:46',NULL),(341,1,'Course Added','Added course 22CH103 - Chemistry to Semester 74','System','2026-01-27 05:26:12',NULL),(342,2,'Curriculum Created','Created new curriculum: Andrew Clark (sf)','System','2026-01-27 08:21:47',NULL);
 /*!40000 ALTER TABLE `curriculum_logs` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -895,7 +903,7 @@ CREATE TABLE `department_teachers` (
   KEY `idx_department` (`department_id`),
   CONSTRAINT `fk_dt_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `fk_dt_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -904,7 +912,6 @@ CREATE TABLE `department_teachers` (
 
 LOCK TABLES `department_teachers` WRITE;
 /*!40000 ALTER TABLE `department_teachers` DISABLE KEYS */;
-INSERT INTO `department_teachers` VALUES (7,8,4,NULL,1,'2026-01-27 05:33:02','2026-01-27 05:33:02');
 /*!40000 ALTER TABLE `department_teachers` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -924,7 +931,7 @@ CREATE TABLE `departments` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_departments_code` (`department_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -933,7 +940,7 @@ CREATE TABLE `departments` (
 
 LOCK TABLES `departments` WRITE;
 /*!40000 ALTER TABLE `departments` DISABLE KEYS */;
-INSERT INTO `departments` VALUES (1,NULL,'Computer Science and Engineering',1,'2026-01-24 09:19:36','2026-01-24 09:19:36'),(2,NULL,'Information Technology',1,'2026-01-23 10:52:23','2026-01-23 10:52:23'),(3,NULL,'Electronics and Communication Engineering',1,'2026-01-24 09:19:36','2026-01-24 09:19:36'),(4,NULL,'Computer Science',1,'2026-01-27 05:33:01','2026-01-27 05:33:01');
+INSERT INTO `departments` VALUES (1,NULL,'Computer Science and Engineering',1,'2026-01-27 08:22:33','2026-01-27 08:22:33'),(2,NULL,'Information Technology',1,'2026-01-27 08:22:33','2026-01-27 08:22:33'),(3,NULL,'Electronics and Communication Engineering',1,'2026-01-27 08:22:33','2026-01-27 08:22:33'),(4,NULL,'Artificial Intelegience & Machine Learning',1,'2026-01-27 08:40:37','2026-01-27 08:40:37');
 /*!40000 ALTER TABLE `departments` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -953,7 +960,7 @@ CREATE TABLE `honour_cards` (
   `source_curriculum_id` int DEFAULT NULL,
   `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
-  KEY `idx_regulation` (`curriculum_id`) USING BTREE
+  KEY `idx_curriculum_id` (`curriculum_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1045,7 +1052,7 @@ CREATE TABLE `hostel_details` (
   `class_advisor` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `status` int DEFAULT '1',
   KEY `student_id` (`student_id`) USING BTREE,
-  CONSTRAINT `hostel_details_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `hostel_details_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1072,7 +1079,7 @@ CREATE TABLE `insurance_details` (
   `nominee_age` int DEFAULT NULL,
   `status` int DEFAULT '1',
   KEY `student_id` (`student_id`) USING BTREE,
-  CONSTRAINT `insurance_details_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `insurance_details_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1285,7 +1292,7 @@ CREATE TABLE `research_profiles` (
   `h_index` int DEFAULT NULL,
   `status` int DEFAULT '1',
   KEY `student_id` (`student_id`) USING BTREE,
-  CONSTRAINT `research_profiles_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `research_profiles_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1318,7 +1325,7 @@ CREATE TABLE `school_details` (
   `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `student_id` (`student_id`) USING BTREE,
-  CONSTRAINT `school_details_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `school_details_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1328,7 +1335,6 @@ CREATE TABLE `school_details` (
 
 LOCK TABLES `school_details` WRITE;
 /*!40000 ALTER TABLE `school_details` DISABLE KEYS */;
-INSERT INTO `school_details` VALUES (6,3,'KINGS SCHOOL','',0,'','','2026-01-23',100.00,1);
 /*!40000 ALTER TABLE `school_details` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1361,6 +1367,41 @@ CREATE TABLE `sharing_tracking` (
 LOCK TABLES `sharing_tracking` WRITE;
 /*!40000 ALTER TABLE `sharing_tracking` DISABLE KEYS */;
 /*!40000 ALTER TABLE `sharing_tracking` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `student_teacher_mapping`
+--
+
+DROP TABLE IF EXISTS `student_teacher_mapping`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `student_teacher_mapping` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `student_id` int NOT NULL,
+  `teacher_id` bigint unsigned NOT NULL,
+  `department_id` int NOT NULL,
+  `year` int NOT NULL,
+  `academic_year` varchar(50) NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_student_year` (`student_id`,`year`,`academic_year`),
+  KEY `idx_teacher` (`teacher_id`),
+  KEY `idx_department_year` (`department_id`,`year`),
+  CONSTRAINT `fk_stm_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_stm_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_stm_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `student_teacher_mapping`
+--
+
+LOCK TABLES `student_teacher_mapping` WRITE;
+/*!40000 ALTER TABLE `student_teacher_mapping` DISABLE KEYS */;
+/*!40000 ALTER TABLE `student_teacher_mapping` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -1398,8 +1439,8 @@ CREATE TABLE `students` (
   `department_id` int DEFAULT NULL,
   PRIMARY KEY (`student_id`) USING BTREE,
   KEY `fk_students_department` (`department_id`),
-  CONSTRAINT `fk_students_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `fk_students_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1408,7 +1449,7 @@ CREATE TABLE `students` (
 
 LOCK TABLES `students` WRITE;
 /*!40000 ALTER TABLE `students` DISABLE KEYS */;
-INSERT INTO `students` VALUES (3,'745','654','45623','456','456','test','Male','1998-02-22',27,'Ramajayam Velukonar','234234324','sdfsd','Muslim','Indian','OC','english','B+','223423423434','234234','sfsf','23423',23423494.00,1,NULL),(10,'CSE24001',NULL,NULL,NULL,NULL,'Alice Johnson','Female','2005-01-15',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,1),(11,'CSE24002',NULL,NULL,NULL,NULL,'Bob Smith','Male','2005-02-20',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,1),(12,'CSE24003',NULL,NULL,NULL,NULL,'Charlie Brown','Male','2005-03-25',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,1),(13,'CSE24004',NULL,NULL,NULL,NULL,'Diana Prince','Female','2005-04-30',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,1),(14,'CSE24005',NULL,NULL,NULL,NULL,'Evan Wright','Male','2005-05-05',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,1),(20,'IT24001',NULL,NULL,NULL,NULL,'Fiona Gallagher','Female','2005-06-10',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,2),(21,'IT24002',NULL,NULL,NULL,NULL,'George Miller','Male','2005-07-15',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,2),(22,'IT24003',NULL,NULL,NULL,NULL,'Hannah Abbott','Female','2005-08-20',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,2),(23,'IT24004',NULL,NULL,NULL,NULL,'Ian Malcolm','Male','2005-09-25',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,2),(24,'IT24005',NULL,NULL,NULL,NULL,'Julia Roberts','Female','2005-10-30',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,2),(30,'ECE24001',NULL,NULL,NULL,NULL,'Kevin Hart','Male','2005-11-05',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,3),(31,'ECE24002',NULL,NULL,NULL,NULL,'Laura Croft','Female','2005-12-10',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,3),(32,'ECE24003',NULL,NULL,NULL,NULL,'Mike Ross','Male','2006-01-15',18,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,3),(33,'ECE24004','234','12','211','21','Nina Simone S','Female','2006-02-20',18,'qwd','weff','wefwef','Hindu','Indian','SCC','12','A-','211223423442','eddwe','wefwefwewef','weefe',323.00,1,3),(34,'ECE24005',NULL,NULL,NULL,NULL,'Oscar Wilde','Male','2006-03-25',18,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,3);
+INSERT INTO `students` VALUES (43,'CSE24001',NULL,NULL,NULL,NULL,'Alice Johnson','Female','2005-01-15',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,1),(44,'CSE24005',NULL,NULL,NULL,NULL,'Evan Wright','Male','2005-05-05',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,1),(45,'IT24001',NULL,NULL,NULL,NULL,'Fiona Gallagher','Female','2005-06-10',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,2),(46,'IT24004',NULL,NULL,NULL,NULL,'Ian Malcolm','Male','2005-09-25',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,2),(47,'ECE24001',NULL,NULL,NULL,NULL,'Kevin Hart','Male','2005-11-05',19,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,3),(48,'ECE24004',NULL,NULL,NULL,NULL,'Nina Simone','Female','2006-02-20',18,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,3),(49,'ECE24005',NULL,NULL,NULL,NULL,'Oscar Wilde','Male','2006-03-25',18,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,3);
 /*!40000 ALTER TABLE `students` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1455,6 +1496,7 @@ CREATE TABLE `syllabus_titles` (
   `hours` int DEFAULT '0',
   `title` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `position` int DEFAULT '0',
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `model_id` (`model_id`) USING BTREE,
   CONSTRAINT `syllabus_titles_ibfk_1` FOREIGN KEY (`model_id`) REFERENCES `syllabus` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
@@ -1483,6 +1525,7 @@ CREATE TABLE `syllabus_topics` (
   `topic` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `position` int DEFAULT '0',
+  `status` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `title_id` (`title_id`) USING BTREE,
   CONSTRAINT `syllabus_topics_ibfk_1` FOREIGN KEY (`title_id`) REFERENCES `syllabus_titles` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
@@ -1530,7 +1573,6 @@ CREATE TABLE `teacher_course_allocation` (
 
 LOCK TABLES `teacher_course_allocation` WRITE;
 /*!40000 ALTER TABLE `teacher_course_allocation` DISABLE KEYS */;
-INSERT INTO `teacher_course_allocation` VALUES (10,6,8,'2025-2026',2,'A','Primary',1,'2026-01-27 05:36:34','2026-01-27 05:48:39'),(11,7,8,'2025-2026',2,'A','Primary',0,'2026-01-27 05:36:38','2026-01-27 05:37:56');
 /*!40000 ALTER TABLE `teacher_course_allocation` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1555,7 +1597,7 @@ CREATE TABLE `teachers` (
   UNIQUE KEY `id` (`id`) USING BTREE,
   UNIQUE KEY `email` (`email`) USING BTREE,
   KEY `fk_teachers_dept` (`dept`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1564,7 +1606,7 @@ CREATE TABLE `teachers` (
 
 LOCK TABLES `teachers` WRITE;
 /*!40000 ALTER TABLE `teachers` DISABLE KEYS */;
-INSERT INTO `teachers` VALUES (8,'teacher 1','Teacher1@gmail.com','8876958291','/uploads/teachers/teacher_1769491980.jpg','4','Professor','2026-01-27 05:33:01',1);
+INSERT INTO `teachers` VALUES (11,'teacher 1','Teacher1@gmail.com','3434234232',NULL,'6','Professor','2026-01-27 08:41:17',1),(12,'teacher 2','teacher2@gmail.com','3534535432',NULL,'6','Professor','2026-01-27 08:41:47',1),(13,'teacher3','teacher3@gmail.com','34534535345',NULL,'6','Professor','2026-01-27 08:42:08',1);
 /*!40000 ALTER TABLE `teachers` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1614,4 +1656,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-01-27 11:31:15
+-- Dump completed on 2026-01-27 14:18:13

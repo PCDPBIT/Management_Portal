@@ -19,6 +19,7 @@ function TeacherDetailsPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [teachers, setTeachers] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState(null);
@@ -40,9 +41,25 @@ function TeacherDetailsPage() {
     }
   };
 
-  // Fetch teachers on component mount
+  // Fetch departments from backend
+  const fetchDepartments = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/departments`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch departments");
+      }
+      const data = await response.json();
+      setDepartments(data || []);
+    } catch (err) {
+      console.error("Error fetching departments:", err);
+      setError("Failed to load departments. Please try again.");
+    }
+  };
+
+  // Fetch teachers and departments on component mount
   useEffect(() => {
     fetchTeachers();
+    fetchDepartments();
   }, []);
 
   const handleInputChange = (e) => {
@@ -422,14 +439,11 @@ function TeacherDetailsPage() {
                       className="input-custom"
                     >
                       <option value="">Select Department</option>
-                      <option value="Computer Science">Computer Science</option>
-                      <option value="Electronics">Electronics</option>
-                      <option value="Mechanical">Mechanical</option>
-                      <option value="Civil">Civil</option>
-                      <option value="Electrical">Electrical</option>
-                      <option value="Information Technology">
-                        Information Technology
-                      </option>
+                      {departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.department_name}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
