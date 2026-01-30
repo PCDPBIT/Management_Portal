@@ -498,6 +498,24 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 	practicalTotal := course.PracticalTotalHrs
 	activityTotal := course.ActivityTotalHrs
 
+	// First check: prevent duplicate course codes in the same curriculum (active courses only)
+	var duplicateCheck int
+	duplicateQuery := `SELECT c.id FROM courses c 
+	                   INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
+	                   WHERE c.course_code = ? AND cc.curriculum_id = ? AND c.status = 1`
+	duplicateErr := db.DB.QueryRow(duplicateQuery, course.CourseCode, curriculumID).Scan(&duplicateCheck)
+	if duplicateErr == nil {
+		// Course with this code already exists in curriculum (active)
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "A course with code " + course.CourseCode + " already exists in this curriculum"})
+		return
+	} else if duplicateErr != sql.ErrNoRows {
+		log.Println("Error checking duplicate course code:", duplicateErr)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate course"})
+		return
+	}
+
 	// Check if course code already exists in this curriculum
 	var existingCourseID int
 	checkQuery := `SELECT c.id FROM courses c 
