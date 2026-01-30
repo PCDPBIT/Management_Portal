@@ -90,25 +90,6 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
         </svg>
       ),
     },
-    {
-      name: "Teacher Courses",
-      path: "/teacher-courses",
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 6.253v13m0-13C6.5 6.253 2 10.998 2 17s4.5 10.747 10 10.747c5.5 0 10-4.998 10-10.747 0-6.002-4.5-10.747-10-10.747z"
-          />
-        </svg>
-      ),
-    },
   ];
 
   const isActive = (path) => {

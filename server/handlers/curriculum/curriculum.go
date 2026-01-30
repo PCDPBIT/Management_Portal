@@ -347,14 +347,14 @@ func GetSemesterCourses(w http.ResponseWriter, r *http.Request) {
 	curriculumTemplate := getCurriculumTemplateByRegulation(curriculumID)
 
 	query := `
-		SELECT c.id, c.course_code, c.course_name, c.course_type, c.category, c.credit, 
+		SELECT c.course_id, c.course_code, c.course_name, c.course_type, c.category, c.credit, 
 		       c.lecture_hrs, c.tutorial_hrs, c.practical_hrs, c.activity_hrs, COALESCE(c.` + "`tw/sl`" + `, 0) as tw_sl,
 		       COALESCE(c.theory_total_hrs, 0), COALESCE(c.tutorial_total_hrs, 0), COALESCE(c.practical_total_hrs, 0), COALESCE(c.activity_total_hrs, 0), COALESCE(c.total_hrs, 0),
 		       c.cia_marks, c.see_marks, c.total_marks,
 		       rc.id as reg_course_id,
 		       COALESCE(rc.count_towards_limit, 1) as count_towards_limit
 		FROM courses c
-		INNER JOIN curriculum_courses rc ON c.id = rc.id
+		INNER JOIN curriculum_courses rc ON c.course_id = rc.course_id
 		WHERE rc.curriculum_id = ? AND rc.semester_id = ? AND c.status = 1
 		ORDER BY c.course_code
 	`
@@ -457,7 +457,7 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 		// Calculate current total credits for this curriculum (across all semester cards with count_towards_limit=true)
 		var currentCredits sql.NullInt64
 		creditQuery := `SELECT SUM(c.credit) FROM courses c 
-		                INNER JOIN curriculum_courses cc ON c.id = cc.id 
+		                INNER JOIN curriculum_courses cc ON c.course_id = cc.course_id 
 		                INNER JOIN normal_cards nc ON cc.semester_id = nc.id
 		                WHERE cc.curriculum_id = ? 
 		                AND nc.card_type = 'semester'
@@ -500,8 +500,8 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 
 	// Check if course code already exists in this curriculum
 	var existingCourseID int
-	checkQuery := `SELECT c.id FROM courses c 
-	               INNER JOIN curriculum_courses cc ON c.id = cc.id 
+	checkQuery := `SELECT c.course_id FROM courses c 
+	               INNER JOIN curriculum_courses cc ON c.course_id = cc.course_id 
 	               WHERE c.course_code = ? AND cc.curriculum_id = ?`
 	err = db.DB.QueryRow(checkQuery, course.CourseCode, curriculumID).Scan(&existingCourseID)
 

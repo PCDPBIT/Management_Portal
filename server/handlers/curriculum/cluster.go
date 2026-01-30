@@ -388,7 +388,7 @@ func convertReceivedDataToOwned(tx *sql.Tx, deptID int) error {
 	// Check if courses table has source_curriculum_id column
 	_, err := tx.Exec(`
 		UPDATE courses c
-		INNER JOIN curriculum_courses cc ON c.id = cc.id
+		INNER JOIN curriculum_courses cc ON c.course_id = cc.course_id
 		SET c.source_curriculum_id = NULL, c.visibility = 'UNIQUE' 
 		WHERE cc.curriculum_id = ? AND c.source_curriculum_id IS NOT NULL
 	`, curriculumID)
@@ -429,7 +429,7 @@ func unshareAllDepartmentData(tx *sql.Tx, clusterID, sourceCurriculumID int) err
 		// Convert courses that were shared from source curriculum to owned
 		_, err = tx.Exec(`
 			UPDATE courses c
-			JOIN curriculum_courses cc ON cc.id = c.id
+			JOIN curriculum_courses cc ON cc.course_id = c.course_id
 			SET c.source_curriculum_id = NULL, c.visibility = 'UNIQUE'
 			WHERE cc.curriculum_id = ? AND c.source_curriculum_id = ?
 		`, targetCurriculumID, sourceCurriculumID)
@@ -441,7 +441,7 @@ func unshareAllDepartmentData(tx *sql.Tx, clusterID, sourceCurriculumID int) err
 	// Update visibility of source curriculum's own courses to UNIQUE
 	_, err = tx.Exec(`
 		UPDATE courses c
-		JOIN curriculum_courses cc ON c.id = cc.id
+		JOIN curriculum_courses cc ON c.course_id = cc.course_id
 		SET c.visibility = 'UNIQUE' 
 		WHERE cc.curriculum_id = ? AND c.visibility = 'CLUSTER' AND c.source_curriculum_id IS NULL
 	`, sourceCurriculumID)
