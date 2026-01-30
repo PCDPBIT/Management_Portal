@@ -29,7 +29,8 @@ function SemesterDetailPage() {
     tw_sl_hrs: 0,
     cia_marks: 40,
     see_marks: 60,
-    count_towards_limit: true
+    count_towards_limit: true,
+    elective_sem_no: null
   })
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingCourse, setEditingCourse] = useState(null)
@@ -49,7 +50,8 @@ function SemesterDetailPage() {
     theory_hours: 0,
     tutorial_hours: 0,
     practical_hours: 0,
-    count_towards_limit: true
+    count_towards_limit: true,
+    elective_sem_no: null
   })
 
   useEffect(() => {
@@ -230,7 +232,8 @@ function SemesterDetailPage() {
         tw_sl_hrs: 0,
         cia_marks: 40,
         see_marks: 60,
-        count_towards_limit: true
+        count_towards_limit: true,
+        elective_sem_no: null
       })
       setShowAddForm(false)
       fetchCourses()
@@ -261,7 +264,8 @@ function SemesterDetailPage() {
       theory_hours: course.theory_total_hrs || 0,
       tutorial_hours: course.tutorial_total_hrs || 0,
       practical_hours: course.practical_total_hrs || 0,
-      count_towards_limit: course.count_towards_limit === undefined ? true : course.count_towards_limit
+      count_towards_limit: course.count_towards_limit === undefined ? true : course.count_towards_limit,
+      elective_sem_no: course.elective_sem_no || null
     })
     setShowEditModal(true)
   }
@@ -889,6 +893,27 @@ function SemesterDetailPage() {
                 </>
               )}
 
+              {/* Elective Semester Number - Only show for elective and open_elective cards */}
+              {(semester?.card_type === 'elective' || semester?.card_type === 'open_elective') && (
+                <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Elective Semester Number
+                  </label>
+                  <input
+                    type="number"
+                    value={newCourse.elective_sem_no || ''}
+                    onChange={(e) => setNewCourse({ ...newCourse, elective_sem_no: e.target.value ? parseInt(e.target.value) : null })}
+                    placeholder="Enter semester number (e.g., 5)"
+                    min="1"
+                    max="10"
+                    className="input-custom"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Specify which semester this elective course belongs to (typically 5-8)
+                  </p>
+                </div>
+              )}
+
               {/* Credit Limit Checkbox - Only show for semester card types */}
               {semester?.card_type === 'semester' && (
                 <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
@@ -1449,6 +1474,27 @@ function SemesterDetailPage() {
                       </div>
                     )}
                   </>
+                )}
+
+                {/* Elective Semester Number - Only show for elective and open_elective cards */}
+                {(semester?.card_type === 'elective' || semester?.card_type === 'open_elective') && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Elective Semester Number
+                    </label>
+                    <input
+                      type="number"
+                      value={editCourseData.elective_sem_no || ''}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, elective_sem_no: e.target.value ? parseInt(e.target.value) : null })}
+                      placeholder="Enter semester number (e.g., 5)"
+                      min="1"
+                      max="10"
+                      className="input-custom"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Specify which semester this elective course belongs to (typically 5-8)
+                    </p>
+                  </div>
                 )}
 
                 {/* Credit Limit Checkbox - Only show for semester card types */}

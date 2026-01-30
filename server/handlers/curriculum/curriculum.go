@@ -536,12 +536,12 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 			insertCourseQuery := `INSERT INTO courses (course_code, course_name, course_type, category, credit, 
 			                      lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, ` + "`tw/sl`" + `,
 			                      theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs,
-			                      cia_marks, see_marks, status) 
-			                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+			                      cia_marks, see_marks, elective_sem_no, status) 
+			                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
 			result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, course.CourseType, course.Category, course.Credit,
 				course.LectureHrs, course.TutorialHrs, course.PracticalHrs, course.ActivityHrs, course.TwSlHrs,
 				theoryTotal, tutorialTotal, practicalTotal, activityTotal,
-				course.CIAMarks, course.SEEMarks)
+				course.CIAMarks, course.SEEMarks, course.ElectiveSemNo)
 			if err != nil {
 				log.Println("Error inserting course:", err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -595,13 +595,13 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 	fetchQuery := `SELECT id, course_code, course_name, course_type, category, credit, 
 	               lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, COALESCE(` + "`tw/sl`" + `, 0) as tw_sl,
 	               COALESCE(theory_total_hrs, 0), COALESCE(tutorial_total_hrs, 0), COALESCE(practical_total_hrs, 0), COALESCE(activity_total_hrs, 0), COALESCE(total_hrs, 0),
-	               cia_marks, see_marks, total_marks 
+	               cia_marks, see_marks, total_marks, elective_sem_no 
 	               FROM courses WHERE id = ?`
 	err = db.DB.QueryRow(fetchQuery, courseID).Scan(&fullCourse.CourseID, &fullCourse.CourseCode, &fullCourse.CourseName,
 		&fullCourse.CourseType, &fullCourse.Category, &fullCourse.Credit,
 		&fullCourse.LectureHrs, &fullCourse.TutorialHrs, &fullCourse.PracticalHrs, &fullCourse.ActivityHrs, &fullCourse.TwSlHrs,
 		&fullCourse.TheoryTotalHrs, &fullCourse.TutorialTotalHrs, &fullCourse.PracticalTotalHrs, &fullCourse.ActivityTotalHrs, &fullCourse.TotalHrs,
-		&fullCourse.CIAMarks, &fullCourse.SEEMarks, &fullCourse.TotalMarks)
+		&fullCourse.CIAMarks, &fullCourse.SEEMarks, &fullCourse.TotalMarks, &fullCourse.ElectiveSemNo)
 	if err != nil {
 		log.Println("Error fetching full course details:", err)
 		// Fallback to sent values
