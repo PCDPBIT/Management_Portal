@@ -167,9 +167,9 @@ func fetchCoursesForSemester(regulationID, semesterID int) []map[string]interfac
 	// Note: Courses don't have source_department_id, they're shared globally
 	// We'll determine ownership by checking if the semester is owned
 	query := `
-		SELECT c.course_id, c.course_code, c.course_name, COALESCE(c.visibility, 'UNIQUE') as visibility
+		SELECT c.id, c.course_code, c.course_name, COALESCE(c.visibility, 'UNIQUE') as visibility
 		FROM courses c
-		JOIN curriculum_courses cc ON c.course_id = cc.course_id
+		JOIN curriculum_courses cc ON c.id = cc.course_id
 		WHERE cc.curriculum_id = ? AND cc.semester_id = ?
 		ORDER BY c.course_code
 	`
@@ -868,7 +868,7 @@ func updateSemesterVisibility(semesterID int, visibility string, targetDepartmen
 		log.Printf("Updating courses in semester %d to UNIQUE visibility\n", semesterID)
 		_, err = db.DB.Exec(`
 			UPDATE courses c
-			JOIN curriculum_courses cc ON c.course_id = cc.course_id
+			JOIN curriculum_courses cc ON c.id = cc.course_id
 			SET c.visibility = 'UNIQUE'
 			WHERE cc.semester_id = ? AND cc.curriculum_id = ?
 		`, semesterID, regulationID)
@@ -893,7 +893,7 @@ func updateSemesterVisibility(semesterID int, visibility string, targetDepartmen
 func updateCourseVisibility(courseID int, visibility string, targetDepartments []int, mode string) error {
 	// Get course info and check its semester ownership
 	var courseCode, courseName string
-	err := db.DB.QueryRow("SELECT course_code, course_name FROM courses WHERE course_id = ?", courseID).Scan(&courseCode, &courseName)
+	err := db.DB.QueryRow("SELECT course_code, course_name FROM courses WHERE id = ?", courseID).Scan(&courseCode, &courseName)
 	if err != nil {
 		return err
 	}
@@ -950,7 +950,7 @@ func updateCourseVisibility(courseID int, visibility string, targetDepartments [
 
 			// If no more shares, update to UNIQUE; otherwise keep as CLUSTER
 			if shareCount == 0 {
-				_, err = db.DB.Exec("UPDATE courses SET visibility = 'UNIQUE' WHERE course_id = ?", courseID)
+				_, err = db.DB.Exec("UPDATE courses SET visibility = 'UNIQUE' WHERE id = ?", courseID)
 				return err
 			}
 			return nil
@@ -970,7 +970,7 @@ func updateCourseVisibility(courseID int, visibility string, targetDepartments [
 	}
 
 	// Update course visibility (only for replace mode or unshare)
-	_, err = db.DB.Exec("UPDATE courses SET visibility = ? WHERE course_id = ?", visibility, courseID)
+	_, err = db.DB.Exec("UPDATE courses SET visibility = ? WHERE id = ?", visibility, courseID)
 	return err
 }
 
@@ -1177,7 +1177,7 @@ func shareCourseToCluster(sourceDeptID, sourceRegulationID, courseID int, target
 	var courseType sql.NullString
 	err = db.DB.QueryRow(`
 		SELECT course_code, course_name, credit, course_type 
-		FROM courses WHERE course_id = ?
+		FROM courses WHERE id = ?
 	`, courseID).Scan(&courseCode, &courseName, &credit, &courseType)
 	if err != nil {
 		return err
@@ -1390,12 +1390,12 @@ func unshareCourseFromCluster(sourceDeptID, courseID int) error {
 func copyCoursesBetweenSemesters(sourceRegID, sourceSemID, targetRegID, targetSemID int) error {
 	// Get all courses from source semester with full details
 	rows, err := db.DB.Query(`
-		SELECT c.course_id, c.course_code, c.course_name, c.course_type,
+		SELECT c.id, c.course_code, c.course_name, c.course_type,
 		       c.category, c.credit, c.theory_hours, c.activity_hours, c.lecture_hours,
 		       c.tutorial_hours, c.practical_hours, c.cia_marks, c.see_marks, 
 		       c.total_marks, c.total_hours
 		FROM courses c
-		JOIN curriculum_courses cc ON c.course_id = cc.course_id
+		JOIN curriculum_courses cc ON c.id = cc.course_id
 		WHERE cc.curriculum_id = ? AND cc.semester_id = ?
 	`, sourceRegID, sourceSemID)
 	if err != nil {
@@ -1452,7 +1452,7 @@ func copyCoursesBetweenSemesters(sourceRegID, sourceSemID, targetRegID, targetSe
 		} else {
 			targetCourseID = existingCourseID
 			// Update visibility to CLUSTER since it's now shared
-			db.DB.Exec("UPDATE courses SET visibility = 'CLUSTER' WHERE course_id = ?", targetCourseID)
+			db.DB.Exec("UPDATE courses SET visibility = 'CLUSTER' WHERE id = ?", targetCourseID)
 		}
 
 		// Link to target semester
@@ -1578,9 +1578,9 @@ func fetchSharedHonourCards(regulationID int) []map[string]interface{} {
 // fetchSharedCourses fetches courses with CLUSTER visibility for a semester
 func fetchSharedCourses(regulationID, semesterID int) []map[string]interface{} {
 	query := `
-		SELECT c.course_id, c.course_code, c.course_name
+		SELECT c.id, c.course_code, c.course_name
 		FROM courses c
-		JOIN curriculum_courses cc ON c.course_id = cc.course_id
+		JOIN curriculum_courses cc ON c.id = cc.course_id
 		WHERE cc.curriculum_id = ? AND cc.semester_id = ? AND c.visibility = 'CLUSTER'
 		ORDER BY c.course_code
 	`
@@ -2009,7 +2009,7 @@ func removeDepartmentsFromSemesterSharing(sourceDeptID, semesterID int, departme
 				db.DB.Exec("DELETE FROM course_syllabus WHERE course_id = ?", courseID)
 
 				// Delete the course itself
-				db.DB.Exec("DELETE FROM courses WHERE course_id = ?", courseID)
+				db.DB.Exec("DELETE FROM courses WHERE id = ?", courseID)
 
 				log.Printf("Deleted course %d completely (no other usage) from regulation %d\n", courseID, targetRegulationID)
 			} else {
@@ -2539,7 +2539,7 @@ func removeDepartmentsFromCourseSharing(sourceDeptID, courseID int, departmentsT
 			db.DB.Exec("DELETE FROM course_syllabus WHERE course_id = ?", copiedCourseID)
 
 			// Delete the course itself
-			db.DB.Exec("DELETE FROM courses WHERE course_id = ?", copiedCourseID)
+			db.DB.Exec("DELETE FROM courses WHERE id = ?", copiedCourseID)
 			log.Printf("Deleted course %d completely (no other usage)\n", copiedCourseID)
 		} else {
 			log.Printf("Kept course %d record (still used by %d other regulations)\n", copiedCourseID, usageCount)
@@ -2554,7 +2554,7 @@ func removeDepartmentsFromCourseSharing(sourceDeptID, courseID int, departmentsT
 
 		// If this was the last sharing instance, update source course visibility back to UNIQUE
 		if shareCount == 1 {
-			db.DB.Exec("UPDATE courses SET visibility = 'UNIQUE' WHERE course_id = ?", courseID)
+			db.DB.Exec("UPDATE courses SET visibility = 'UNIQUE' WHERE id = ?", courseID)
 			log.Printf("Updated source course %d visibility to UNIQUE (no longer shared)\n", courseID)
 		}
 
@@ -2598,9 +2598,9 @@ func GetItemSharedDepartments(w http.ResponseWriter, r *http.Request) {
 		err = db.DB.QueryRow(`
 			SELECT do.id 
 			FROM courses c
-			JOIN curriculum_courses cc ON c.course_id = cc.course_id
+			JOIN curriculum_courses cc ON c.id = cc.course_id
 			JOIN curriculum_vision do ON cc.curriculum_id = do.curriculum_id
-			WHERE c.course_id = ?
+			WHERE c.id = ?
 			LIMIT 1
 		`, itemID).Scan(&sourceDeptID)
 	case "mission", "peos", "psos":

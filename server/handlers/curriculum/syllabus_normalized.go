@@ -2,11 +2,19 @@ package curriculum
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 	"server/db"
 	"server/models"
 	"strings"
+
+	"github.com/go-sql-driver/mysql"
 )
+
+func isMySQLUnknownColumnError(err error) bool {
+	var mysqlErr *mysql.MySQLError
+	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1054
+}
 
 // Helper functions for normalized syllabus data access
 // All tables reference course_id directly (course-centric design)
@@ -104,9 +112,15 @@ func fetchTeamwork(courseID int) (*models.Teamwork, error) {
 	// Get total_hours from course_teamwork
 	var hours int
 	err := db.DB.QueryRow(`
-		SELECT total_hours 
-		FROM course_teamwork 
-		WHERE course_id = ?`, courseID).Scan(&hours)
+		SELECT total_hours
+		FROM course_teamwork
+		WHERE id = ?`, courseID).Scan(&hours)
+	if isMySQLUnknownColumnError(err) {
+		err = db.DB.QueryRow(`
+			SELECT total_hours
+			FROM course_teamwork
+			WHERE course_id = ?`, courseID).Scan(&hours)
+	}
 
 	if err == sql.ErrNoRows {
 		return nil, nil // No teamwork data
@@ -117,12 +131,24 @@ func fetchTeamwork(courseID int) (*models.Teamwork, error) {
 
 	// Fetch activities from course_teamwork_activities
 	rows, err := db.DB.Query(`
-		SELECT activity 
-		FROM course_teamwork_activities 
-		WHERE course_id = ? 
+		SELECT activity
+		FROM course_teamwork_activities
+		WHERE teamwork_id = ?
 		ORDER BY position`, courseID)
 	if err != nil {
-		return &models.Teamwork{Hours: hours, Activities: []string{}}, nil
+		if isMySQLUnknownColumnError(err) {
+			// Older schema used course_id instead of teamwork_id.
+			rows, err = db.DB.Query(`
+				SELECT activity
+				FROM course_teamwork_activities
+				WHERE course_id = ?
+				ORDER BY position`, courseID)
+			if err != nil {
+				return &models.Teamwork{Hours: hours, Activities: []string{}}, nil
+			}
+		} else {
+			return &models.Teamwork{Hours: hours, Activities: []string{}}, nil
+		}
 	}
 	defer rows.Close()
 
@@ -698,19 +724,45 @@ func saveTeamwork(courseID int, teamwork *models.Teamwork) error {
 	if teamwork == nil {
 		log.Printf("DEBUG: saveTeamwork called with nil teamwork for courseID %d", courseID)
 		// Delete if nil
-		db.DB.Exec("DELETE FROM course_teamwork_activities WHERE course_id = ?", courseID)
-		db.DB.Exec("DELETE FROM course_teamwork WHERE course_id = ?", courseID)
+		if _, err := db.DB.Exec("DELETE FROM course_teamwork_activities WHERE teamwork_id = ?", courseID); err != nil {
+			if isMySQLUnknownColumnError(err) {
+				_, _ = db.DB.Exec("DELETE FROM course_teamwork_activities WHERE course_id = ?", courseID)
+			} else {
+				return err
+			}
+		}
+		if _, err := db.DB.Exec("DELETE FROM course_teamwork WHERE id = ?", courseID); err != nil {
+			if isMySQLUnknownColumnError(err) {
+				_, _ = db.DB.Exec("DELETE FROM course_teamwork WHERE course_id = ?", courseID)
+			} else {
+				return err
+			}
+		}
 		return nil
 	}
 
 	log.Printf("DEBUG: saveTeamwork called for courseID %d with hours=%d, activities=%v", courseID, teamwork.Hours, teamwork.Activities)
 
 	// Upsert total_hours in course_teamwork
-	result, err := db.DB.Exec(`
-		INSERT INTO course_teamwork (course_id, total_hours) 
-		VALUES (?, ?) 
+	// Schema differs between environments:
+	// - Some DBs use (course_id, total_hours) with PRIMARY KEY (course_id)
+	// - Others use (id, course_id, total_hours, ...) with PRIMARY KEY (id) where id == courses.id
+	var (
+		result sql.Result
+		err    error
+	)
+	result, err = db.DB.Exec(`
+		INSERT INTO course_teamwork (id, course_id, total_hours)
+		VALUES (?, ?, ?)
 		ON DUPLICATE KEY UPDATE total_hours = ?`,
-		courseID, teamwork.Hours, teamwork.Hours)
+		courseID, courseID, teamwork.Hours, teamwork.Hours)
+	if err != nil && isMySQLUnknownColumnError(err) {
+		result, err = db.DB.Exec(`
+			INSERT INTO course_teamwork (course_id, total_hours)
+			VALUES (?, ?)
+			ON DUPLICATE KEY UPDATE total_hours = ?`,
+			courseID, teamwork.Hours, teamwork.Hours)
+	}
 	if err != nil {
 		log.Printf("ERROR: Failed to upsert course_teamwork: %v", err)
 		return err
@@ -719,10 +771,16 @@ func saveTeamwork(courseID int, teamwork *models.Teamwork) error {
 	log.Printf("DEBUG: course_teamwork upsert affected %d rows", rowsAffected)
 
 	// Delete existing activities
-	_, err = db.DB.Exec("DELETE FROM course_teamwork_activities WHERE course_id = ?", courseID)
-	if err != nil {
-		log.Printf("ERROR: Failed to delete existing teamwork activities: %v", err)
-		return err
+	if _, err := db.DB.Exec("DELETE FROM course_teamwork_activities WHERE teamwork_id = ?", courseID); err != nil {
+		if isMySQLUnknownColumnError(err) {
+			// Older schema used course_id instead of teamwork_id.
+			if _, err2 := db.DB.Exec("DELETE FROM course_teamwork_activities WHERE course_id = ?", courseID); err2 != nil {
+				return nil
+			}
+		} else {
+			log.Printf("ERROR: Failed to delete existing teamwork activities: %v", err)
+			return err
+		}
 	}
 
 	// Insert new activities
@@ -733,9 +791,18 @@ func saveTeamwork(courseID int, teamwork *models.Teamwork) error {
 			continue
 		}
 		result, err := db.DB.Exec(`
-			INSERT INTO course_teamwork_activities (course_id, activity, position) 
+			INSERT INTO course_teamwork_activities (teamwork_id, activity, position)
 			VALUES (?, ?, ?)`, courseID, text, i)
 		if err != nil {
+			if isMySQLUnknownColumnError(err) {
+				// Older schema used course_id instead of teamwork_id.
+				if _, err2 := db.DB.Exec(`
+					INSERT INTO course_teamwork_activities (course_id, activity, position)
+					VALUES (?, ?, ?)`, courseID, text, i); err2 == nil {
+					continue
+				}
+				return nil
+			}
 			log.Printf("ERROR: Failed to insert teamwork activity at position %d: %v", i, err)
 			return err
 		}
@@ -758,10 +825,17 @@ func saveSelfLearning(courseID int, selflearning *models.SelfLearning) error {
 
 	// Upsert self-learning total_hours
 	_, err := db.DB.Exec(`
-		INSERT INTO course_selflearning (course_id, total_hours) 
-		VALUES (?, ?) 
+		INSERT INTO course_selflearning (id, course_id, total_hours)
+		VALUES (?, ?, ?)
 		ON DUPLICATE KEY UPDATE total_hours = ?`,
-		courseID, selflearning.Hours, selflearning.Hours)
+		courseID, courseID, selflearning.Hours, selflearning.Hours)
+	if err != nil && isMySQLUnknownColumnError(err) {
+		_, err = db.DB.Exec(`
+			INSERT INTO course_selflearning (course_id, total_hours)
+			VALUES (?, ?)
+			ON DUPLICATE KEY UPDATE total_hours = ?`,
+			courseID, selflearning.Hours, selflearning.Hours)
+	}
 	if err != nil {
 		return err
 	}

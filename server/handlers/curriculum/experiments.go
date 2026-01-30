@@ -94,7 +94,7 @@ func CreateExperiment(w http.ResponseWriter, r *http.Request) {
 
 	// Verify course exists
 	var courseExists int
-	err = db.DB.QueryRow("SELECT COUNT(*) FROM courses WHERE course_id = ?", courseID).Scan(&courseExists)
+	err = db.DB.QueryRow("SELECT COUNT(*) FROM courses WHERE id = ?", courseID).Scan(&courseExists)
 	if err != nil {
 		log.Printf("ERROR CreateExperiment: failed to check if course exists: %v", err)
 		http.Error(w, "Failed to verify course", http.StatusInternalServerError)
