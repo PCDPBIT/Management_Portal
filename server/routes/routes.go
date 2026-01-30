@@ -104,11 +104,11 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/curriculum/{id}/peo-po-mapping", curriculum.GetPEOPOMapping).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/curriculum/{id}/peo-po-mapping", curriculum.SavePEOPOMapping).Methods("POST", "OPTIONS")
 
-	// Experiments routes (2022 template)
-	router.HandleFunc("/api/course/{courseId}/experiments", curriculum.GetCourseExperiments).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/course/{courseId}/experiments", curriculum.CreateExperiment).Methods("POST", "OPTIONS")
+	// Experiments routes (2022 template) - Register specific routes FIRST
 	router.HandleFunc("/api/experiments/{expId}", curriculum.UpdateExperiment).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/experiments/{expId}", curriculum.DeleteExperiment).Methods("DELETE", "OPTIONS")
+	router.HandleFunc("/api/course/{courseId}/experiments", curriculum.GetCourseExperiments).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/course/{courseId}/experiments", curriculum.CreateExperiment).Methods("POST", "OPTIONS")
 
 	// Curriculum Logs routes
 	router.HandleFunc("/api/curriculum/{id}/log", curriculum.CreateCurriculumLog).Methods("POST", "OPTIONS")
@@ -120,10 +120,10 @@ func SetupRoutes() *mux.Router {
 	// Course Allocation routes
 	router.HandleFunc("/api/allocations", curriculum.GetCourseAllocations).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/allocations", curriculum.CreateAllocation).Methods("POST", "OPTIONS")
-	router.HandleFunc("/api/allocations/{id}", curriculum.UpdateAllocation).Methods("PUT", "OPTIONS")
-	router.HandleFunc("/api/allocations/{id}", curriculum.DeleteAllocation).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/allocations/unassigned", curriculum.GetUnassignedCourses).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/allocations/summary", curriculum.GetAllocationSummary).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/allocations/{id}", curriculum.UpdateAllocation).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/api/allocations/{id}", curriculum.DeleteAllocation).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/teachers/{id}/courses", curriculum.GetTeacherCourses).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/courses/{id}/teachers", curriculum.GetCourseTeachers).Methods("GET", "OPTIONS")
 
