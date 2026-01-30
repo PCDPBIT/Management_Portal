@@ -170,7 +170,7 @@ func GetMappingData(w http.ResponseWriter, r *http.Request) {
 
 	studentQuery := `
 		SELECT 
-			s.student_id,
+			s.id,
 			COALESCE(s.enrollment_no, ''),
 			s.student_name,
 			COALESCE(ad.department, ''),
@@ -178,9 +178,9 @@ func GetMappingData(w http.ResponseWriter, r *http.Request) {
 			stm.teacher_id,
 			t.name as teacher_name
 		FROM students s
-		INNER JOIN academic_details ad ON s.student_id = ad.student_id
+		INNER JOIN academic_details ad ON s.id = ad.student_id
 		INNER JOIN departments d ON ad.department = d.department_name
-		LEFT JOIN student_teacher_mapping stm ON s.student_id = stm.student_id 
+		LEFT JOIN student_teacher_mapping stm ON s.id = stm.student_id 
 			` + `
 		LEFT JOIN teachers t ON stm.teacher_id = t.id
 		WHERE d.id = ? AND s.status = 1
@@ -326,12 +326,12 @@ func AssignStudentsToTeachers(w http.ResponseWriter, r *http.Request) {
 
 	// Get all students in this department and year
 	studentQuery := `
-		SELECT s.student_id
+		SELECT s.id
 		FROM students s
-		INNER JOIN academic_details ad ON s.student_id = ad.student_id
+		INNER JOIN academic_details ad ON s.id = ad.student_id
 		INNER JOIN departments d ON ad.department = d.department_name
 		WHERE d.id = ? AND s.status = 1
-		ORDER BY s.student_id
+		ORDER BY s.id
 	`
 	log.Printf("[DEBUG][AUTO-ASSIGN] Fetching students with query: %s", studentQuery)
 	log.Printf("[DEBUG][AUTO-ASSIGN] Student query params: dept=%d, year=%d", req.DepartmentID, req.Year)
