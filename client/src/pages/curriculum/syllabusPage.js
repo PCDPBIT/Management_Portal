@@ -806,7 +806,10 @@ function SyllabusPage() {
     if (!topic) return
 
     const exp = experiments.find(e => e.id === expId)
-    if (!exp) return
+    if (!exp) {
+      setError('Experiment not found')
+      return
+    }
 
     const updatedTopics = [...(exp.topics || []), topic]
 

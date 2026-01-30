@@ -209,24 +209,30 @@ func CreateTeacher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get department ID from department name
+	// Get department ID (frontend now sends department ID)
 	var deptID *int
 	if department != "" {
-		var tempDeptID int
-		err := db.DB.QueryRow("SELECT id FROM departments WHERE department_name = ?", department).Scan(&tempDeptID)
-		if err == nil {
-			deptID = &tempDeptID
-		} else {
-			log.Printf("Warning: Department '%s' not found: %v", department, err)
-			// Try to insert the department if it doesn't exist
-			result, insertErr := db.DB.Exec("INSERT INTO departments (department_name, status) VALUES (?, 1)", department)
-			if insertErr == nil {
-				newID, _ := result.LastInsertId()
-				tempDeptID = int(newID)
+		// Try to parse department as ID first
+		tempDeptID, parseErr := strconv.Atoi(department)
+		if parseErr == nil {
+			// Verify department exists
+			var exists int
+			err := db.DB.QueryRow("SELECT id FROM departments WHERE id = ? AND status = 1", tempDeptID).Scan(&exists)
+			if err == nil {
 				deptID = &tempDeptID
-				log.Printf("Created new department '%s' with ID %d", department, tempDeptID)
+				log.Printf("Using department ID %d", tempDeptID)
 			} else {
-				log.Printf("Failed to create department '%s': %v", department, insertErr)
+				log.Printf("Warning: Department ID %d not found: %v", tempDeptID, err)
+			}
+		} else {
+			// Fallback: treat as department name (for backwards compatibility)
+			var tempDeptIDFromName int
+			err := db.DB.QueryRow("SELECT id FROM departments WHERE department_name = ?", department).Scan(&tempDeptIDFromName)
+			if err == nil {
+				deptID = &tempDeptIDFromName
+				log.Printf("Found department by name '%s' with ID %d", department, tempDeptIDFromName)
+			} else {
+				log.Printf("Warning: Department '%s' not found: %v", department, err)
 			}
 		}
 	}
@@ -411,24 +417,30 @@ func UpdateTeacher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get department ID from department name
+	// Get department ID (frontend now sends department ID)
 	var deptID *int
 	if department != "" {
-		var tempDeptID int
-		err := db.DB.QueryRow("SELECT id FROM departments WHERE department_name = ?", department).Scan(&tempDeptID)
-		if err == nil {
-			deptID = &tempDeptID
-		} else {
-			log.Printf("Warning: Department '%s' not found: %v", department, err)
-			// Try to insert the department if it doesn't exist
-			result, insertErr := db.DB.Exec("INSERT INTO departments (department_name, status) VALUES (?, 1)", department)
-			if insertErr == nil {
-				newID, _ := result.LastInsertId()
-				tempDeptID = int(newID)
+		// Try to parse department as ID first
+		tempDeptID, parseErr := strconv.Atoi(department)
+		if parseErr == nil {
+			// Verify department exists
+			var exists int
+			err := db.DB.QueryRow("SELECT id FROM departments WHERE id = ? AND status = 1", tempDeptID).Scan(&exists)
+			if err == nil {
 				deptID = &tempDeptID
-				log.Printf("Created new department '%s' with ID %d", department, tempDeptID)
+				log.Printf("Using department ID %d", tempDeptID)
 			} else {
-				log.Printf("Failed to create department '%s': %v", department, insertErr)
+				log.Printf("Warning: Department ID %d not found: %v", tempDeptID, err)
+			}
+		} else {
+			// Fallback: treat as department name (for backwards compatibility)
+			var tempDeptIDFromName int
+			err := db.DB.QueryRow("SELECT id FROM departments WHERE department_name = ?", department).Scan(&tempDeptIDFromName)
+			if err == nil {
+				deptID = &tempDeptIDFromName
+				log.Printf("Found department by name '%s' with ID %d", department, tempDeptIDFromName)
+			} else {
+				log.Printf("Warning: Department '%s' not found: %v", department, err)
 			}
 		}
 	}
