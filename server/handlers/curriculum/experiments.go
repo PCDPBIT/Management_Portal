@@ -2,6 +2,7 @@ package curriculum
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"server/db"
@@ -107,8 +108,8 @@ func CreateExperiment(w http.ResponseWriter, r *http.Request) {
 
 	// Insert experiment
 	result, err := db.DB.Exec(`
-		INSERT INTO course_experiments (course_id, experiment_number, experiment_name, hours)
-		VALUES (?, ?, ?, ?)`, courseID, req.ExperimentNumber, req.ExperimentName, req.Hours)
+		INSERT INTO course_experiments (course_id, experiment_number, experiment_name, hours, status)
+		VALUES (?, ?, ?, ?, 1)`, courseID, req.ExperimentNumber, req.ExperimentName, req.Hours)
 	if err != nil {
 		log.Printf("ERROR CreateExperiment: failed to insert experiment: %v", err)
 		http.Error(w, "Failed to create experiment", http.StatusInternalServerError)
@@ -158,9 +159,23 @@ func UpdateExperiment(w http.ResponseWriter, r *http.Request) {
 		Topics           []string `json:"topics"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("ERROR UpdateExperiment: Invalid request body for exp_id=%d: %v", expID, err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	log.Printf("DEBUG UpdateExperiment: exp_id=%d, num=%d, name='%s', hours=%d, topics=%v", expID, req.ExperimentNumber, req.ExperimentName, req.Hours, req.Topics)
+
+	// First check if experiment exists
+	var existingExpID int
+	var existingStatus int
+	err = db.DB.QueryRow("SELECT id, status FROM course_experiments WHERE id = ?", expID).Scan(&existingExpID, &existingStatus)
+	if err != nil {
+		log.Printf("ERROR UpdateExperiment: Experiment ID %d does not exist: %v", expID, err)
+		http.Error(w, "Experiment not found", http.StatusNotFound)
+		return
+	}
+	log.Printf("DEBUG UpdateExperiment: Found experiment ID %d with status=%d", existingExpID, existingStatus)
 
 	tx, err := db.DB.Begin()
 	if err != nil {
@@ -174,8 +189,8 @@ func UpdateExperiment(w http.ResponseWriter, r *http.Request) {
 
 	result, err := tx.Exec(`
 		UPDATE course_experiments
-		SET experiment_number = ?, experiment_name = ?, hours = ?
-		WHERE id = ? AND status = 1`, req.ExperimentNumber, req.ExperimentName, req.Hours, expID)
+		SET experiment_number = ?, experiment_name = ?, hours = ?, status = 1
+		WHERE id = ?`, req.ExperimentNumber, req.ExperimentName, req.Hours, expID)
 	if err != nil {
 		log.Println("ERROR UpdateExperiment: Failed to update experiment:", err)
 		http.Error(w, "Failed to update experiment", http.StatusInternalServerError)
@@ -184,12 +199,6 @@ func UpdateExperiment(w http.ResponseWriter, r *http.Request) {
 
 	rowsAffected, _ := result.RowsAffected()
 	log.Printf("DEBUG UpdateExperiment: Updated experiment ID %d, rows affected: %d", expID, rowsAffected)
-
-	if rowsAffected == 0 {
-		log.Printf("WARNING UpdateExperiment: No rows updated for experiment ID %d (might be soft-deleted or not exist)", expID)
-		http.Error(w, "Experiment not found or already deleted", http.StatusNotFound)
-		return
-	}
 
 	// Normalize incoming topics (keep order; skip empty)
 	incomingTopics := make([]string, 0, len(req.Topics))
@@ -293,6 +302,7 @@ func UpdateExperiment(w http.ResponseWriter, r *http.Request) {
 			if _, ok := matchedExisting[idx]; !ok {
 				if _, err := tx.Exec("UPDATE course_experiment_topics SET status = 0 WHERE id = ?", t.ID); err != nil {
 					log.Printf("ERROR UpdateExperiment: Failed to soft delete removed topic id=%d exp_id=%d: %v", t.ID, expID, err)
+					http.Error(w, "Failed to delete topic", http.StatusInternalServerError)
 					return
 				}
 			}
@@ -303,6 +313,7 @@ func UpdateExperiment(w http.ResponseWriter, r *http.Request) {
 			id := existingActiveTopics[oldIdx].ID
 			if _, err := tx.Exec("UPDATE course_experiment_topics SET topic_order = ?, status = 1 WHERE id = ?", newIdx, id); err != nil {
 				log.Printf("ERROR UpdateExperiment: Failed to shift topic id=%d exp_id=%d: %v", id, expID, err)
+				http.Error(w, "Failed to update topic order", http.StatusInternalServerError)
 				return
 			}
 		}
@@ -312,12 +323,15 @@ func UpdateExperiment(w http.ResponseWriter, r *http.Request) {
 			if matchedIncoming[idx] {
 				continue
 			}
+			log.Printf("DEBUG UpdateExperiment: Inserting new topic at index %d: '%s' for exp_id=%d", idx, text, expID)
 			if _, err := tx.Exec(`
 				INSERT INTO course_experiment_topics (experiment_id, topic_text, topic_order, status)
 				VALUES (?, ?, ?, 1)`, expID, text, idx); err != nil {
-				log.Printf("ERROR UpdateExperiment: Failed to insert new topic exp_id=%d order=%d: %v", expID, idx, err)
+				log.Printf("ERROR UpdateExperiment: Failed to insert new topic exp_id=%d order=%d text='%s': %v", expID, idx, text, err)
+				http.Error(w, fmt.Sprintf("Failed to insert topic: %v", err), http.StatusInternalServerError)
 				return
 			}
+			log.Printf("DEBUG UpdateExperiment: Successfully inserted topic at index %d", idx)
 		}
 	}
 
