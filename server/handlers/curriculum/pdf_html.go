@@ -204,12 +204,12 @@ func fetchCompleteRegulationData(regulationID int) (*models.RegulationPDF, error
 
 		// Fetch courses for semester - maintain database order
 		courseRows, _ := db.DB.Query(`
-			SELECT c.course_id, c.course_code, c.course_name, c.course_type, c.category, c.credit,
+			SELECT c.id, c.course_code, c.course_name, c.course_type, c.category, c.credit,
 			       c.lecture_hours, c.tutorial_hours, c.practical_hours, 
 			       c.theory_hours, c.activity_hours, c.total_hours,
 			       c.cia_marks, c.see_marks, c.total_marks
 			FROM courses c
-			INNER JOIN curriculum_courses rc ON c.course_id = rc.course_id
+			INNER JOIN curriculum_courses rc ON c.id = rc.id
 			WHERE rc.curriculum_id = ? AND rc.semester_id = ?
 			ORDER BY rc.id`, regulationID, semID) // Order by junction table ID to preserve insertion order
 
@@ -346,12 +346,12 @@ func fetchCompleteRegulationData(regulationID int) (*models.RegulationPDF, error
 
 					// Fetch courses for this vertical
 					courseRows, err := db.DB.Query(`
-						SELECT c.course_id, c.course_code, c.course_name, c.course_type, c.category, c.credit,
+						SELECT c.id, c.course_code, c.course_name, c.course_type, c.category, c.credit,
 							   c.lecture_hours, c.tutorial_hours, c.practical_hours, 
 							   c.theory_hours, c.activity_hours, c.total_hours,
 							   c.cia_marks, c.see_marks, c.total_marks
 						FROM courses c
-						INNER JOIN honour_vertical_courses hvc ON c.course_id = hvc.course_id
+						INNER JOIN honour_vertical_courses hvc ON c.id = hvc.id
 						WHERE hvc.vertical_id = ?
 						ORDER BY hvc.position`, verticalID)
 					if err == nil {

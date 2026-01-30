@@ -25,9 +25,9 @@ func GetCourseAllocations(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Fetch all courses linked to this semester
 	courseQuery := `
-		SELECT c.course_id, c.course_code, c.course_name, c.course_type, c.credit
+		SELECT c.id, c.course_code, c.course_name, COALESCE(c.course_type, 'Theory'), c.credit
 		FROM courses c
-		JOIN curriculum_courses cc ON c.course_id = cc.course_id
+		JOIN curriculum_courses cc ON c.id = cc.id
 		WHERE cc.semester_id = ? AND c.status = 1
 	`
 	rows, err := db.DB.Query(courseQuery, semesterID)
@@ -184,10 +184,10 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT 
-			ca.id, ca.course_id, c.course_code, c.course_name, c.course_type, 
-			c.credit, ca.academic_year, ca.semester, ca.section, ca.role
+			ca.id, ca.course_id, c.course_code, c.course_name, COALESCE(c.course_type, 'Theory'), 
+			c.credit, ca.academic_year, ca.semester, ca.section, ca.role, COALESCE(c.category, 'General')
 		FROM teacher_course_allocation ca
-		JOIN courses c ON ca.course_id = c.course_id
+		JOIN courses c ON ca.course_id = c.id
 		WHERE ca.teacher_id = ? AND ca.status = 1
 	`
 
@@ -217,6 +217,7 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 		CourseName   string `json:"course_name"`
 		CourseType   string `json:"course_type"`
 		Credit       int    `json:"credit"`
+		Category     string `json:"category"`
 		AcademicYear string `json:"academic_year"`
 		Semester     int    `json:"semester"`
 		Section      string `json:"section"`
@@ -228,7 +229,7 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 		var course TeacherCourse
 		err := rows.Scan(&course.ID, &course.CourseID, &course.CourseCode, &course.CourseName,
 			&course.CourseType, &course.Credit, &course.AcademicYear, &course.Semester,
-			&course.Section, &course.Role)
+			&course.Section, &course.Role, &course.Category)
 		if err != nil {
 			log.Printf("Error scanning course row: %v", err)
 			continue
@@ -325,13 +326,13 @@ func GetUnassignedCourses(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		SELECT c.course_id, c.course_code, c.course_name, c.course_type, c.credit
+		SELECT c.id, c.course_code, c.course_name, COALESCE(c.course_type, 'Theory'), c.credit
 		FROM courses c
-		JOIN curriculum_courses cc ON c.course_id = cc.course_id
+		JOIN curriculum_courses cc ON c.id = cc.id
 		WHERE cc.semester_id = ? AND c.status = 1
 		AND NOT EXISTS (
 			SELECT 1 FROM teacher_course_allocation ca
-			WHERE ca.course_id = c.course_id 
+			WHERE ca.course_id = c.id 
 			AND ca.academic_year = ?
 			AND ca.status = 1
 			AND ca.role = 'Primary'
@@ -391,9 +392,9 @@ func GetAllocationSummary(w http.ResponseWriter, r *http.Request) {
 
 	// Total courses
 	err := db.DB.QueryRow(`
-		SELECT COUNT(DISTINCT c.course_id)
+		SELECT COUNT(DISTINCT c.id)
 		FROM courses c
-		JOIN curriculum_courses cc ON c.course_id = cc.course_id
+		JOIN curriculum_courses cc ON c.id = cc.id
 		WHERE cc.semester_id = ? AND c.status = 1
 	`, semesterID).Scan(&summary.TotalCourses)
 	if err != nil {
@@ -404,7 +405,7 @@ func GetAllocationSummary(w http.ResponseWriter, r *http.Request) {
 	err = db.DB.QueryRow(`
 		SELECT COUNT(DISTINCT ca.course_id)
 		FROM teacher_course_allocation ca
-		JOIN curriculum_courses cc ON ca.course_id = cc.course_id
+		JOIN curriculum_courses cc ON ca.course_id = cc.id
 		WHERE cc.semester_id = ? AND ca.academic_year = ? 
 		AND ca.status = 1 AND ca.role = 'Primary'
 	`, semesterID, academicYear).Scan(&summary.AssignedCourses)
@@ -424,7 +425,7 @@ func GetAllocationSummary(w http.ResponseWriter, r *http.Request) {
 	err = db.DB.QueryRow(`
 		SELECT COUNT(DISTINCT ca.teacher_id)
 		FROM teacher_course_allocation ca
-		JOIN curriculum_courses cc ON ca.course_id = cc.course_id
+		JOIN curriculum_courses cc ON ca.course_id = cc.id
 		WHERE cc.semester_id = ? AND ca.academic_year = ? AND ca.status = 1
 	`, semesterID, academicYear).Scan(&summary.ActiveTeachers)
 	if err != nil {

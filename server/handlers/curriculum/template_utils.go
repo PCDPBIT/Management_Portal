@@ -30,7 +30,7 @@ func getCurriculumTemplateForCourse(courseID int) string {
         SELECT c.curriculum_template
         FROM curriculum_courses cc
         INNER JOIN curriculum c ON c.id = cc.curriculum_id
-        WHERE cc.course_id = ?
+        WHERE cc.id = ?
         LIMIT 1`, courseID).Scan(&tmpl)
 	if err == nil && tmpl.Valid && tmpl.String != "" {
 		return tmpl.String
@@ -43,7 +43,7 @@ func getCurriculumTemplateForCourse(courseID int) string {
         INNER JOIN honour_verticals hv ON hv.id = hvc.honour_vertical_id
         INNER JOIN honour_cards hc ON hc.id = hv.honour_card_id
         INNER JOIN curriculum c ON c.id = hc.curriculum_id
-        WHERE hvc.course_id = ?
+        WHERE hvc.id = ?
         LIMIT 1`, courseID).Scan(&tmpl)
 	if err == nil && tmpl.Valid && tmpl.String != "" {
 		return tmpl.String

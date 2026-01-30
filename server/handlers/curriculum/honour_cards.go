@@ -84,13 +84,13 @@ func fetchVerticalsForCard(honourCardID int) []models.HonourVerticalWithCourses 
 // fetchCoursesForVertical retrieves all courses for a given vertical
 func fetchCoursesForVertical(verticalID int) []models.CourseWithDetails {
 	query := `
-		SELECT c.course_id, c.course_code, c.course_name, c.course_type, c.category, 
+		SELECT c.id, c.course_code, c.course_name, c.course_type, c.category, 
 		       c.credit, c.lecture_hrs, c.tutorial_hrs, c.practical_hrs, c.activity_hrs, COALESCE(c.` + "`tw/sl`" + `, 0) as tw_sl,
 		       COALESCE(c.theory_total_hrs, 0), COALESCE(c.tutorial_total_hrs, 0), COALESCE(c.practical_total_hrs, 0), COALESCE(c.activity_total_hrs, 0), COALESCE(c.total_hrs, 0),
 		       c.cia_marks, c.see_marks, c.total_marks,
 		       hvc.id as honour_vertical_course_id
 		FROM courses c
-		INNER JOIN honour_vertical_courses hvc ON c.course_id = hvc.course_id
+		INNER JOIN honour_vertical_courses hvc ON c.id = hvc.id
 		WHERE hvc.honour_vertical_id = ? AND hvc.status = 1 AND c.status = 1
 		ORDER BY c.course_code
 	`
@@ -314,8 +314,8 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 
 		// Check if course code already exists in this curriculum
 		var existingCourseID int
-		checkQuery := `SELECT c.course_id FROM courses c 
-		               INNER JOIN curriculum_courses cc ON c.course_id = cc.course_id 
+		checkQuery := `SELECT c.id FROM courses c 
+		               INNER JOIN curriculum_courses cc ON c.id = cc.id 
 		               WHERE c.course_code = ? AND cc.curriculum_id = ?`
 		err = db.DB.QueryRow(checkQuery, payload.CourseCode, curriculumID).Scan(&existingCourseID)
 
