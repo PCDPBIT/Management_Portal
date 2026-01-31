@@ -28,7 +28,6 @@ type Course struct {
 	SEEMarks           int    `json:"see_marks"`
 	TotalMarks         int    `json:"total_marks"`
 	CountTowardsLimit  *bool  `json:"count_towards_limit,omitempty"`
-	ElectiveSemNo      *int   `json:"elective_sem_no,omitempty"`
 	CurriculumTemplate string `json:"curriculum_template,omitempty"`
 }
 
@@ -60,7 +59,6 @@ type CourseWithDetails struct {
 	SEEMarks           int    `json:"see_marks"`
 	TotalMarks         int    `json:"total_marks"`
 	CountTowardsLimit  *bool  `json:"count_towards_limit,omitempty"`
-	ElectiveSemNo      *int   `json:"elective_sem_no,omitempty"`
 	RegCourseID        int    `json:"reg_course_id"`
 	CurriculumTemplate string `json:"curriculum_template,omitempty"`
 }
