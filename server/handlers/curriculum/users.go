@@ -11,7 +11,6 @@ import (
 	"server/models"
 
 	"github.com/gorilla/mux"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // GetUsers retrieves all users
@@ -113,15 +112,6 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(createReq.Password), bcrypt.DefaultCost)
-	if err != nil {
-		log.Println("Error hashing password:", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to process password"})
-		return
-	}
-
 	// Set default role if not provided
 	if createReq.Role == "" {
 		createReq.Role = "user"
@@ -131,7 +121,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	query := `INSERT INTO users (username, password_hash, full_name, email, role, is_active) 
 	          VALUES (?, ?, ?, ?, ?, ?)`
 
-	result, err := db.DB.Exec(query, createReq.Username, string(hashedPassword), createReq.FullName,
+	result, err := db.DB.Exec(query, createReq.Username, createReq.Password, createReq.FullName,
 		createReq.Email, createReq.Role, createReq.IsActive)
 
 	if err != nil {
@@ -246,18 +236,9 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Hash new password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(pwdReq.Password), bcrypt.DefaultCost)
-	if err != nil {
-		log.Println("Error hashing password:", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to process password"})
-		return
-	}
-
 	// Update password
 	query := `UPDATE users SET password_hash = ? WHERE id = ?`
-	_, err = db.DB.Exec(query, string(hashedPassword), userID)
+	_, err = db.DB.Exec(query, pwdReq.Password, userID)
 
 	if err != nil {
 		log.Println("Error updating password:", err)

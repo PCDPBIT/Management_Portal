@@ -9,8 +9,6 @@ import (
 
 	"server/db"
 	"server/models"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // Login handles user authentication
@@ -45,9 +43,9 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	query := `SELECT id, username, password_hash, full_name, email, role, is_active, created_at, updated_at, last_login 
 	          FROM users WHERE username = ? AND is_active = TRUE`
-			  
+
 	err = db.DB.QueryRow(query, loginReq.Username).Scan(
-		&user.ID, &user.Username, &user.PasswordHash, &user.FullName, &user.Email,
+		&user.ID, &user.Username, &user.Password, &user.FullName, &user.Email,
 		&user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.LastLogin,
 	)
 
@@ -70,13 +68,12 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("User found: %s, verifying password", user.Username)
-	log.Printf("Password hash from DB: %s", user.PasswordHash)
+	log.Printf("Password from DB: %s", user.Password)
 	log.Printf("Password provided: %s", loginReq.Password)
 
 	// Verify password
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(loginReq.Password))
-	if err != nil {
-		log.Printf("Password verification failed: %v", err)
+	if user.Password != loginReq.Password {
+		log.Printf("Password verification failed")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(models.LoginResponse{
 			Success: false,
