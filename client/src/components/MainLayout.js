@@ -9,14 +9,19 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
     return saved === "true";
   });
 
+  const userRole = localStorage.getItem("userRole");
+  const userName = localStorage.getItem("userName") || "User";
+  const userEmail = localStorage.getItem("userEmail") || "user@cms.edu";
+
   useEffect(() => {
     localStorage.setItem("sidebarCollapsed", sidebarCollapsed);
   }, [sidebarCollapsed]);
 
-  const menuItems = [
+  // Define menu items based on user role
+  const allMenuItems = [
     {
       name: "Dashboard",
-      path: "/dashboard",
+      path: userRole === "teacher" ? "/teacher-dashboard" : "/dashboard",
       icon: (
         <svg
           className="w-5 h-5"
@@ -32,6 +37,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
           />
         </svg>
       ),
+      roles: ["admin", "teacher"], // Available to all roles
     },
     {
       name: "Curriculum",
@@ -51,6 +57,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
           />
         </svg>
       ),
+      roles: ["admin"], // Only admin
     },
     {
       name: "Student & Teacher",
@@ -70,6 +77,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
           />
         </svg>
       ),
+      roles: ["admin"], // Only admin
     },
     {
       name: "Course Allocation",
@@ -89,6 +97,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
           />
         </svg>
       ),
+      roles: ["admin"], // Only admin
     },
     {
       name: "Teacher Courses",
@@ -108,8 +117,12 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
           />
         </svg>
       ),
+      roles: ["admin"], // Only admin
     },
   ];
+
+  // Filter menu items based on user role
+  const menuItems = allMenuItems.filter(item => item.roles.includes(userRole));
 
   const isActive = (path) => {
     return (
@@ -122,6 +135,8 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
     localStorage.removeItem("userId");
     localStorage.removeItem("userRole");
     localStorage.removeItem("userName");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("teacherId");
     localStorage.removeItem("token");
     navigate("/");
   };
@@ -263,14 +278,14 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
             className={`flex items-center ${sidebarCollapsed ? "justify-center" : "space-x-3"}`}
           >
             <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-              A
+              {userName.charAt(0).toUpperCase()}
             </div>
             {!sidebarCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  Admin
+                  {userName}
                 </p>
-                <p className="text-xs text-gray-500 truncate">admin@cms.edu</p>
+                <p className="text-xs text-gray-500 truncate">{userEmail}</p>
               </div>
             )}
           </div>

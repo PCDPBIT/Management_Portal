@@ -20,10 +20,12 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	User    *User  `json:"user,omitempty"`
-	Token   string `json:"token,omitempty"`
+	Success     bool    `json:"success"`
+	Message     string  `json:"message"`
+	User        *User   `json:"user,omitempty"`
+	Token       string  `json:"token,omitempty"`
+	TeacherID   *string `json:"teacher_id,omitempty"`
+	TeacherName *string `json:"teacher_name,omitempty"`
 }
 
 type CreateUserRequest struct {

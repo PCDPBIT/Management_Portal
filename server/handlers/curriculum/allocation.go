@@ -194,14 +194,14 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type TeacherCourse struct {
-		ID           int                 `json:"id"`
-		CourseID     int                 `json:"course_id"`
-		CourseCode   string              `json:"course_code"`
-		CourseName   string              `json:"course_name"`
-		CourseType   string              `json:"course_type"`
-		Credit       int                 `json:"credit"`
-		Category     string              `json:"category"`
-		Enrollments  []StudentEnrollment `json:"enrollments"`
+		ID          int                 `json:"id"`
+		CourseID    int                 `json:"course_id"`
+		CourseCode  string              `json:"course_code"`
+		CourseName  string              `json:"course_name"`
+		CourseType  string              `json:"course_type"`
+		Credit      int                 `json:"credit"`
+		Category    string              `json:"category"`
+		Enrollments []StudentEnrollment `json:"enrollments"`
 	}
 
 	var courses []TeacherCourse
