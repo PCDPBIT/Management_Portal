@@ -62,7 +62,7 @@ func GetStudents(w http.ResponseWriter, r *http.Request) {
 		err := rows.Scan(
 			&student.StudentID, &student.EnrollmentNo, &student.RegisterNo,
 			&student.DTERegNo, &student.ApplicationNo, &student.AdmissionNo,
-			&student.StudentName, &student.Gender, &student.DOB, &student.Age,
+			&student.Email, &student.StudentName, &student.Gender, &student.DOB, &student.Age,
 			&student.FatherName, &student.MotherName, &student.GuardianName,
 			&student.Religion, &student.Nationality, &student.Community,
 			&student.MotherTongue, &student.BloodGroup, &student.AadharNo,

@@ -11,6 +11,7 @@
       dte_reg_no: '',
       application_no: '',
       admission_no: '',
+      email: '',
       student_name: '',
       gender: '',
       dob: '',
@@ -659,6 +660,21 @@
                       required
                       className="input-custom"
                       placeholder="Admission number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      required
+                      className="input-custom"
+                      placeholder="student@example.com"
                     />
                   </div>
                 </div>
