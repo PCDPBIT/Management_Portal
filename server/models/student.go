@@ -10,7 +10,6 @@ type Student struct {
 	DTERegNo         string    `json:"dte_reg_no"`
 	ApplicationNo    string    `json:"application_no"`
 	AdmissionNo      string    `json:"admission_no"`
-	Email            string    `json:"email"`
 	StudentName      string    `json:"student_name"`
 	Gender           string    `json:"gender"`
 	DOB              string    `json:"dob"`
