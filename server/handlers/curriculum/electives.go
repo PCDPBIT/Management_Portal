@@ -1,0 +1,579 @@
+package curriculum
+
+import (
+	"database/sql"
+	"encoding/json"
+	"log"
+	"net/http"
+	"server/db"
+	"server/models"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// GetHODProfile retrieves HOD's department and curriculum information
+func GetHODProfile(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Method not allowed",
+		})
+		return
+	}
+
+	// Get user email from query or session (for now using query param)
+	email := r.URL.Query().Get("email")
+	if email == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Email parameter required",
+		})
+		return
+	}
+
+	// Query to get HOD's department and curriculum
+	query := `
+		SELECT 
+			u.id as user_id,
+			u.full_name,
+			u.email,
+			u.role,
+			d.id as dept_id,
+			d.department_name,
+			d.department_code,
+			c.id as curr_id,
+			c.name as curr_name,
+			c.academic_year
+		FROM users u
+		INNER JOIN teachers t ON u.email = t.email
+		INNER JOIN department_teachers dt ON t.faculty_id = dt.teacher_id
+		INNER JOIN departments d ON dt.department_id = d.id
+		LEFT JOIN department_curriculum_active dca ON d.id = dca.department_id AND dca.is_active = 1
+		LEFT JOIN curriculum c ON dca.curriculum_id = c.id
+		WHERE u.email = ? AND u.role = 'hod' AND u.is_active = 1
+		LIMIT 1
+	`
+
+	var response models.HODProfileResponse
+	var deptCode sql.NullString
+	var currID sql.NullInt64
+	var currName, currYear sql.NullString
+
+	err := db.DB.QueryRow(query, email).Scan(
+		&response.UserID,
+		&response.FullName,
+		&response.Email,
+		&response.Role,
+		&response.Department.ID,
+		&response.Department.Name,
+		&deptCode,
+		&currID,
+		&currName,
+		&currYear,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"message": "HOD profile not found. Please contact admin to link your account.",
+			})
+			return
+		}
+		log.Println("Error fetching HOD profile:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Internal server error",
+		})
+		return
+	}
+
+	// Initialize nested structs
+	response.Department = &models.DepartmentInfo{
+		ID:   response.Department.ID,
+		Name: response.Department.Name,
+	}
+	if deptCode.Valid {
+		response.Department.Code = deptCode.String
+	}
+
+	if currID.Valid {
+		response.Curriculum = &models.CurriculumInfo{
+			ID:           int(currID.Int64),
+			Name:         currName.String,
+			AcademicYear: currYear.String,
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetAvailableElectives retrieves available elective courses for a semester
+func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Method not allowed",
+		})
+		return
+	}
+
+	// Get parameters
+	email := r.URL.Query().Get("email")
+	semesterStr := r.URL.Query().Get("semester")
+	batch := r.URL.Query().Get("batch")
+	academicYear := r.URL.Query().Get("academic_year")
+
+	if email == "" || semesterStr == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Email and semester parameters required",
+		})
+		return
+	}
+
+	semester, err := strconv.Atoi(semesterStr)
+	if err != nil || semester < 4 || semester > 8 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Invalid semester (must be 4-8)",
+		})
+		return
+	}
+
+	// Get HOD's department and curriculum
+	var departmentID, curriculumID int
+	deptQuery := `
+		SELECT d.id, COALESCE(dca.curriculum_id, 0)
+		FROM users u
+		INNER JOIN teachers t ON u.email = t.email
+		INNER JOIN department_teachers dt ON t.faculty_id = dt.teacher_id
+		INNER JOIN departments d ON dt.department_id = d.id
+		LEFT JOIN department_curriculum_active dca ON d.id = dca.department_id AND dca.is_active = 1
+		WHERE u.email = ? AND u.role = 'hod'
+		LIMIT 1
+	`
+
+	err = db.DB.QueryRow(deptQuery, email).Scan(&departmentID, &curriculumID)
+	if err != nil {
+		log.Println("Error fetching department:", err)
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Department not found",
+		})
+		return
+	}
+
+	// Query elective courses with selection status
+	query := `
+		SELECT 
+			c.id,
+			c.course_code,
+			c.course_name,
+			c.course_type,
+			COALESCE(c.category, '') as category,
+			COALESCE(c.credit, 0) as credit,
+			CASE WHEN hes.id IS NOT NULL THEN 1 ELSE 0 END as is_selected
+		FROM courses c
+		INNER JOIN curriculum_courses cc ON c.id = cc.course_id
+		LEFT JOIN hod_elective_selections hes ON (
+			hes.course_id = c.id
+			AND hes.department_id = ?
+			AND hes.semester = ?
+			AND hes.academic_year = ?
+			AND (hes.batch = ? OR hes.batch IS NULL OR ? = '')
+			AND hes.status = 'ACTIVE'
+		)
+		WHERE cc.curriculum_id = ?
+			AND c.course_type LIKE '%ELECTIVE%'
+			AND c.status = 1
+		ORDER BY c.course_type, c.course_code
+	`
+
+	rows, err := db.DB.Query(query, departmentID, semester, academicYear, batch, batch, curriculumID)
+	if err != nil {
+		log.Println("Error fetching electives:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Internal server error",
+		})
+		return
+	}
+	defer rows.Close()
+
+	var electives []models.ElectiveCourse
+	for rows.Next() {
+		var course models.ElectiveCourse
+		var isSelected int
+		err := rows.Scan(
+			&course.ID,
+			&course.CourseCode,
+			&course.CourseName,
+			&course.CourseType,
+			&course.Category,
+			&course.Credit,
+			&isSelected,
+		)
+		if err != nil {
+			log.Println("Error scanning course:", err)
+			continue
+		}
+		course.IsSelected = isSelected == 1
+		electives = append(electives, course)
+	}
+
+	response := models.AvailableElectivesResponse{
+		Semester:           semester,
+		Batch:              batch,
+		AcademicYear:       academicYear,
+		AvailableElectives: electives,
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// SaveHODSelections saves HOD's elective course selections
+func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Method not allowed",
+		})
+		return
+	}
+
+	// Get email from query (in production, get from JWT token)
+	email := r.URL.Query().Get("email")
+	if email == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Email parameter required",
+		})
+		return
+	}
+
+	var req models.SaveElectivesRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Println("Error decoding request:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Invalid request body",
+		})
+		return
+	}
+
+	// Validate semester
+	if req.Semester < 4 || req.Semester > 8 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Invalid semester (must be 4-8)",
+		})
+		return
+	}
+
+	// Get HOD's user ID, department, and curriculum
+	var userID, departmentID, curriculumID int
+	deptQuery := `
+		SELECT u.id, d.id, COALESCE(dca.curriculum_id, 0)
+		FROM users u
+		INNER JOIN teachers t ON u.email = t.email
+		INNER JOIN department_teachers dt ON t.faculty_id = dt.teacher_id
+		INNER JOIN departments d ON dt.department_id = d.id
+		LEFT JOIN department_curriculum_active dca ON d.id = dca.department_id AND dca.is_active = 1
+		WHERE u.email = ? AND u.role = 'hod'
+		LIMIT 1
+	`
+
+	err = db.DB.QueryRow(deptQuery, email).Scan(&userID, &departmentID, &curriculumID)
+	if err != nil {
+		log.Println("Error fetching HOD info:", err)
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "HOD profile not found",
+		})
+		return
+	}
+
+	if curriculumID == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "No active curriculum configured for your department",
+		})
+		return
+	}
+
+	// Start transaction
+	tx, err := db.DB.Begin()
+	if err != nil {
+		log.Println("Error starting transaction:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Internal server error",
+		})
+		return
+	}
+	defer tx.Rollback()
+
+	// Delete existing selections for this semester/batch/year
+	deleteQuery := `
+		DELETE FROM hod_elective_selections 
+		WHERE department_id = ? 
+		AND semester = ? 
+		AND academic_year = ?
+		AND (batch = ? OR (batch IS NULL AND ? = ''))
+	`
+	_, err = tx.Exec(deleteQuery, departmentID, req.Semester, req.AcademicYear, req.Batch, req.Batch)
+	if err != nil {
+		log.Println("Error deleting old selections:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Error clearing previous selections",
+		})
+		return
+	}
+
+	// Insert new selections
+	if len(req.SelectedCourses) > 0 {
+		insertQuery := `
+			INSERT INTO hod_elective_selections 
+			(department_id, curriculum_id, semester, course_id, academic_year, batch, approved_by_user_id, status, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`
+
+		now := time.Now()
+		status := req.Status
+		if status == "" {
+			status = "ACTIVE"
+		}
+
+		for _, courseID := range req.SelectedCourses {
+			var batchVal interface{}
+			if req.Batch != "" {
+				batchVal = req.Batch
+			} else {
+				batchVal = nil
+			}
+
+			_, err = tx.Exec(insertQuery,
+				departmentID,
+				curriculumID,
+				req.Semester,
+				courseID,
+				req.AcademicYear,
+				batchVal,
+				userID,
+				status,
+				now,
+				now,
+			)
+			if err != nil {
+				log.Println("Error inserting selection:", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"success": false,
+					"message": "Error saving selections",
+				})
+				return
+			}
+		}
+	}
+
+	// Commit transaction
+	err = tx.Commit()
+	if err != nil {
+		log.Println("Error committing transaction:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Error saving selections",
+		})
+		return
+	}
+
+	message := "Elective selections saved successfully"
+	if len(req.SelectedCourses) > 0 {
+		message = strconv.Itoa(len(req.SelectedCourses)) + " elective courses saved for Semester " + strconv.Itoa(req.Semester)
+	} else {
+		message = "All elective selections cleared for Semester " + strconv.Itoa(req.Semester)
+	}
+
+	response := models.SaveElectivesResponse{
+		Success: true,
+		Message: message,
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetHODBatches retrieves all batches for the HOD's department
+func GetHODBatches(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Method not allowed",
+		})
+		return
+	}
+
+	email := r.URL.Query().Get("email")
+	if email == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Email parameter required",
+		})
+		return
+	}
+
+	// Get batches from academic_details table
+	query := `
+		SELECT DISTINCT ad.batch
+		FROM academic_details ad
+		INNER JOIN departments d ON ad.department = d.department_name
+		INNER JOIN department_teachers dt ON d.id = dt.department_id
+		INNER JOIN teachers t ON dt.teacher_id = t.faculty_id
+		INNER JOIN users u ON t.email = u.email
+		WHERE u.email = ? AND u.role = 'hod' AND ad.batch IS NOT NULL AND ad.batch != ''
+		ORDER BY ad.batch DESC
+	`
+
+	rows, err := db.DB.Query(query, email)
+	if err != nil {
+		log.Println("Error fetching batches:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Internal server error",
+		})
+		return
+	}
+	defer rows.Close()
+
+	var batches []string
+	for rows.Next() {
+		var batch string
+		err := rows.Scan(&batch)
+		if err != nil {
+			log.Println("Error scanning batch:", err)
+			continue
+		}
+		// Clean batch string
+		batch = strings.TrimSpace(batch)
+		if batch != "" {
+			batches = append(batches, batch)
+		}
+	}
+
+	// If no batches found, provide a default
+	if len(batches) == 0 {
+		batches = []string{"2024-2028", "2025-2029"}
+	}
+
+	response := models.BatchesResponse{
+		Batches: batches,
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetCurrentAcademicCalendar retrieves the current academic calendar
+func GetCurrentAcademicCalendar(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Method not allowed",
+		})
+		return
+	}
+
+	query := `
+		SELECT id, academic_year, current_semester, semester_start_date, semester_end_date,
+		       elective_selection_start, elective_selection_end, is_current, created_at, updated_at
+		FROM academic_calendar
+		WHERE is_current = 1
+		LIMIT 1
+	`
+
+	var calendar models.AcademicCalendar
+	err := db.DB.QueryRow(query).Scan(
+		&calendar.ID,
+		&calendar.AcademicYear,
+		&calendar.CurrentSemester,
+		&calendar.SemesterStartDate,
+		&calendar.SemesterEndDate,
+		&calendar.ElectiveSelectionStart,
+		&calendar.ElectiveSelectionEnd,
+		&calendar.IsCurrent,
+		&calendar.CreatedAt,
+		&calendar.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Return default if no calendar found
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"academic_year":    "2025-2026",
+				"current_semester": 4,
+			})
+			return
+		}
+		log.Println("Error fetching academic calendar:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Internal server error",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(calendar)
+}

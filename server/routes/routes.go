@@ -145,6 +145,13 @@ func SetupRoutes() *mux.Router {
 	// Authentication routes
 	router.HandleFunc("/api/auth/login", curriculum.Login).Methods("POST", "OPTIONS")
 
+	// Elective Management routes
+	router.HandleFunc("/api/hod/profile", curriculum.GetHODProfile).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/hod/electives/available", curriculum.GetAvailableElectives).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/hod/electives/save", curriculum.SaveHODSelections).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/hod/batches", curriculum.GetHODBatches).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/academic-calendar/current", curriculum.GetCurrentAcademicCalendar).Methods("GET", "OPTIONS")
+
 	// User Management routes
 	router.HandleFunc("/api/users", curriculum.GetUsers).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/users", curriculum.CreateUser).Methods("POST", "OPTIONS")

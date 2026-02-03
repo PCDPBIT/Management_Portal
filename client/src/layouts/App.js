@@ -20,45 +20,229 @@ import TeacherStudentDashboard from "../pages/student-teacher_entry/TeacherStude
 import TeacherDetailsPage from "../pages/student-teacher_entry/TeacherDetailsPage";
 import TeacherStudentMappingPage from "../pages/student-teacher_entry/TeacherStudentMappingPage";
 import CourseAllocationPage from "../pages/curriculum/CourseAllocationPage";
+import ElectiveManagementPage from "../pages/curriculum/ElectiveManagementPage";
+import HODElectivePage from "../pages/curriculum/HODElectivePage";
 import PrivateRoute from "../components/PrivateRoute";
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<LoginPage />} />
-      <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-      <Route path="/users" element={<PrivateRoute><UsersPage /></PrivateRoute>} />
-      <Route path="/Student_details" element={<PrivateRoute><StudentDetailsPage /></PrivateRoute>} />
-      <Route path="/student-teacher-dashboard" element={<PrivateRoute><TeacherStudentDashboard /></PrivateRoute>} />
-      <Route path="/teacher-details" element={<PrivateRoute><TeacherDetailsPage /></PrivateRoute>} />
-      <Route path="/teacher-student-mapping" element={<PrivateRoute><TeacherStudentMappingPage /></PrivateRoute>} />
-      <Route path="/course-allocation" element={<PrivateRoute><CourseAllocationPage /></PrivateRoute>} />
-      <Route path="/regulations" element={<PrivateRoute><RegulationPage /></PrivateRoute>} />
-      <Route path="/curriculum/:id/editor" element={<PrivateRoute><RegulationEditorPage /></PrivateRoute>} />
-      <Route path="/curriculum" element={<PrivateRoute><CurriculumMainPage /></PrivateRoute>} />
-      <Route path="/clusters" element={<PrivateRoute><ClusterManagementPage /></PrivateRoute>} />
-      <Route path="/sharing" element={<PrivateRoute><SharingManagementPage /></PrivateRoute>} />
+      <Route
+        path="/elective-management"
+        element={
+          <PrivateRoute>
+            <ElectiveManagementPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/hr/dashboard"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/hr/student-teacher-dashboard"
+        element={
+          <PrivateRoute>
+            <TeacherStudentDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/hr/users"
+        element={
+          <PrivateRoute>
+            <UsersPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/hod/dashboard"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/hod/curriculum"
+        element={
+          <PrivateRoute>
+            <CurriculumMainPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/hod/course-allocation"
+        element={
+          <PrivateRoute>
+            <CourseAllocationPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/hod/elective-management"
+        element={
+          <PrivateRoute>
+            <HODElectivePage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <PrivateRoute>
+            <UsersPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/Student_details"
+        element={
+          <PrivateRoute>
+            <StudentDetailsPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/student-teacher-dashboard"
+        element={
+          <PrivateRoute>
+            <TeacherStudentDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/teacher-details"
+        element={
+          <PrivateRoute>
+            <TeacherDetailsPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/teacher-student-mapping"
+        element={
+          <PrivateRoute>
+            <TeacherStudentMappingPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/course-allocation"
+        element={
+          <PrivateRoute>
+            <CourseAllocationPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/regulations"
+        element={
+          <PrivateRoute>
+            <RegulationPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/curriculum/:id/editor"
+        element={
+          <PrivateRoute>
+            <RegulationEditorPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/curriculum"
+        element={
+          <PrivateRoute>
+            <CurriculumMainPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/clusters"
+        element={
+          <PrivateRoute>
+            <ClusterManagementPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/sharing"
+        element={
+          <PrivateRoute>
+            <SharingManagementPage />
+          </PrivateRoute>
+        }
+      />
       <Route
         path="/curriculum/:id/overview"
-        element={<PrivateRoute><DepartmentOverviewPage /></PrivateRoute>}
+        element={
+          <PrivateRoute>
+            <DepartmentOverviewPage />
+          </PrivateRoute>
+        }
       />
       <Route
         path="/curriculum/:id/curriculum"
-        element={<PrivateRoute><ManageCurriculumPage /></PrivateRoute>}
+        element={
+          <PrivateRoute>
+            <ManageCurriculumPage />
+          </PrivateRoute>
+        }
       />
       <Route
         path="/curriculum/:id/curriculum/semester/:semId"
-        element={<PrivateRoute><SemesterDetailPage /></PrivateRoute>}
+        element={
+          <PrivateRoute>
+            <SemesterDetailPage />
+          </PrivateRoute>
+        }
       />
       <Route
         path="/curriculum/:id/curriculum/honour/:cardId"
-        element={<PrivateRoute><HonourCardPage /></PrivateRoute>}
+        element={
+          <PrivateRoute>
+            <HonourCardPage />
+          </PrivateRoute>
+        }
       />
-      <Route path="/course/:courseId/syllabus" element={<PrivateRoute><SyllabusPage /></PrivateRoute>} />
-      <Route path="/course/:courseId/mapping" element={<PrivateRoute><MappingPage /></PrivateRoute>} />
+      <Route
+        path="/course/:courseId/syllabus"
+        element={
+          <PrivateRoute>
+            <SyllabusPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/course/:courseId/mapping"
+        element={
+          <PrivateRoute>
+            <MappingPage />
+          </PrivateRoute>
+        }
+      />
       <Route
         path="/curriculum/:id/peo-po-mapping"
-        element={<PrivateRoute><PEOPOMappingPage /></PrivateRoute>}
+        element={
+          <PrivateRoute>
+            <PEOPOMappingPage />
+          </PrivateRoute>
+        }
       />
     </Routes>
   );
