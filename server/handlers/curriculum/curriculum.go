@@ -498,6 +498,24 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 	practicalTotal := course.PracticalTotalHrs
 	activityTotal := course.ActivityTotalHrs
 
+	// First check: prevent duplicate course codes in the same curriculum (active courses only)
+	var duplicateCheck int
+	duplicateQuery := `SELECT c.id FROM courses c 
+	                   INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
+	                   WHERE c.course_code = ? AND cc.curriculum_id = ? AND c.status = 1`
+	duplicateErr := db.DB.QueryRow(duplicateQuery, course.CourseCode, curriculumID).Scan(&duplicateCheck)
+	if duplicateErr == nil {
+		// Course with this code already exists in curriculum (active)
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "A course with code " + course.CourseCode + " already exists in this curriculum"})
+		return
+	} else if duplicateErr != sql.ErrNoRows {
+		log.Println("Error checking duplicate course code:", duplicateErr)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate course"})
+		return
+	}
+
 	// Check if course code already exists in this curriculum
 	var existingCourseID int
 	checkQuery := `SELECT c.id FROM courses c 
@@ -518,8 +536,8 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 			insertCourseQuery := `INSERT INTO courses (course_code, course_name, course_type, category, credit, 
 			                      lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, ` + "`tw/sl`" + `,
 			                      theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs,
-			                      cia_marks, see_marks, status) 
-			                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+		                      cia_marks, see_marks, status) 
+		                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
 			result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, course.CourseType, course.Category, course.Credit,
 				course.LectureHrs, course.TutorialHrs, course.PracticalHrs, course.ActivityHrs, course.TwSlHrs,
 				theoryTotal, tutorialTotal, practicalTotal, activityTotal,

@@ -310,21 +310,60 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 		practicalTotal := payload.PracticalTotalHrs
 		activityTotal := payload.ActivityTotalHrs
 
-		// Check if course code already exists in this curriculum
+		// First check: prevent duplicate course codes in the same curriculum (active courses only)
+		// Check both curriculum_courses (normal cards) and honour_vertical_courses (honour cards)
+		var duplicateCheck int
+		duplicateQuery := `SELECT c.id FROM courses c 
+		                   INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
+		                   WHERE c.course_code = ? AND cc.curriculum_id = ? AND c.status = 1`
+		duplicateErr := db.DB.QueryRow(duplicateQuery, payload.CourseCode, curriculumID).Scan(&duplicateCheck)
+		if duplicateErr == nil {
+			// Course with this code already exists in curriculum (active)
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "A course with code " + payload.CourseCode + " already exists in this curriculum"})
+			return
+		} else if duplicateErr != sql.ErrNoRows {
+			log.Println("Error checking duplicate course code:", duplicateErr)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate course"})
+			return
+		}
+
+		// Also check in honour vertical courses for this curriculum
+		var honourDuplicateCheck int
+		honourDuplicateQuery := `SELECT c.id FROM courses c 
+		                         INNER JOIN honour_vertical_courses hvc ON c.id = hvc.course_id 
+		                         INNER JOIN honour_verticals hv ON hvc.honour_vertical_id = hv.id
+		                         INNER JOIN honour_cards hc ON hv.honour_card_id = hc.id
+		                         WHERE c.course_code = ? AND hc.curriculum_id = ? AND c.status = 1 AND hvc.status = 1`
+		honourDuplicateErr := db.DB.QueryRow(honourDuplicateQuery, payload.CourseCode, curriculumID).Scan(&honourDuplicateCheck)
+		if honourDuplicateErr == nil {
+			// Course with this code already exists in honour verticals
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "A course with code " + payload.CourseCode + " already exists in this curriculum's honour cards"})
+			return
+		} else if honourDuplicateErr != sql.ErrNoRows {
+			log.Println("Error checking duplicate honour course code:", honourDuplicateErr)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate course"})
+			return
+		}
+
+		// Check if course with same code AND name already exists in this curriculum
 		var existingCourseID int
 		checkQuery := `SELECT c.id FROM courses c 
 		               INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
-		               WHERE c.course_code = ? AND cc.curriculum_id = ?`
-		err = db.DB.QueryRow(checkQuery, payload.CourseCode, curriculumID).Scan(&existingCourseID)
+		               WHERE c.course_code = ? AND c.course_name = ? AND cc.curriculum_id = ?`
+		err = db.DB.QueryRow(checkQuery, payload.CourseCode, payload.CourseName, curriculumID).Scan(&existingCourseID)
 
 		if err == sql.ErrNoRows {
-			// Course code doesn't exist in this curriculum, check if it exists globally
+			// Course code doesn't exist in this curriculum, check if it exists globally with same name
 			var globalCourseID int
-			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ?"
-			globalErr := db.DB.QueryRow(globalCheckQuery, payload.CourseCode).Scan(&globalCourseID)
+			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ? AND course_name = ?"
+			globalErr := db.DB.QueryRow(globalCheckQuery, payload.CourseCode, payload.CourseName).Scan(&globalCourseID)
 
 			if globalErr == sql.ErrNoRows {
-				// Course doesn't exist globally - create new course
+				// Course doesn't exist globally with same code+name - create new course
 				insertCourseQuery := `INSERT INTO courses (course_code, course_name, course_type, category, credit, 
 					lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, ` + "`tw/sl`" + `,
 					theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs, 
@@ -356,13 +395,14 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 				}
 				id, _ := result.LastInsertId()
 				courseID = int(id)
+				log.Printf("Created new course %s (ID: %d) for honour vertical", payload.CourseCode, courseID)
 			} else if globalErr != nil {
 				log.Println("Error checking global course for honour vertical:", globalErr)
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create course"})
 				return
 			} else {
-				// Course exists globally but not in this curriculum - reuse the existing course
+				// Course exists globally with same code+name - reuse the existing course
 				courseID = globalCourseID
 				wasReused = true
 				// Reactivate the course if it was soft-deleted
@@ -746,7 +786,7 @@ func DeleteHonourCard(w http.ResponseWriter, r *http.Request) {
 	rows.Close()
 
 	for _, courseID := range courseIDs {
-		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE course_id = ? AND status = 1", courseID)
+		_, err = tx.Exec("UPDATE courses SET status = 0 WHERE id = ? AND status = 1", courseID)
 		if err != nil {
 			log.Println("Error soft-deleting course:", err)
 			w.WriteHeader(http.StatusInternalServerError)

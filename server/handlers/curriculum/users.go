@@ -11,7 +11,6 @@ import (
 	"server/models"
 
 	"github.com/gorilla/mux"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // GetUsers retrieves all users
@@ -19,7 +18,7 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	query := `SELECT id, username, full_name, email, role, is_active, created_at, updated_at, last_login 
+	query := `SELECT id, username, email, role, is_active, created_at, updated_at, last_login 
 	          FROM users ORDER BY created_at DESC`
 
 	rows, err := db.DB.Query(query)
@@ -35,7 +34,7 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var user models.User
 		err := rows.Scan(
-			&user.ID, &user.Username, &user.FullName, &user.Email,
+			&user.ID, &user.Username, &user.Email,
 			&user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.LastLogin,
 		)
 		if err != nil {
@@ -63,11 +62,11 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user models.User
-	query := `SELECT id, username, full_name, email, role, is_active, created_at, updated_at, last_login 
+	query := `SELECT id, username, email, role, is_active, created_at, updated_at, last_login 
 	          FROM users WHERE id = ?`
 
 	err = db.DB.QueryRow(query, userID).Scan(
-		&user.ID, &user.Username, &user.FullName, &user.Email,
+		&user.ID, &user.Username, &user.Email,
 		&user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.LastLogin,
 	)
 
@@ -107,18 +106,9 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate required fields
-	if createReq.Username == "" || createReq.Password == "" || createReq.FullName == "" || createReq.Email == "" {
+	if createReq.Username == "" || createReq.Password == "" || createReq.Email == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Missing required fields"})
-		return
-	}
-
-	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(createReq.Password), bcrypt.DefaultCost)
-	if err != nil {
-		log.Println("Error hashing password:", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to process password"})
 		return
 	}
 
@@ -128,10 +118,10 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Insert user
-	query := `INSERT INTO users (username, password_hash, full_name, email, role, is_active) 
-	          VALUES (?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO users (username, password, email, role, is_active) 
+	          VALUES (?, ?, ?, ?, ?)`
 
-	result, err := db.DB.Exec(query, createReq.Username, string(hashedPassword), createReq.FullName,
+	result, err := db.DB.Exec(query, createReq.Username, createReq.Password,
 		createReq.Email, createReq.Role, createReq.IsActive)
 
 	if err != nil {
@@ -150,11 +140,11 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch and return created user
 	var user models.User
-	fetchQuery := `SELECT id, username, full_name, email, role, is_active, created_at, updated_at, last_login 
+	fetchQuery := `SELECT id, username, email, role, is_active, created_at, updated_at, last_login 
 	               FROM users WHERE id = ?`
 
 	err = db.DB.QueryRow(fetchQuery, userID).Scan(
-		&user.ID, &user.Username, &user.FullName, &user.Email,
+		&user.ID, &user.Username, &user.Email,
 		&user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.LastLogin,
 	)
 
@@ -198,8 +188,8 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update user
-	query := `UPDATE users SET full_name = ?, email = ?, role = ?, is_active = ? WHERE id = ?`
-	_, err = db.DB.Exec(query, updateReq.FullName, updateReq.Email, updateReq.Role, updateReq.IsActive, userID)
+	query := `UPDATE users SET email = ?, role = ?, is_active = ? WHERE id = ?`
+	_, err = db.DB.Exec(query, updateReq.Email, updateReq.Role, updateReq.IsActive, userID)
 
 	if err != nil {
 		log.Println("Error updating user:", err)
@@ -246,18 +236,9 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Hash new password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(pwdReq.Password), bcrypt.DefaultCost)
-	if err != nil {
-		log.Println("Error hashing password:", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to process password"})
-		return
-	}
-
 	// Update password
-	query := `UPDATE users SET password_hash = ? WHERE id = ?`
-	_, err = db.DB.Exec(query, string(hashedPassword), userID)
+	query := `UPDATE users SET password = ? WHERE id = ?`
+	_, err = db.DB.Exec(query, pwdReq.Password, userID)
 
 	if err != nil {
 		log.Println("Error updating password:", err)

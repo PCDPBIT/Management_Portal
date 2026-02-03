@@ -888,10 +888,11 @@ function SemesterDetailPage() {
                   )}
                 </>
               )}
-
-              {/* Credit Limit Checkbox - Only show for semester card types */}
+              
               {semester?.card_type === 'semester' && (
-                <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
+                <>
+                  {/* Credit Limit Checkbox - Only show for semester card types */}
+                  <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
                   <label className="flex items-center space-x-3 cursor-pointer">
                     <input
                       type="checkbox"
@@ -907,6 +908,7 @@ function SemesterDetailPage() {
                     Uncheck this if the course credits should not count towards the total {curriculum?.max_credits || 0} credit limit
                   </p>
                 </div>
+                </>
               )}
 
               <div className="md:col-span-2">
@@ -1451,24 +1453,26 @@ function SemesterDetailPage() {
                   </>
                 )}
 
-                {/* Credit Limit Checkbox - Only show for semester card types */}
                 {semester?.card_type === 'semester' && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <label className="flex items-center space-x-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={editCourseData.count_towards_limit}
-                        onChange={(e) => setEditCourseData({ ...editCourseData, count_towards_limit: e.target.checked })}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">
-                        Include this course's credits in the curriculum's max credit limit calculation
-                      </span>
-                    </label>
-                    <p className="text-xs text-gray-500 mt-2 ml-7">
-                      Uncheck this if the course credits should not count towards the total {curriculum?.max_credits || 0} credit limit
-                    </p>
-                  </div>
+                  <>
+                    {/* Credit Limit Checkbox - Only show for semester card types */}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <label className="flex items-center space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editCourseData.count_towards_limit}
+                          onChange={(e) => setEditCourseData({ ...editCourseData, count_towards_limit: e.target.checked })}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">
+                          Include this course's credits in the curriculum's max credit limit calculation
+                        </span>
+                      </label>
+                      <p className="text-xs text-gray-500 mt-2 ml-7">
+                        Uncheck this if the course credits should not count towards the total {curriculum?.max_credits || 0} credit limit
+                      </p>
+                    </div>
+                  </>
                 )}
 
                 <div className="flex gap-3 justify-end pt-2">
