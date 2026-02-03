@@ -87,12 +87,29 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	// Update last login time
 	_, _ = db.DB.Exec("UPDATE users SET last_login = ? WHERE id = ?", time.Now(), user.ID)
 
+	// If user is a teacher, fetch their faculty_id and name from teachers table
+	var facultyID *string
+	var teacherName *string
+	if user.Role == "teacher" {
+		var teacherFacultyID, name string
+		err = db.DB.QueryRow("SELECT faculty_id, name FROM teachers WHERE email = ? AND status = 1", user.Email).Scan(&teacherFacultyID, &name)
+		if err == nil {
+			facultyID = &teacherFacultyID
+			teacherName = &name
+			log.Printf("Teacher faculty_id found: %s, name: %s", teacherFacultyID, name)
+		} else if err != sql.ErrNoRows {
+			log.Printf("Error fetching teacher info: %v", err)
+		}
+	}
+
 	// Return success response
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(models.LoginResponse{
-		Success: true,
-		Message: "Login successful",
-		User:    &user,
-		Token:   "dummy-token", // In production, generate a proper JWT token
+		Success:     true,
+		Message:     "Login successful",
+		User:        &user,
+		Token:       "dummy-token", // In production, generate a proper JWT token
+		TeacherID:   facultyID,
+		TeacherName: teacherName,
 	})
 }

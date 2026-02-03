@@ -619,14 +619,13 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      DTE Reg No <span className="text-red-500">*</span>
+                      DTE Reg No
                     </label>
                     <input
                       type="text"
                       name="dte_reg_no"
                       value={formData.dte_reg_no}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                       placeholder="DTE registration number"
                     />
@@ -634,14 +633,13 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Application No <span className="text-red-500">*</span>
+                      Application No
                     </label>
                     <input
                       type="text"
                       name="application_no"
                       value={formData.application_no}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                       placeholder="Application number"
                     />
@@ -649,14 +647,13 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Admission No <span className="text-red-500">*</span>
+                      Admission No
                     </label>
                     <input
                       type="text"
                       name="admission_no"
                       value={formData.admission_no}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                       placeholder="Admission number"
                     />
@@ -687,13 +684,12 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Gender <span className="text-red-500">*</span>
+                      Gender
                     </label>
                     <select
                       name="gender"
                       value={formData.gender}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                     >
                       <option value="">Select Gender</option>
@@ -705,14 +701,13 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Date of Birth <span className="text-red-500">*</span>
+                      Date of Birth
                     </label>
                     <input
                       type="date"
                       name="dob"
                       value={formData.dob}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                     />
                   </div>
@@ -734,13 +729,12 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Blood Group <span className="text-red-500">*</span>
+                      Blood Group
                     </label>
                     <select
                       name="blood_group"
                       value={formData.blood_group}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                     >
                       <option value="">Select Blood Group</option>
@@ -757,30 +751,27 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Aadhar No <span className="text-red-500">*</span>
+                      Aadhar No
                     </label>
                     <input
                       type="text"
                       name="aadhar_no"
                       value={formData.aadhar_no}
                       onChange={handleInputChange}
-                      required
                       maxLength="12"
                       pattern="[0-9]{12}"
                       className="input-custom"
                       placeholder="12-digit Aadhar number"
                     />
                   </div>
-
+                        Aadhar No
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Religion <span className="text-red-500">*</span>
+                      Religion
                     </label>
                     <select
                       name="religion"
-                      value={formData.religion}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                     >
                       <option value="">Select Religion</option>
@@ -796,14 +787,13 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Nationality <span className="text-red-500">*</span>
+                      Nationality
                     </label>
                     <input
                       type="text"
                       name="nationality"
                       value={formData.nationality}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                       placeholder="e.g., Indian"
                     />
@@ -811,13 +801,12 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Community <span className="text-red-500">*</span>
+                      Community
                     </label>
                     <select
                       name="community"
                       value={formData.community}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                     >
                       <option value="">Select Community</option>
@@ -832,14 +821,13 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Mother Tongue <span className="text-red-500">*</span>
+                      Mother Tongue
                     </label>
                     <input
                       type="text"
                       name="mother_tongue"
                       value={formData.mother_tongue}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                       placeholder="Native language"
                     />
@@ -855,14 +843,13 @@
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Father's Name <span className="text-red-500">*</span>
+                      Father's Name
                     </label>
                     <input
                       type="text"
                       name="father_name"
                       value={formData.father_name}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                       placeholder="Father's full name"
                     />
@@ -870,14 +857,13 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Mother's Name <span className="text-red-500">*</span>
+                      Mother's Name
                     </label>
                     <input
                       type="text"
                       name="mother_name"
                       value={formData.mother_name}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                       placeholder="Mother's full name"
                     />
@@ -899,14 +885,13 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Parent Occupation <span className="text-red-500">*</span>
+                      Parent Occupation
                     </label>
                     <input
                       type="text"
                       name="parent_occupation"
                       value={formData.parent_occupation}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                       placeholder="Parent's occupation"
                     />
@@ -914,14 +899,13 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Designation <span className="text-red-500">*</span>
+                      Designation
                     </label>
                     <input
                       type="text"
                       name="designation"
                       value={formData.designation}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                       placeholder="Parent's job designation"
                     />
@@ -929,14 +913,13 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Place of Work <span className="text-red-500">*</span>
+                      Place of Work
                     </label>
                     <input
                       type="text"
                       name="place_of_work"
                       value={formData.place_of_work}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                       placeholder="Parent's workplace"
                     />
@@ -944,14 +927,13 @@
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Annual Family Income <span className="text-red-500">*</span>
+                      Annual Family Income
                     </label>
                     <input
                       type="number"
                       name="parent_income"
                       value={formData.parent_income}
                       onChange={handleInputChange}
-                      required
                       className="input-custom"
                       placeholder="Annual income in ₹"
                     />
@@ -962,7 +944,7 @@
               {/* Academic Details Section */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                  Academic Details (Optional)
+                  Academic Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
@@ -978,12 +960,12 @@
                     <input type="number" name="semester" placeholder="Semester" value={formData.semester} onChange={handleInputChange} required className="input-custom" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Degree Level <span className="text-red-500">*</span></label>
-                    <input type="text" name="degree_level" placeholder="Degree Level" value={formData.degree_level} onChange={handleInputChange} required className="input-custom" />
+                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Degree Level</label>
+                    <input type="text" name="degree_level" placeholder="Degree Level" value={formData.degree_level} onChange={handleInputChange} className="input-custom" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Section <span className="text-red-500">*</span></label>
-                    <input type="text" name="section" placeholder="Section" value={formData.section} onChange={handleInputChange} required className="input-custom" />
+                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Section</label>
+                    <input type="text" name="section" placeholder="Section" value={formData.section} onChange={handleInputChange} className="input-custom" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Department <span className="text-red-500">*</span></label>
@@ -1012,11 +994,12 @@
                   <input type="number" name="year_of_completion" placeholder="Year of Completion" value={formData.year_of_completion} onChange={handleInputChange} className="input-custom" />
                   <input type="text" name="student_status" placeholder="Student Status" value={formData.student_status} onChange={handleInputChange} className="input-custom" />
                   <div className="flex flex-col">
-                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Curriculum</label>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Curriculum <span className="text-red-500">*</span></label>
                     <select
                       name="curriculum_id"
                       value={formData.curriculum_id}
                       onChange={handleInputChange}
+                      required
                       className="input-custom"
                     >
                       <option value="">Select Curriculum</option>
@@ -1037,8 +1020,8 @@
                 </h3>
                 <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Permanent Address <span className="text-red-500">*</span></label>
-                    <textarea name="permanent_address" placeholder="Permanent Address" value={formData.permanent_address} onChange={handleInputChange} required rows="2" className="input-custom" />
+                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Permanent Address</label>
+                    <textarea name="permanent_address" placeholder="Permanent Address" value={formData.permanent_address} onChange={handleInputChange} rows="2" className="input-custom" />
                   </div>
                   <textarea name="present_address" placeholder="Present Address" value={formData.present_address} onChange={handleInputChange} rows="2" className="input-custom" />
                   <input type="text" name="residence_location" placeholder="Residence Location" value={formData.residence_location} onChange={handleInputChange} className="input-custom" />
@@ -1052,13 +1035,13 @@
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Parent Mobile <span className="text-red-500">*</span></label>
-                    <input type="tel" name="parent_mobile" placeholder="Parent Mobile" value={formData.parent_mobile} onChange={handleInputChange} required className="input-custom" />
+                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Parent Mobile</label>
+                    <input type="tel" name="parent_mobile" placeholder="Parent Mobile" value={formData.parent_mobile} onChange={handleInputChange} className="input-custom" />
                   </div>
                   <input type="tel" name="student_mobile" placeholder="Student Mobile" value={formData.student_mobile} onChange={handleInputChange} className="input-custom" />
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Student Email <span className="text-red-500">*</span></label>
-                    <input type="email" name="student_email" placeholder="Student Email" value={formData.student_email} onChange={handleInputChange} required className="input-custom" />
+                    <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Student Email</label>
+                    <input type="email" name="student_email" placeholder="Student Email" value={formData.student_email} onChange={handleInputChange} className="input-custom" />
                   </div>
                   <input type="email" name="parent_email" placeholder="Parent Email" value={formData.parent_email} onChange={handleInputChange} className="input-custom" />
                   <input type="email" name="official_email" placeholder="Official Email" value={formData.official_email} onChange={handleInputChange} className="input-custom" />
@@ -1174,12 +1157,11 @@
                         className="input-custom" 
                       />
                       <div className="flex flex-col">
-                        <label className="text-xs text-gray-500 mb-1 ml-1">TC Date {school.school_name && <span className="text-red-500">*</span>}</label>
+                        <label className="text-xs text-gray-500 mb-1 ml-1">TC Date</label>
                         <input 
                           type="date" 
                           placeholder="TC Date" 
                           value={school.tc_date} 
-                          required={!!school.school_name}
                           onChange={(e) => {
                             const newSchools = [...formData.school_details];
                             newSchools[idx].tc_date = e.target.value;
@@ -1189,12 +1171,11 @@
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-xs text-gray-500 mb-1 ml-1">Total Marks {school.school_name && <span className="text-red-500">*</span>}</label>
+                        <label className="text-xs text-gray-500 mb-1 ml-1">Total Marks</label>
                         <input 
                           type="number" 
                           placeholder="Total Marks" 
                           value={school.total_marks} 
-                          required={!!school.school_name}
                           onChange={(e) => {
                             const newSchools = [...formData.school_details];
                             newSchools[idx].total_marks = e.target.value;
