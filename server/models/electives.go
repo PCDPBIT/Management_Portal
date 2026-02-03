@@ -81,13 +81,16 @@ type CurriculumInfo struct {
 
 // ElectiveCourse - Course with selection status for HOD
 type ElectiveCourse struct {
-	ID         int    `json:"id"`
-	CourseCode string `json:"course_code"`
-	CourseName string `json:"course_name"`
-	CourseType string `json:"course_type"`
-	Category   string `json:"category"`
-	Credit     int    `json:"credit"`
-	IsSelected bool   `json:"is_selected"`
+	ID              int    `json:"id"`
+	CourseCode      string `json:"course_code"`
+	CourseName      string `json:"course_name"`
+	CourseType      string `json:"course_type"`
+	Category        string `json:"category"`
+	Credit          int    `json:"credit"`
+	CardID          int    `json:"card_id"`
+	CardType        string `json:"card_type"`
+	IsSelected      bool   `json:"is_selected"`
+	AssignedSemester *int  `json:"assigned_semester,omitempty"`
 }
 
 // AvailableElectivesResponse - Response for available electives API
@@ -100,11 +103,18 @@ type AvailableElectivesResponse struct {
 
 // SaveElectivesRequest - Request to save HOD selections
 type SaveElectivesRequest struct {
-	Semester        int    `json:"semester"`
-	Batch           string `json:"batch,omitempty"`
-	AcademicYear    string `json:"academic_year"`
-	SelectedCourses []int  `json:"selected_courses"`
-	Status          string `json:"status"` // ACTIVE or DRAFT
+	Semester            int                       `json:"semester"`
+	Batch               string                    `json:"batch,omitempty"`
+	AcademicYear        string                    `json:"academic_year"`
+	SelectedCourses     []int                     `json:"selected_courses"`
+	CourseAssignments   []CourseAssignment        `json:"course_assignments"`
+	Status              string                    `json:"status"` // ACTIVE or DRAFT
+}
+
+// CourseAssignment - Maps course to semester
+type CourseAssignment struct {
+	CourseID int `json:"course_id"`
+	Semester int `json:"semester"`
 }
 
 // SaveElectivesResponse - Response after saving HOD selections

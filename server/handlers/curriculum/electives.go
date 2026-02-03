@@ -61,6 +61,8 @@ func GetHODProfile(w http.ResponseWriter, r *http.Request) {
 	`
 
 	var response models.HODProfileResponse
+	var deptID int
+	var deptName string
 	var deptCode sql.NullString
 	var currID sql.NullInt64
 	var currName, currYear sql.NullString
@@ -70,8 +72,8 @@ func GetHODProfile(w http.ResponseWriter, r *http.Request) {
 		&response.FullName,
 		&response.Email,
 		&response.Role,
-		&response.Department.ID,
-		&response.Department.Name,
+		&deptID,
+		&deptName,
 		&deptCode,
 		&currID,
 		&currName,
@@ -98,8 +100,8 @@ func GetHODProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Initialize nested structs
 	response.Department = &models.DepartmentInfo{
-		ID:   response.Department.ID,
-		Name: response.Department.Name,
+		ID:   deptID,
+		Name: deptName,
 	}
 	if deptCode.Valid {
 		response.Department.Code = deptCode.String
@@ -133,25 +135,14 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 
 	// Get parameters
 	email := r.URL.Query().Get("email")
-	semesterStr := r.URL.Query().Get("semester")
 	batch := r.URL.Query().Get("batch")
 	academicYear := r.URL.Query().Get("academic_year")
 
-	if email == "" || semesterStr == "" {
+	if email == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
-			"message": "Email and semester parameters required",
-		})
-		return
-	}
-
-	semester, err := strconv.Atoi(semesterStr)
-	if err != nil || semester < 4 || semester > 8 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"message": "Invalid semester (must be 4-8)",
+			"message": "Email parameter required",
 		})
 		return
 	}
@@ -180,7 +171,7 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query elective courses with selection status
+	// Query vertical card courses with semester assignments
 	query := `
 		SELECT 
 			c.id,
@@ -189,24 +180,28 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			c.course_type,
 			COALESCE(c.category, '') as category,
 			COALESCE(c.credit, 0) as credit,
-			CASE WHEN hes.id IS NOT NULL THEN 1 ELSE 0 END as is_selected
+			nc.id as card_id,
+			nc.card_type,
+			CASE WHEN hes.id IS NOT NULL THEN 1 ELSE 0 END as is_selected,
+			hes.semester as assigned_semester
 		FROM courses c
 		INNER JOIN curriculum_courses cc ON c.id = cc.course_id
+		INNER JOIN normal_cards nc ON cc.semester_id = nc.id
 		LEFT JOIN hod_elective_selections hes ON (
 			hes.course_id = c.id
 			AND hes.department_id = ?
-			AND hes.semester = ?
 			AND hes.academic_year = ?
 			AND (hes.batch = ? OR hes.batch IS NULL OR ? = '')
 			AND hes.status = 'ACTIVE'
 		)
 		WHERE cc.curriculum_id = ?
-			AND c.course_type LIKE '%ELECTIVE%'
+			AND nc.card_type = 'vertical'
 			AND c.status = 1
+			AND nc.status = 1
 		ORDER BY c.course_type, c.course_code
 	`
 
-	rows, err := db.DB.Query(query, departmentID, semester, academicYear, batch, batch, curriculumID)
+	rows, err := db.DB.Query(query, departmentID, academicYear, batch, batch, curriculumID)
 	if err != nil {
 		log.Println("Error fetching electives:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -218,10 +213,11 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var electives []models.ElectiveCourse
+	electives := []models.ElectiveCourse{}
 	for rows.Next() {
 		var course models.ElectiveCourse
 		var isSelected int
+		var assignedSemester sql.NullInt64
 		err := rows.Scan(
 			&course.ID,
 			&course.CourseCode,
@@ -229,18 +225,25 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			&course.CourseType,
 			&course.Category,
 			&course.Credit,
+			&course.CardID,
+			&course.CardType,
 			&isSelected,
+			&assignedSemester,
 		)
 		if err != nil {
 			log.Println("Error scanning course:", err)
 			continue
 		}
 		course.IsSelected = isSelected == 1
+		if assignedSemester.Valid {
+			sem := int(assignedSemester.Int64)
+			course.AssignedSemester = &sem
+		}
 		electives = append(electives, course)
 	}
 
 	response := models.AvailableElectivesResponse{
-		Semester:           semester,
+		Semester:           0, // Not applicable - showing all vertical courses
 		Batch:              batch,
 		AcademicYear:       academicYear,
 		AvailableElectives: electives,
@@ -294,14 +297,25 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate semester
-	if req.Semester < 4 || req.Semester > 8 {
+	// Validate semester assignments
+	if len(req.CourseAssignments) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
-			"message": "Invalid semester (must be 4-8)",
+			"message": "No course assignments provided",
 		})
 		return
+	}
+
+	for _, assignment := range req.CourseAssignments {
+		if assignment.Semester < 4 || assignment.Semester > 8 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"message": "Invalid semester (must be 4-8)",
+			})
+			return
+		}
 	}
 
 	// Get HOD's user ID, department, and curriculum
@@ -350,15 +364,14 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Delete existing selections for this semester/batch/year
+	// Delete existing selections for this department/batch/year
 	deleteQuery := `
 		DELETE FROM hod_elective_selections 
 		WHERE department_id = ? 
-		AND semester = ? 
 		AND academic_year = ?
 		AND (batch = ? OR (batch IS NULL AND ? = ''))
 	`
-	_, err = tx.Exec(deleteQuery, departmentID, req.Semester, req.AcademicYear, req.Batch, req.Batch)
+	_, err = tx.Exec(deleteQuery, departmentID, req.AcademicYear, req.Batch, req.Batch)
 	if err != nil {
 		log.Println("Error deleting old selections:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -369,8 +382,8 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Insert new selections
-	if len(req.SelectedCourses) > 0 {
+	// Insert new selections with semester assignments
+	if len(req.CourseAssignments) > 0 {
 		insertQuery := `
 			INSERT INTO hod_elective_selections 
 			(department_id, curriculum_id, semester, course_id, academic_year, batch, approved_by_user_id, status, created_at, updated_at)
@@ -383,7 +396,7 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 			status = "ACTIVE"
 		}
 
-		for _, courseID := range req.SelectedCourses {
+		for _, assignment := range req.CourseAssignments {
 			var batchVal interface{}
 			if req.Batch != "" {
 				batchVal = req.Batch
@@ -394,8 +407,8 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 			_, err = tx.Exec(insertQuery,
 				departmentID,
 				curriculumID,
-				req.Semester,
-				courseID,
+				assignment.Semester,
+				assignment.CourseID,
 				req.AcademicYear,
 				batchVal,
 				userID,
@@ -428,10 +441,10 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 	}
 
 	message := "Elective selections saved successfully"
-	if len(req.SelectedCourses) > 0 {
-		message = strconv.Itoa(len(req.SelectedCourses)) + " elective courses saved for Semester " + strconv.Itoa(req.Semester)
+	if len(req.CourseAssignments) > 0 {
+		message = strconv.Itoa(len(req.CourseAssignments)) + " elective courses assigned to semesters"
 	} else {
-		message = "All elective selections cleared for Semester " + strconv.Itoa(req.Semester)
+		message = "All elective selections cleared"
 	}
 
 	response := models.SaveElectivesResponse{
