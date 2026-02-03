@@ -42,6 +42,8 @@ function LoginPage() {
         // Redirect based on role
         if (data.user.role === 'teacher') {
           navigate('/teacher-dashboard')
+        } else if (data.user.role === 'curriculum_entry_user') {
+          navigate('/curriculum')
         } else {
           navigate('/dashboard')
         }

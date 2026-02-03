@@ -36,7 +36,7 @@ function ManageCurriculumPage() {
       const data = await response.json()
       
       // Sort semesters by card type and number
-      const sortOrder = { 'semester': 1, 'elective': 2, 'vertical': 3, 'open_elective': 4, 'one_credit': 5 }
+      const sortOrder = { 'semester': 1, 'language_elective': 2, 'vertical': 3, 'open_elective': 4, 'one_credit': 5 }
       const sorted = (data || []).sort((a, b) => {
         const typeA = sortOrder[a.card_type] || 999
         const typeB = sortOrder[b.card_type] || 999
@@ -92,7 +92,7 @@ function ManageCurriculumPage() {
     // Auto-generate name from card type
     const nameMap = {
       'semester': 'Semester',
-      'elective': 'Elective',
+      'language_elective': 'Language Elective',
       'vertical': 'Vertical',
       'open_elective': 'Open Elective',
       'one_credit': 'One Credit Course'
@@ -170,11 +170,11 @@ function ManageCurriculumPage() {
         label: 'Semester',
         icon: '📚'
       },
-      'elective': {
+      'language_elective': {
         gradient: 'from-green-500 to-green-700',
         bg: 'bg-green-50',
         badge: 'bg-green-100 text-green-700',
-        label: 'Elective',
+        label: 'Language Elective',
         icon: '🎯'
       },
       'vertical': {
@@ -320,7 +320,7 @@ function ManageCurriculumPage() {
               </div>
               <ul className="list-disc list-inside space-y-1 mb-3 ml-2">
                 <li><span className="font-semibold">Semester:</span> Core semester courses</li>
-                <li><span className="font-semibold">Elective:</span> Elective courses</li>
+                <li><span className="font-semibold">Language Elective:</span> Language elective courses</li>
                 <li><span className="font-semibold">Vertical:</span> Specialized verticals</li>
                 <li><span className="font-semibold">Open Elective:</span> Open elective courses</li>
                 <li><span className="font-semibold">One Credit:</span> One credit courses</li>
@@ -395,7 +395,7 @@ function ManageCurriculumPage() {
                     className="input-custom"
                   >
                     <option value="semester">Semester</option>
-                    <option value="elective">Elective</option>
+                    <option value="language_elective">Language Elective</option>
                     <option value="vertical">Vertical</option>
                     <option value="open_elective">Open Elective</option>
                     <option value="one_credit">One Credit Course</option>

@@ -37,7 +37,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
           />
         </svg>
       ),
-      roles: ["admin", "teacher"], // Available to all roles
+      roles: ["admin", "teacher"], // Available to admin and teacher
     },
     {
       name: "Curriculum",
@@ -57,7 +57,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
           />
         </svg>
       ),
-      roles: ["admin"], // Only admin
+      roles: ["admin", "curriculum_entry_user"], // Admin and curriculum entry users
     },
     {
       name: "Student & Teacher",
