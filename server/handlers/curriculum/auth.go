@@ -41,11 +41,11 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	// Query user from database
 	var user models.User
-	query := `SELECT id, username, password_hash, full_name, email, role, is_active, created_at, updated_at, last_login 
+	query := `SELECT id, username, password, email, role, is_active, created_at, updated_at, last_login 
 	          FROM users WHERE username = ? AND is_active = TRUE`
 
 	err = db.DB.QueryRow(query, loginReq.Username).Scan(
-		&user.ID, &user.Username, &user.Password, &user.FullName, &user.Email,
+		&user.ID, &user.Username, &user.Password, &user.Email,
 		&user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.LastLogin,
 	)
 

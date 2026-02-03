@@ -6,7 +6,6 @@ type User struct {
 	ID        int        `json:"id"`
 	Username  string     `json:"username"`
 	Password  string     `json:"-"` // Never send password to frontend
-	FullName  string     `json:"full_name"`
 	Email     string     `json:"email"`
 	Role      string     `json:"role"`
 	IsActive  bool       `json:"is_active"`
@@ -30,14 +29,12 @@ type LoginResponse struct {
 type CreateUserRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
-	FullName string `json:"full_name"`
 	Email    string `json:"email"`
 	Role     string `json:"role"`
 	IsActive bool   `json:"is_active"`
 }
 
 type UpdateUserRequest struct {
-	FullName string `json:"full_name"`
 	Email    string `json:"email"`
 	Role     string `json:"role"`
 	IsActive bool   `json:"is_active"`
