@@ -49,14 +49,13 @@ func GetCourseAllocations(w http.ResponseWriter, r *http.Request) {
 		courses = append(courses, c)
 	}
 
-	// 2. Fetch all allocations for these courses in this academic year
+	// 2. Fetch all allocations for these courses
 	allocationQuery := `
-		SELECT ca.id, ca.course_id, ca.teacher_id, t.name, ca.academic_year, ca.semester, ca.section, ca.role
+		SELECT ca.id, ca.course_id, ca.teacher_id, t.name
 		FROM teacher_course_allocation ca
 		JOIN teachers t ON ca.teacher_id = t.id
-		WHERE ca.academic_year = ? AND ca.status = 1
 	`
-	aRows, err := db.DB.Query(allocationQuery, academicYear)
+	aRows, err := db.DB.Query(allocationQuery)
 	if err != nil {
 		log.Printf("Error fetching allocations: %v", err)
 		// We still return courses even if allocations fetch fails
@@ -65,7 +64,7 @@ func GetCourseAllocations(w http.ResponseWriter, r *http.Request) {
 		allocMap := make(map[int][]models.CourseAllocation)
 		for aRows.Next() {
 			var a models.CourseAllocation
-			if err := aRows.Scan(&a.ID, &a.CourseID, &a.TeacherID, &a.TeacherName, &a.AcademicYear, &a.Semester, &a.Section, &a.Role); err != nil {
+			if err := aRows.Scan(&a.ID, &a.CourseID, &a.TeacherID, &a.TeacherName); err != nil {
 				continue
 			}
 			allocMap[a.CourseID] = append(allocMap[a.CourseID], a)
@@ -93,24 +92,16 @@ func CreateAllocation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if alloc.CourseID == 0 || alloc.TeacherID == 0 || alloc.AcademicYear == "" {
-		http.Error(w, "CourseID, TeacherID, and AcademicYear are required", http.StatusBadRequest)
+	if alloc.CourseID == 0 || alloc.TeacherID == 0 {
+		http.Error(w, "CourseID and TeacherID are required", http.StatusBadRequest)
 		return
 	}
 
-	if alloc.Section == "" {
-		alloc.Section = "A"
-	}
-	if alloc.Role == "" {
-		alloc.Role = "Primary"
-	}
-
 	query := `
-		INSERT INTO teacher_course_allocation (course_id, teacher_id, academic_year, semester, section, role, status)
-		VALUES (?, ?, ?, ?, ?, ?, 1)
-		ON DUPLICATE KEY UPDATE status = 1, role = VALUES(role), section = VALUES(section)
+		INSERT INTO teacher_course_allocation (course_id, teacher_id)
+		VALUES (?, ?)
 	`
-	_, err := db.DB.Exec(query, alloc.CourseID, alloc.TeacherID, alloc.AcademicYear, alloc.Semester, alloc.Section, alloc.Role)
+	_, err := db.DB.Exec(query, alloc.CourseID, alloc.TeacherID)
 	if err != nil {
 		log.Printf("Error creating allocation: %v", err)
 		http.Error(w, "Failed to create allocation", http.StatusInternalServerError)
@@ -129,7 +120,7 @@ func DeleteAllocation(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	query := `UPDATE teacher_course_allocation SET status = 0 WHERE id = ?`
+	query := `DELETE FROM teacher_course_allocation WHERE id = ?`
 	_, err := db.DB.Exec(query, id)
 	if err != nil {
 		log.Printf("Error deleting allocation: %v", err)
@@ -157,10 +148,10 @@ func UpdateAllocation(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		UPDATE teacher_course_allocation 
-		SET teacher_id = ?, role = ?, section = ?, semester = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ? AND status = 1
+		SET teacher_id = ?
+		WHERE id = ?
 	`
-	_, err := db.DB.Exec(query, alloc.TeacherID, alloc.Role, alloc.Section, alloc.Semester, id)
+	_, err := db.DB.Exec(query, alloc.TeacherID, id)
 	if err != nil {
 		log.Printf("Error updating allocation: %v", err)
 		http.Error(w, "Failed to update allocation", http.StatusInternalServerError)
@@ -179,30 +170,17 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	teacherID := vars["id"]
 
-	academicYear := r.URL.Query().Get("academic_year")
-	semester := r.URL.Query().Get("semester")
-
 	query := `
 		SELECT 
 			ca.id, ca.course_id, c.course_code, c.course_name, COALESCE(c.course_type, 'Theory'), 
-			c.credit, ca.academic_year, ca.semester, ca.section, ca.role, COALESCE(c.category, 'General')
+			c.credit, COALESCE(c.category, 'General')
 		FROM teacher_course_allocation ca
 		JOIN courses c ON ca.course_id = c.id
-		WHERE ca.teacher_id = ? AND ca.status = 1
+		WHERE ca.teacher_id = ?
+		ORDER BY c.course_code
 	`
 
-	args := []interface{}{teacherID}
-	if academicYear != "" {
-		query += " AND ca.academic_year = ?"
-		args = append(args, academicYear)
-	}
-	if semester != "" {
-		query += " AND ca.semester = ?"
-		args = append(args, semester)
-	}
-	query += " ORDER BY ca.semester, c.course_code"
-
-	rows, err := db.DB.Query(query, args...)
+	rows, err := db.DB.Query(query, teacherID)
 	if err != nil {
 		log.Printf("Error fetching teacher courses: %v", err)
 		http.Error(w, "Failed to fetch courses", http.StatusInternalServerError)
@@ -223,10 +201,6 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 		CourseType   string              `json:"course_type"`
 		Credit       int                 `json:"credit"`
 		Category     string              `json:"category"`
-		AcademicYear string              `json:"academic_year"`
-		Semester     int                 `json:"semester"`
-		Section      string              `json:"section"`
-		Role         string              `json:"role"`
 		Enrollments  []StudentEnrollment `json:"enrollments"`
 	}
 
@@ -234,22 +208,21 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var course TeacherCourse
 		err := rows.Scan(&course.ID, &course.CourseID, &course.CourseCode, &course.CourseName,
-			&course.CourseType, &course.Credit, &course.AcademicYear, &course.Semester,
-			&course.Section, &course.Role, &course.Category)
+			&course.CourseType, &course.Credit, &course.Category)
 		if err != nil {
 			log.Printf("Error scanning course row: %v", err)
 			continue
 		}
 
-		// Fetch enrolled students for this course
+		// Fetch allocated students for this course and teacher
 		studentQuery := `
-			SELECT DISTINCT s.id, s.name
-			FROM student_courses sc
-			JOIN students s ON sc.student_id = s.id
-			WHERE sc.course_id = ?
-			ORDER BY s.name
+			SELECT DISTINCT s.id, s.student_name
+			FROM course_student_teacher_allocation csta
+			JOIN students s ON csta.student_id = s.id
+			WHERE csta.course_id = ? AND csta.teacher_id = ?
+			ORDER BY s.student_name
 		`
-		sRows, err := db.DB.Query(studentQuery, course.CourseID)
+		sRows, err := db.DB.Query(studentQuery, course.CourseID, teacherID)
 		if err != nil {
 			log.Printf("Error fetching students for course %d: %v", course.CourseID, err)
 		} else {
@@ -288,26 +261,17 @@ func GetCourseTeachers(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	courseID := vars["id"]
 
-	academicYear := r.URL.Query().Get("academic_year")
-
 	query := `
 		SELECT 
-			ca.id, ca.teacher_id, t.name, t.email, t.dept, d.department_name,
-			ca.academic_year, ca.semester, ca.section, ca.role
+			ca.id, ca.teacher_id, t.name, t.email, t.dept, d.department_name
 		FROM teacher_course_allocation ca
 		JOIN teachers t ON ca.teacher_id = t.id
 		LEFT JOIN departments d ON t.dept = d.id
-		WHERE ca.course_id = ? AND ca.status = 1
+		WHERE ca.course_id = ?
+		ORDER BY t.name
 	`
 
-	args := []interface{}{courseID}
-	if academicYear != "" {
-		query += " AND ca.academic_year = ?"
-		args = append(args, academicYear)
-	}
-	query += " ORDER BY ca.role DESC, t.name"
-
-	rows, err := db.DB.Query(query, args...)
+	rows, err := db.DB.Query(query, courseID)
 	if err != nil {
 		log.Printf("Error fetching course teachers: %v", err)
 		http.Error(w, "Failed to fetch teachers", http.StatusInternalServerError)
@@ -322,18 +286,13 @@ func GetCourseTeachers(w http.ResponseWriter, r *http.Request) {
 		Email          string  `json:"email"`
 		DeptID         *int    `json:"dept_id"`
 		DepartmentName *string `json:"department_name"`
-		AcademicYear   string  `json:"academic_year"`
-		Semester       int     `json:"semester"`
-		Section        string  `json:"section"`
-		Role           string  `json:"role"`
 	}
 
 	var teachers []CourseTeacher
 	for rows.Next() {
 		var teacher CourseTeacher
 		err := rows.Scan(&teacher.ID, &teacher.TeacherID, &teacher.TeacherName, &teacher.Email,
-			&teacher.DeptID, &teacher.DepartmentName, &teacher.AcademicYear, &teacher.Semester,
-			&teacher.Section, &teacher.Role)
+			&teacher.DeptID, &teacher.DepartmentName)
 		if err != nil {
 			log.Printf("Error scanning teacher row: %v", err)
 			continue
@@ -368,15 +327,12 @@ func GetUnassignedCourses(w http.ResponseWriter, r *http.Request) {
 		WHERE cc.semester_id = ? AND c.status = 1
 		AND NOT EXISTS (
 			SELECT 1 FROM teacher_course_allocation ca
-			WHERE ca.course_id = c.id 
-			AND ca.academic_year = ?
-			AND ca.status = 1
-			AND ca.role = 'Primary'
+			WHERE ca.course_id = c.id
 		)
 		ORDER BY c.course_code
 	`
 
-	rows, err := db.DB.Query(query, semesterID, academicYear)
+	rows, err := db.DB.Query(query, semesterID)
 	if err != nil {
 		log.Printf("Error fetching unassigned courses: %v", err)
 		http.Error(w, "Failed to fetch unassigned courses", http.StatusInternalServerError)
@@ -437,14 +393,13 @@ func GetAllocationSummary(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error counting total courses: %v", err)
 	}
 
-	// Assigned courses (with primary teacher)
+	// Assigned courses
 	err = db.DB.QueryRow(`
 		SELECT COUNT(DISTINCT ca.course_id)
 		FROM teacher_course_allocation ca
 		JOIN curriculum_courses cc ON ca.course_id = cc.course_id
-		WHERE cc.semester_id = ? AND ca.academic_year = ? 
-		AND ca.status = 1 AND ca.role = 'Primary'
-	`, semesterID, academicYear).Scan(&summary.AssignedCourses)
+		WHERE cc.semester_id = ?
+	`, semesterID).Scan(&summary.AssignedCourses)
 	if err != nil {
 		log.Printf("Error counting assigned courses: %v", err)
 	}
@@ -462,8 +417,8 @@ func GetAllocationSummary(w http.ResponseWriter, r *http.Request) {
 		SELECT COUNT(DISTINCT ca.teacher_id)
 		FROM teacher_course_allocation ca
 		JOIN curriculum_courses cc ON ca.course_id = cc.course_id
-		WHERE cc.semester_id = ? AND ca.academic_year = ? AND ca.status = 1
-	`, semesterID, academicYear).Scan(&summary.ActiveTeachers)
+		WHERE cc.semester_id = ?
+	`, semesterID).Scan(&summary.ActiveTeachers)
 	if err != nil {
 		log.Printf("Error counting active teachers: %v", err)
 	}
