@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"server/db"
 	"server/models"
@@ -312,41 +313,45 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 
 		// First check: prevent duplicate course codes in the same curriculum (active courses only)
 		// Check both curriculum_courses (normal cards) and honour_vertical_courses (honour cards)
-		var duplicateCheck int
-		duplicateQuery := `SELECT c.id FROM courses c 
-		                   INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
-		                   WHERE c.course_code = ? AND cc.curriculum_id = ? AND c.status = 1`
-		duplicateErr := db.DB.QueryRow(duplicateQuery, payload.CourseCode, curriculumID).Scan(&duplicateCheck)
-		if duplicateErr == nil {
-			// Course with this code already exists in curriculum (active)
-			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]string{"error": "A course with code " + payload.CourseCode + " already exists in this curriculum"})
-			return
-		} else if duplicateErr != sql.ErrNoRows {
-			log.Println("Error checking duplicate course code:", duplicateErr)
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate course"})
-			return
-		}
+		// Skip this check if course_code is "NA" (case-insensitive, trimmed)
+		trimmedCourseCode := strings.TrimSpace(strings.ToUpper(payload.CourseCode))
+		if trimmedCourseCode != "NA" {
+			var duplicateCheck int
+			duplicateQuery := `SELECT c.id FROM courses c 
+			                   INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
+			                   WHERE c.course_code = ? AND cc.curriculum_id = ? AND c.status = 1`
+			duplicateErr := db.DB.QueryRow(duplicateQuery, payload.CourseCode, curriculumID).Scan(&duplicateCheck)
+			if duplicateErr == nil {
+				// Course with this code already exists in curriculum (active)
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "A course with this course code already exists in this curriculum. Please use a different course code."})
+				return
+			} else if duplicateErr != sql.ErrNoRows {
+				log.Println("Error checking duplicate course code:", duplicateErr)
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate course"})
+				return
+			}
 
-		// Also check in honour vertical courses for this curriculum
-		var honourDuplicateCheck int
-		honourDuplicateQuery := `SELECT c.id FROM courses c 
-		                         INNER JOIN honour_vertical_courses hvc ON c.id = hvc.course_id 
-		                         INNER JOIN honour_verticals hv ON hvc.honour_vertical_id = hv.id
-		                         INNER JOIN honour_cards hc ON hv.honour_card_id = hc.id
-		                         WHERE c.course_code = ? AND hc.curriculum_id = ? AND c.status = 1 AND hvc.status = 1`
-		honourDuplicateErr := db.DB.QueryRow(honourDuplicateQuery, payload.CourseCode, curriculumID).Scan(&honourDuplicateCheck)
-		if honourDuplicateErr == nil {
-			// Course with this code already exists in honour verticals
-			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]string{"error": "A course with code " + payload.CourseCode + " already exists in this curriculum's honour cards"})
-			return
-		} else if honourDuplicateErr != sql.ErrNoRows {
-			log.Println("Error checking duplicate honour course code:", honourDuplicateErr)
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate course"})
-			return
+			// Also check in honour vertical courses for this curriculum
+			var honourDuplicateCheck int
+			honourDuplicateQuery := `SELECT c.id FROM courses c 
+			                         INNER JOIN honour_vertical_courses hvc ON c.id = hvc.course_id 
+			                         INNER JOIN honour_verticals hv ON hvc.honour_vertical_id = hv.id
+			                         INNER JOIN honour_cards hc ON hv.honour_card_id = hc.id
+			                         WHERE c.course_code = ? AND hc.curriculum_id = ? AND c.status = 1 AND hvc.status = 1`
+			honourDuplicateErr := db.DB.QueryRow(honourDuplicateQuery, payload.CourseCode, curriculumID).Scan(&honourDuplicateCheck)
+			if honourDuplicateErr == nil {
+				// Course with this code already exists in honour verticals
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "A course with this course code already exists in this curriculum. Please use a different course code."})
+				return
+			} else if honourDuplicateErr != sql.ErrNoRows {
+				log.Println("Error checking duplicate honour course code:", honourDuplicateErr)
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate course"})
+				return
+			}
 		}
 
 		// Check if course with same code AND name already exists in this curriculum

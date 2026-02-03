@@ -28,17 +28,27 @@ function LoginPage() {
 
       if (data.success) {
         // Store user info in localStorage
-        localStorage.setItem("userRole", data.user.role);
-        localStorage.setItem("userName", data.user.full_name);
-        localStorage.setItem("userId", data.user.id);
-        localStorage.setItem("userEmail", data.user.email);
-
-        setUsername("");
-        setPassword("");
-
-        // Navigate to role-specific dashboard
-        const dashboardPath = getDashboardPathForRole(data.user.role);
-        navigate(dashboardPath);
+        localStorage.setItem('userRole', data.user.role)
+        localStorage.setItem('userName', data.teacher_name || data.user.username)
+        localStorage.setItem('userEmail', data.user.email)
+        localStorage.setItem('userId', data.user.id)
+        
+        // Store teacher ID if user is a teacher
+        if (data.teacher_id) {
+          localStorage.setItem('teacherId', data.teacher_id)
+        }
+        
+        setUsername('')
+        setPassword('')
+        
+        // Redirect based on role
+        if (data.user.role === 'teacher') {
+          navigate('/teacher-dashboard')
+        } else if (data.user.role === 'curriculum_entry_user') {
+          navigate('/curriculum')
+        } else {
+          navigate('/dashboard')
+        }
       } else {
         setError(data.message || "Invalid username or password");
         setIsLoading(false);

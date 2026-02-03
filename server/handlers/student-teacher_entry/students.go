@@ -497,6 +497,78 @@ func CreateStudent(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Auto-enroll student in courses from curriculum and semester
+	if req.CurriculumID != "" && req.Semester != "" {
+		curriculumID := parseNullableInt(req.CurriculumID)
+		semester := parseInt(req.Semester)
+
+		if curriculumID != nil && semester != 0 {
+			// 1. Get distinct semester_ids
+			var semesterIDs []int
+			semesterQuery := `
+            SELECT DISTINCT semester_id 
+            FROM curriculum_courses 
+            WHERE curriculum_id = ? 
+            ORDER BY semester_id
+        `
+			sRows, err := tx.Query(semesterQuery, *curriculumID)
+			if err != nil {
+				log.Printf("Warning: Error fetching semester_ids: %v", err)
+			} else {
+				for sRows.Next() {
+					var sid int
+					if err := sRows.Scan(&sid); err == nil {
+						semesterIDs = append(semesterIDs, sid)
+					}
+				}
+				sRows.Close() // Close immediately after reading into the slice
+			}
+
+			// 2. Process courses if the requested semester index exists
+			if len(semesterIDs) >= semester {
+				semesterID := semesterIDs[semester-1]
+
+				// Fetch course IDs into a slice first to free the connection
+				var courseIDs []int
+				coursesQuery := `SELECT DISTINCT course_id FROM curriculum_courses WHERE semester_id = ?`
+
+				cRows, err := tx.Query(coursesQuery, semesterID)
+				if err != nil {
+					log.Printf("Warning: Error fetching courses: %v", err)
+				} else {
+					for cRows.Next() {
+						var cid int
+						if err := cRows.Scan(&cid); err == nil {
+							courseIDs = append(courseIDs, cid)
+						}
+					}
+					cRows.Close() // Close immediately
+				}
+
+				// 3. Now perform the inserts using the collected slice
+				enrollQuery := `
+                INSERT INTO student_courses (student_id, course_id) 
+                VALUES (?, ?)
+                ON DUPLICATE KEY UPDATE student_id = student_id
+            `
+				coursesEnrolled := 0
+				for _, cid := range courseIDs {
+					_, err := tx.Exec(enrollQuery, studentID, cid)
+					if err != nil {
+						// Log specific course error but don't necessarily kill the whole process
+						log.Printf("Warning: Error auto-enrolling course %d for student %d: %v", cid, studentID, err)
+						continue
+					}
+					coursesEnrolled++
+				}
+
+				log.Printf("Auto-enrolled student %d in %d courses for semester_id %d", studentID, coursesEnrolled, semesterID)
+			} else {
+				log.Printf("Warning: Semester %d not found for curriculum %d", semester, *curriculumID)
+			}
+		}
+	}
+
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		log.Printf("Error committing transaction: %v", err)
@@ -905,6 +977,84 @@ func UpdateStudent(w http.ResponseWriter, r *http.Request) {
 			"details": err.Error(),
 		})
 		return
+	}
+
+	// Auto-enroll/re-enroll student in courses if curriculum/semester changed
+	if req.CurriculumID != "" && req.Semester != "" {
+		curriculumID := parseNullableInt(req.CurriculumID)
+		semester := parseInt(req.Semester)
+
+		if curriculumID != nil && semester != 0 {
+			// Get distinct semester_ids for this curriculum, ordered
+			var semesterIDs []int
+			semesterQuery := `
+				SELECT DISTINCT semester_id 
+				FROM curriculum_courses 
+				WHERE curriculum_id = ? 
+				ORDER BY semester_id
+			`
+			semesterRows, err := tx.Query(semesterQuery, *curriculumID)
+			if err != nil {
+				log.Printf("Warning: Error fetching semester_ids: %v", err)
+			} else {
+				for semesterRows.Next() {
+					var sid int
+					if err := semesterRows.Scan(&sid); err == nil {
+						semesterIDs = append(semesterIDs, sid)
+					}
+				}
+				semesterRows.Close()
+			}
+
+			// Check if we have enough semesters and pick the correct semester_id
+			if len(semesterIDs) >= semester {
+				semesterID := semesterIDs[semester-1] // semester is 1-indexed
+
+				// First, remove all existing course enrollments for this student
+				_, err := tx.Exec(`DELETE FROM student_courses WHERE student_id = ?`, studentIDInt)
+				if err != nil {
+					log.Printf("Warning: Error removing existing enrollments for student %d: %v", studentIDInt, err)
+				}
+
+				// Get all courses for this semester_id
+				coursesQuery := `
+					SELECT DISTINCT course_id 
+					FROM curriculum_courses 
+					WHERE semester_id = ?
+				`
+				courseRows, err := tx.Query(coursesQuery, semesterID)
+				if err != nil {
+					log.Printf("Warning: Error fetching courses for auto-enrollment: %v", err)
+				} else {
+					// Insert courses into student_courses
+					enrollQuery := `
+						INSERT INTO student_courses (student_id, course_id) 
+						VALUES (?, ?)
+					`
+
+					coursesEnrolled := 0
+					for courseRows.Next() {
+						var courseID int
+						if err := courseRows.Scan(&courseID); err != nil {
+							log.Printf("Warning: Error scanning course_id: %v", err)
+							continue
+						}
+
+						_, err := tx.Exec(enrollQuery, studentIDInt, courseID)
+						if err != nil {
+							log.Printf("Warning: Error auto-enrolling course %d for student %d: %v", courseID, studentIDInt, err)
+						} else {
+							coursesEnrolled++
+						}
+					}
+					courseRows.Close()
+
+					log.Printf("Re-enrolled student %d in %d courses for semester_id %d (curriculum %d, semester %d)", studentIDInt, coursesEnrolled, semesterID, *curriculumID, semester)
+				}
+			} else {
+				log.Printf("Warning: Semester %d not found for curriculum %d (only %d semesters available)", semester, *curriculumID, len(semesterIDs))
+			}
+		}
 	}
 
 	// Commit transaction

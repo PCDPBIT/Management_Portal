@@ -22,20 +22,14 @@ import TeacherStudentMappingPage from "../pages/student-teacher_entry/TeacherStu
 import CourseAllocationPage from "../pages/curriculum/CourseAllocationPage";
 import ElectiveManagementPage from "../pages/curriculum/ElectiveManagementPage";
 import HODElectivePage from "../pages/curriculum/HODElectivePage";
+import TeacherCoursesPage from "../pages/curriculum/TeacherCoursesPage";
+import TeacherDashboardPage from "../pages/curriculum/TeacherDashboardPage";
 import PrivateRoute from "../components/PrivateRoute";
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<LoginPage />} />
-      <Route
-        path="/elective-management"
-        element={
-          <PrivateRoute>
-            <ElectiveManagementPage />
-          </PrivateRoute>
-        }
-      />
       <Route
         path="/dashboard"
         element={
@@ -45,58 +39,10 @@ function App() {
         }
       />
       <Route
-        path="/hr/dashboard"
+        path="/teacher-dashboard"
         element={
           <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/hr/student-teacher-dashboard"
-        element={
-          <PrivateRoute>
-            <TeacherStudentDashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/hr/users"
-        element={
-          <PrivateRoute>
-            <UsersPage />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/hod/dashboard"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/hod/curriculum"
-        element={
-          <PrivateRoute>
-            <CurriculumMainPage />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/hod/course-allocation"
-        element={
-          <PrivateRoute>
-            <CourseAllocationPage />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/hod/elective-management"
-        element={
-          <PrivateRoute>
-            <HODElectivePage />
+            <TeacherDashboardPage />
           </PrivateRoute>
         }
       />
@@ -145,6 +91,14 @@ function App() {
         element={
           <PrivateRoute>
             <CourseAllocationPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/teacher-courses"
+        element={
+          <PrivateRoute>
+            <TeacherCoursesPage />
           </PrivateRoute>
         }
       />
