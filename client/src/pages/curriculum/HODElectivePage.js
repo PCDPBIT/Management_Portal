@@ -397,9 +397,7 @@ const HODElectivePage = () => {
                             className="border-b border-gray-100 hover:bg-gray-50"
                           >
                             <td className="py-4 px-4">
-                              <span
-                                className={`font-bold ${colors.text}`}
-                              >
+                              <span className={`font-bold ${colors.text}`}>
                                 {course.course_code}
                               </span>
                             </td>
