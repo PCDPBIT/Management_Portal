@@ -538,10 +538,10 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 			                      theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs,
 		                      cia_marks, see_marks, status) 
 		                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
-		result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, course.CourseType, course.Category, course.Credit,
-			course.LectureHrs, course.TutorialHrs, course.PracticalHrs, course.ActivityHrs, course.TwSlHrs,
-			theoryTotal, tutorialTotal, practicalTotal, activityTotal,
-			course.CIAMarks, course.SEEMarks)
+			result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, course.CourseType, course.Category, course.Credit,
+				course.LectureHrs, course.TutorialHrs, course.PracticalHrs, course.ActivityHrs, course.TwSlHrs,
+				theoryTotal, tutorialTotal, practicalTotal, activityTotal,
+				course.CIAMarks, course.SEEMarks)
 			if err != nil {
 				log.Println("Error inserting course:", err)
 				w.WriteHeader(http.StatusInternalServerError)
