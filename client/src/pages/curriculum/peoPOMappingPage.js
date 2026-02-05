@@ -9,7 +9,9 @@ function PEOPOMappingPage() {
   
   const [peos, setPeos] = useState([])
   const [pos, setPos] = useState([])
-  const [matrix, setMatrix] = useState({})
+  const [psos, setPsos] = useState([])
+  const [poMatrix, setPoMatrix] = useState({})
+  const [psoPoMatrix, setPsoPoMatrix] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -31,14 +33,16 @@ function PEOPOMappingPage() {
       const overviewData = await overviewResponse.json()
       setPeos(overviewData.peos || [])
       setPos(overviewData.pos || [])
+      setPsos(overviewData.psos || [])
 
-      // Fetch existing PEO-PO mappings
+      // Fetch existing PEO-PO-PSO mappings
       const mappingResponse = await fetch(`${API_BASE_URL}/curriculum/${id}/peo-po-mapping`)
       if (!mappingResponse.ok) {
-        throw new Error('Failed to fetch PEO-PO mappings')
+        throw new Error('Failed to fetch PEO-PO-PSO mappings')
       }
       const mappingData = await mappingResponse.json()
-      setMatrix(mappingData.matrix || {})
+      setPoMatrix(mappingData.poMatrix || {})
+      setPsoPoMatrix(mappingData.psoPoMatrix || {})
       
       setError('')
     } catch (err) {
@@ -51,15 +55,34 @@ function PEOPOMappingPage() {
 
   const handleSave = async () => {
     try {
-      // Convert matrix object to array for backend with 1-based indexing
+      // Convert matrix objects to array for backend with 1-based indexing
       const mappings = []
+      
+      // Add PEO-PO mappings
       peos.forEach((_, peoIndex) => {
         pos.forEach((_, poIndex) => {
           const key = `${peoIndex}-${poIndex}`
-          const value = matrix[key] || 0
+          const value = poMatrix[key] || 0
           if (value > 0) { // Only save non-zero values
             mappings.push({
               peo_index: peoIndex + 1,  // Convert to 1-based for database
+              po_index: poIndex + 1,    // Convert to 1-based for database
+              pso_index: null,
+              mapping_value: value
+            })
+          }
+        })
+      })
+      
+      // Add PSO-PO mappings
+      const psoPoMappings = []
+      psos.forEach((_, psoIndex) => {
+        pos.forEach((_, poIndex) => {
+          const key = `${psoIndex}-${poIndex}`
+          const value = psoPoMatrix[key] || 0
+          if (value > 0) { // Only save non-zero values
+            psoPoMappings.push({
+              pso_index: psoIndex + 1,  // Convert to 1-based for database
               po_index: poIndex + 1,    // Convert to 1-based for database
               mapping_value: value
             })
@@ -72,14 +95,14 @@ function PEOPOMappingPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ mappings }),
+        body: JSON.stringify({ mappings, psoPoMappings })
       })
 
       if (!response.ok) {
         throw new Error('Failed to save mappings')
       }
 
-      setSuccess('PEO-PO mappings saved successfully!')
+      setSuccess('PEO-PO and PSO-PO mappings saved successfully!')
       setTimeout(() => setSuccess(''), 3000)
       setError('')
     } catch (err) {
@@ -88,30 +111,52 @@ function PEOPOMappingPage() {
     }
   }
 
-  const updateValue = (peoIndex, poIndex, value) => {
+  const updatePoValue = (peoIndex, poIndex, value) => {
     const key = `${peoIndex}-${poIndex}`
-    setMatrix({
-      ...matrix,
+    setPoMatrix({
+      ...poMatrix,
       [key]: parseInt(value)
     })
   }
 
-  const getValue = (peoIndex, poIndex) => {
+  const getPoValue = (peoIndex, poIndex) => {
     const key = `${peoIndex}-${poIndex}`
-    return matrix[key] || 0
+    return poMatrix[key] || 0
+  }
+
+  const updatePsoPoValue = (psoIndex, poIndex, value) => {
+    const key = `${psoIndex}-${poIndex}`
+    setPsoPoMatrix({
+      ...psoPoMatrix,
+      [key]: parseInt(value)
+    })
+  }
+
+  const getPsoPoValue = (psoIndex, poIndex) => {
+    const key = `${psoIndex}-${poIndex}`
+    return psoPoMatrix[key] || 0
   }
 
   if (loading) {
     return (
-      <MainLayout title="PEO-PO Mapping" subtitle="Loading...">
-        <div className="flex justify-center items-center py-20">
-          <div className="text-center">
-            <svg className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p className="text-gray-600">Loading PEO-PO mapping...</p>
-          </div>
+      <MainLayout title="PEO-PO & PSO-PO Mapping" subtitle="Loading...">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (peos.length === 0 || (pos.length === 0 && psos.length === 0)) {
+    return (
+      <MainLayout title="PEO-PO & PSO-PO Mapping" subtitle={`Curriculum ID: ${id}`}>
+        <div className="card-custom p-12 text-center">
+          <svg className="w-20 h-20 text-yellow-400 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">PEOs, POs, or PSOs Not Found</h3>
+          <p className="text-gray-600 mb-6">Please add Program Educational Objectives (PEOs), Program Outcomes (POs), and Program Specific Outcomes (PSOs) in the Department Overview page before creating mappings.</p>
+          <button onClick={() => navigate(`/curriculum/${id}/overview`)} className="btn-primary-custom">Go to Department Overview</button>
         </div>
       </MainLayout>
     )
@@ -134,7 +179,7 @@ function PEOPOMappingPage() {
 
   return (
     <MainLayout 
-      title="PEO-PO Mapping"
+      title="PEO-PO & PSO-PO Mapping"
       subtitle={`Curriculum ID: ${id}`}
       actions={
         <div className="flex items-center space-x-3">
@@ -201,56 +246,108 @@ function PEOPOMappingPage() {
         </div>
 
         {/* PEO-PO Mapping Matrix */}
-        <div className="card-custom overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <span className="text-2xl">🎯</span>
-              PEO - PO Mapping Matrix
-            </h2>
-          </div>
-          <div className="p-6 overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="border border-gray-300 bg-gray-100 px-4 py-3 text-sm font-semibold text-gray-700 sticky left-0 z-10">
-                    PEO / PO
-                  </th>
-                  {pos.map((_, poIndex) => (
-                    <th key={poIndex} className="border border-gray-300 bg-gray-100 px-4 py-3 text-sm font-semibold text-gray-700">
-                      PO{poIndex + 1}
+        {pos.length > 0 && (
+          <div className="card-custom overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <span className="text-2xl">🎯</span>
+                PEO - PO Mapping Matrix
+              </h2>
+            </div>
+            <div className="p-6 overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className="border border-gray-300 bg-gray-100 px-4 py-3 text-sm font-semibold text-gray-700 sticky left-0 z-10">
+                      PEO / PO
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {peos.map((_, peoIndex) => (
-                  <tr key={peoIndex} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 px-4 py-3 font-semibold text-sm text-gray-700 bg-gray-50 sticky left-0 z-10">
-                      PEO{peoIndex + 1}
-                    </td>
                     {pos.map((_, poIndex) => (
-                      <td key={poIndex} className="border border-gray-300 px-2 py-2">
-                        <select
-                          value={getValue(peoIndex, poIndex)}
-                          onChange={(e) => updateValue(peoIndex, poIndex, e.target.value)}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded focus:border-indigo-500 focus:outline-none text-center font-semibold text-sm"
-                        >
-                          <option value="0">0</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
-                        </select>
-                      </td>
+                      <th key={poIndex} className="border border-gray-300 bg-gray-100 px-4 py-3 text-sm font-semibold text-gray-700">
+                        PO{poIndex + 1}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {peos.map((_, peoIndex) => (
+                    <tr key={peoIndex} className="hover:bg-gray-50">
+                      <td className="border border-gray-300 px-4 py-3 font-semibold text-sm text-gray-700 bg-gray-50 sticky left-0 z-10">
+                        PEO{peoIndex + 1}
+                      </td>
+                      {pos.map((_, poIndex) => (
+                        <td key={poIndex} className="border border-gray-300 px-2 py-2">
+                          <select
+                            value={getPoValue(peoIndex, poIndex)}
+                            onChange={(e) => updatePoValue(peoIndex, poIndex, e.target.value)}
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded focus:border-indigo-500 focus:outline-none text-center font-semibold text-sm"
+                          >
+                            <option value="0">0</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                          </select>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* PEOs and POs Reference */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {psos.length > 0 && pos.length > 0 && (
+          <div className="card-custom overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-green-100 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <span className="text-2xl">🔗</span>
+                PSO - PO Mapping Matrix
+              </h2>
+            </div>
+            <div className="p-6 overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className="border border-gray-300 bg-gray-100 px-4 py-3 text-sm font-semibold text-gray-700 sticky left-0 z-10">
+                      PSO / PO
+                    </th>
+                    {pos.map((_, poIndex) => (
+                      <th key={poIndex} className="border border-gray-300 bg-gray-100 px-4 py-3 text-sm font-semibold text-gray-700">
+                        PO{poIndex + 1}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {psos.map((_, psoIndex) => (
+                    <tr key={psoIndex} className="hover:bg-gray-50">
+                      <td className="border border-gray-300 px-4 py-3 font-semibold text-sm text-gray-700 bg-gray-50 sticky left-0 z-10">
+                        PSO{psoIndex + 1}
+                      </td>
+                      {pos.map((_, poIndex) => (
+                        <td key={poIndex} className="border border-gray-300 px-2 py-2">
+                          <select
+                            value={getPsoPoValue(psoIndex, poIndex)}
+                            onChange={(e) => updatePsoPoValue(psoIndex, poIndex, e.target.value)}
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded focus:border-indigo-500 focus:outline-none text-center font-semibold text-sm"
+                          >
+                            <option value="0">0</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                          </select>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* PEOs, POs and PSOs Reference */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="card-custom p-6">
             <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <span className="text-xl">📋</span>
@@ -266,20 +363,39 @@ function PEOPOMappingPage() {
             </div>
           </div>
 
-          <div className="card-custom p-6">
-            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <span className="text-xl">🎓</span>
-              Program Outcomes (POs)
-            </h3>
-            <div className="space-y-2">
-              {pos.map((po, index) => (
-                <div key={index} className="flex gap-3 text-sm">
-                  <span className="font-semibold text-purple-600 min-w-[60px]">PO{index + 1}:</span>
-                  <span className="text-gray-700">{po.text || po}</span>
-                </div>
-              ))}
+          {pos.length > 0 && (
+            <div className="card-custom p-6">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <span className="text-xl">🎓</span>
+                Program Outcomes (POs)
+              </h3>
+              <div className="space-y-2">
+                {pos.map((po, index) => (
+                  <div key={index} className="flex gap-3 text-sm">
+                    <span className="font-semibold text-purple-600 min-w-[60px]">PO{index + 1}:</span>
+                    <span className="text-gray-700">{po.text || po}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {psos.length > 0 && (
+            <div className="card-custom p-6">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <span className="text-xl">🎯</span>
+                Program Specific Outcomes (PSOs)
+              </h3>
+              <div className="space-y-2">
+                {psos.map((pso, index) => (
+                  <div key={index} className="flex gap-3 text-sm">
+                    <span className="font-semibold text-green-600 min-w-[70px]">PSO{index + 1}:</span>
+                    <span className="text-gray-700">{pso.text || pso}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </MainLayout>

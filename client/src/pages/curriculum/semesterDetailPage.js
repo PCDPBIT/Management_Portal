@@ -16,10 +16,12 @@ function SemesterDetailPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
+  const [courseTypes, setCourseTypes] = useState([])
+  const [courseTypeMap, setCourseTypeMap] = useState({}) // Map of ID to name
   const [newCourse, setNewCourse] = useState({
     course_code: '',
     course_name: '',
-    course_type: '',
+    course_type: 0,
     category: '',
     credit: '',
     lecture_hrs: 0,
@@ -36,7 +38,7 @@ function SemesterDetailPage() {
   const [editCourseData, setEditCourseData] = useState({
     course_code: '',
     course_name: '',
-    course_type: '',
+    course_type: 0,
     category: '',
     credit: '',
     lecture_hrs: 0,
@@ -53,6 +55,7 @@ function SemesterDetailPage() {
   })
 
   useEffect(() => {
+    fetchCourseTypes()
     fetchCurriculum()
     fetchSemester()
     fetchCourses()
@@ -87,6 +90,26 @@ function SemesterDetailPage() {
       setTotalCurriculumCredits(totalCredits)
     } catch (err) {
       console.error('Error fetching total credits:', err)
+    }
+  }
+
+  const fetchCourseTypes = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/course-types`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch course types')
+      }
+      const data = await response.json()
+      setCourseTypes(data || [])
+      
+      // Create mapping of ID to name
+      const map = {}
+      ;(data || []).forEach((ct) => {
+        map[ct.id] = ct.name
+      })
+      setCourseTypeMap(map)
+    } catch (err) {
+      console.error('Error fetching course types:', err)
     }
   }
 
@@ -170,17 +193,21 @@ function SemesterDetailPage() {
       }
       
       // Calculate total hours based on course type
-      if (newCourse.course_type === 'Lab') {
+      // Course Type IDs: 1=Theory, 2=Lab, 3=Theory with Lab
+      if (newCourse.course_type === 2) {
+        // Lab
         courseData.theory_total_hrs = 0
         courseData.tutorial_total_hrs = 0
         courseData.activity_total_hrs = 0
         courseData.practical_total_hrs = practicalHrs * 15
-      } else if (newCourse.course_type === 'Theory') {
+      } else if (newCourse.course_type === 1) {
+        // Theory
         courseData.theory_total_hrs = lectureHrs * 15
         courseData.tutorial_total_hrs = tutorialHrs * 15
         courseData.activity_total_hrs = activityHrs * 15
         courseData.practical_total_hrs = 0
-      } else if (newCourse.course_type === 'Theory&Lab' || newCourse.course_type === 'NA') {
+      } else if (newCourse.course_type === 3) {
+        // Theory with Lab
         courseData.theory_total_hrs = lectureHrs * 15
         courseData.tutorial_total_hrs = tutorialHrs * 15
         courseData.practical_total_hrs = practicalHrs * 15
@@ -297,17 +324,21 @@ function SemesterDetailPage() {
       
       // Calculate total hours based on course type (for 2026 template, auto-calculate; for 2022, use manual inputs)
       if (curriculumTemplate === '2026') {
-        if (editCourseData.course_type === 'Lab') {
+        // Course Type IDs: 1=Theory, 2=Lab, 3=Theory with Lab
+        if (editCourseData.course_type === 2) {
+          // Lab
           courseData.theory_total_hrs = 0
           courseData.tutorial_total_hrs = 0
           courseData.activity_total_hrs = 0
           courseData.practical_total_hrs = practicalHrs * 15
-        } else if (editCourseData.course_type === 'Theory') {
+        } else if (editCourseData.course_type === 1) {
+          // Theory
           courseData.theory_total_hrs = lectureHrs * 15
           courseData.tutorial_total_hrs = tutorialHrs * 15
           courseData.activity_total_hrs = activityHrs * 15
           courseData.practical_total_hrs = 0
-        } else if (editCourseData.course_type === 'Theory&Lab' || editCourseData.course_type === 'NA') {
+        } else if (editCourseData.course_type === 3) {
+          // Theory with Lab
           courseData.theory_total_hrs = lectureHrs * 15
           courseData.tutorial_total_hrs = tutorialHrs * 15
           courseData.practical_total_hrs = practicalHrs * 15
@@ -521,15 +552,14 @@ function SemesterDetailPage() {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Course Type *</label>
                 <select
                   value={newCourse.course_type}
-                  onChange={(e) => setNewCourse({ ...newCourse, course_type: e.target.value })}
+                  onChange={(e) => setNewCourse({ ...newCourse, course_type: parseInt(e.target.value) || 0 })}
                   required
                   className="input-custom"
                 >
-                  <option value="">Select Type</option>
-                  <option value="Theory">Theory</option>
-                  <option value="Lab">Lab</option>
-                  <option value="Theory&Lab">Theory&Lab</option>
-                  <option value="NA">NA</option>
+                  <option value="0">Select Type</option>
+                  <option value="1">Theory</option>
+                  <option value="2">Lab</option>
+                  <option value="3">Theory with Lab</option>
                 </select>
               </div>
 
@@ -554,7 +584,7 @@ function SemesterDetailPage() {
               </div>
 
               {/* Common Fields - Hours per week */}
-              {!(curriculumTemplate === '2022' && newCourse.course_type === 'Lab') && (
+              {!(curriculumTemplate === '2022' && newCourse.course_type === 2) && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Lecture (hrs per week) *</label>
                 <input
@@ -569,7 +599,7 @@ function SemesterDetailPage() {
               </div>
               )}
 
-              {!(curriculumTemplate === '2022' && newCourse.course_type === 'Lab') && (
+              {!(curriculumTemplate === '2022' && newCourse.course_type === 2) && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Tutorial (hrs per week)</label>
                 <input
@@ -583,7 +613,7 @@ function SemesterDetailPage() {
               </div>
               )}
 
-              {newCourse.course_type !== 'Theory' && (
+              {newCourse.course_type !== 1 && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Practical (hrs per week)</label>
                   <input
@@ -667,7 +697,7 @@ function SemesterDetailPage() {
               </div>
 
               {/* Course Type Specific Fields - Total Hours for whole semester */}
-              {newCourse.course_type === 'Theory' && (
+              {newCourse.course_type === 1 && (
                 <>
                   <div className="md:col-span-2">
                     <h3 className="text-sm font-bold text-gray-900 mb-3 mt-4 pt-4 border-t border-gray-200">Total Hours (for whole semester)</h3>
@@ -751,7 +781,7 @@ function SemesterDetailPage() {
                 </>
               )}
 
-              {(newCourse.course_type === 'Theory&Lab' || newCourse.course_type === 'NA') && (
+              {newCourse.course_type === 3 && (
                 <>
                   <div className="md:col-span-2">
                     <h3 className="text-sm font-bold text-gray-900 mb-3 mt-4 pt-4 border-t border-gray-200">Total Hours (for whole semester)</h3>
@@ -845,7 +875,7 @@ function SemesterDetailPage() {
                 </>
               )}
 
-              {newCourse.course_type === 'Lab' && (
+              {newCourse.course_type === 2 && (
                 <>
                   <div className="md:col-span-2">
                     <h3 className="text-sm font-bold text-gray-900 mb-3 mt-4 pt-4 border-t border-gray-200">Total Hours (for whole semester)</h3>
@@ -1072,15 +1102,14 @@ function SemesterDetailPage() {
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Course Type</label>
                     <select
                       value={editCourseData.course_type}
-                      onChange={(e) => setEditCourseData({ ...editCourseData, course_type: e.target.value })}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, course_type: parseInt(e.target.value) || 0 })}
                       required
                       className="input-custom"
                     >
-                      <option value="">Select Type</option>
-                      <option value="Theory">Theory</option>
-                      <option value="Lab">Lab</option>
-                      <option value="Theory&Lab">Theory&Lab</option>
-                      <option value="NA">NA</option>
+                      <option value="0">Select Type</option>
+                      <option value="1">Theory</option>
+                      <option value="2">Lab</option>
+                      <option value="3">Theory with Lab</option>
                     </select>
                   </div>
 
@@ -1120,7 +1149,7 @@ function SemesterDetailPage() {
                     />
                   </div>
 
-                  {!(curriculumTemplate === '2022' && editCourseData.course_type === 'Lab') && (
+                  {!(curriculumTemplate === '2022' && editCourseData.course_type === 2) && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Lecture (hrs per week)</label>
                     <input
@@ -1134,7 +1163,7 @@ function SemesterDetailPage() {
                   </div>
                   )}
 
-                  {!(curriculumTemplate === '2022' && editCourseData.course_type === 'Lab') && (
+                  {!(curriculumTemplate === '2022' && editCourseData.course_type === 2) && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Tutorial (hrs per week)</label>
                     <input
@@ -1148,7 +1177,7 @@ function SemesterDetailPage() {
                   </div>
                   )}
 
-                  {editCourseData.course_type !== 'Theory' && (
+                  {editCourseData.course_type !== 1 && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Practical (hrs per week)</label>
                     <input
@@ -1220,7 +1249,7 @@ function SemesterDetailPage() {
                 </div>
 
                 {/* Total Hours for whole semester - Theory */}
-                {editCourseData.course_type === 'Theory' && (
+                {editCourseData.course_type === 1 && (
                   <>
                     <div className="border-t pt-4 mt-4">
                       <h3 className="text-sm font-bold text-gray-900 mb-3">Total Hours (for whole semester)</h3>
@@ -1309,7 +1338,7 @@ function SemesterDetailPage() {
                 )}
 
                 {/* Total Hours for whole semester - Theory&Lab */}
-                {(editCourseData.course_type === 'Theory&Lab' || editCourseData.course_type === 'NA') && (
+                {editCourseData.course_type === 3 && (
                   <>
                     <div className="border-t pt-4 mt-4">
                       <h3 className="text-sm font-bold text-gray-900 mb-3">Total Hours (for whole semester)</h3>
@@ -1410,7 +1439,7 @@ function SemesterDetailPage() {
                 )}
 
                 {/* Total Hours for whole semester - Lab */}
-                {editCourseData.course_type === 'Lab' && (
+                {editCourseData.course_type === 2 && (
                   <>
                     <div className="border-t pt-4 mt-4">
                       <h3 className="text-sm font-bold text-gray-900 mb-3">Total Hours (for whole semester)</h3>

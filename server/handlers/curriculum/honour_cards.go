@@ -84,13 +84,14 @@ func fetchVerticalsForCard(honourCardID int) []models.HonourVerticalWithCourses 
 
 // fetchCoursesForVertical retrieves all courses for a given vertical
 func fetchCoursesForVertical(verticalID int) []models.CourseWithDetails {
-	query := `SELECT c.id, c.course_code, c.course_name, c.course_type, c.category, 
+	query := `SELECT c.id, c.course_code, c.course_name, ct.course_type, c.category, 
 	       c.credit, c.lecture_hrs, c.tutorial_hrs, c.practical_hrs, c.activity_hrs, COALESCE(c.` + "`tw/sl`" + `, 0) as tw_sl,
 	       COALESCE(c.theory_total_hrs, 0), COALESCE(c.tutorial_total_hrs, 0), COALESCE(c.practical_total_hrs, 0), COALESCE(c.activity_total_hrs, 0), COALESCE(c.total_hrs, 0),
 	       c.cia_marks, c.see_marks, c.total_marks,
 	       hvc.id as honour_vertical_course_id
 		FROM courses c
 		INNER JOIN honour_vertical_courses hvc ON c.id = hvc.course_id
+		LEFT JOIN course_type ct ON c.course_type = ct.id
 		WHERE hvc.honour_vertical_id = ? AND hvc.status = 1 AND c.status = 1
 		ORDER BY c.course_code`
 	rows, err := db.DB.Query(query, verticalID)
@@ -354,17 +355,17 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Check if course with same code AND name already exists in this curriculum
+		// Check if course with same code AND name already exists in this curriculum (only active ones)
 		var existingCourseID int
 		checkQuery := `SELECT c.id FROM courses c 
 		               INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
-		               WHERE c.course_code = ? AND c.course_name = ? AND cc.curriculum_id = ?`
+		               WHERE c.course_code = ? AND c.course_name = ? AND cc.curriculum_id = ? AND c.status = 1`
 		err = db.DB.QueryRow(checkQuery, payload.CourseCode, payload.CourseName, curriculumID).Scan(&existingCourseID)
 
 		if err == sql.ErrNoRows {
-			// Course code doesn't exist in this curriculum, check if it exists globally with same name
+			// Course code doesn't exist in this curriculum, check if it exists globally with same name (only active ones)
 			var globalCourseID int
-			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ? AND course_name = ?"
+			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ? AND course_name = ? AND status = 1"
 			globalErr := db.DB.QueryRow(globalCheckQuery, payload.CourseCode, payload.CourseName).Scan(&globalCourseID)
 
 			if globalErr == sql.ErrNoRows {

@@ -21,6 +21,9 @@ func SetupRoutes() *mux.Router {
 	// Department routes
 	router.HandleFunc("/api/departments", curriculum.GetDepartments).Methods("GET", "OPTIONS")
 
+	// Course Type routes
+	router.HandleFunc("/api/course-types", curriculum.GetCourseTypes).Methods("GET", "OPTIONS")
+
 	// Curriculum routes
 	router.HandleFunc("/api/curriculum", curriculum.GetRegulations).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/curriculum/create", curriculum.CreateRegulation).Methods("POST", "OPTIONS")
@@ -141,6 +144,11 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/sharing/visibility", curriculum.UpdateItemVisibility).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/sharing/{item_type}/{item_id}/departments", curriculum.GetItemSharedDepartments).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/cluster/{id}/shared-content", curriculum.GetClusterSharedContent).Methods("GET", "OPTIONS")
+
+	// Mark Entry routes
+	router.HandleFunc("/api/mark-categories-by-type/{courseTypeId}", curriculum.GetMarkCategoriesByType).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/course/{courseId}/student-marks", curriculum.GetStudentMarks).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/student-marks/save", curriculum.SaveStudentMarks).Methods("POST", "OPTIONS")
 
 	// Authentication routes
 	router.HandleFunc("/api/auth/login", curriculum.Login).Methods("POST", "OPTIONS")

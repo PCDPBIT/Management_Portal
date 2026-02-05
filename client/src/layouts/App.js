@@ -1,5 +1,6 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
+
 import LoginPage from "../pages/curriculum/loginPage";
 import Dashboard from "../pages/curriculum/dashboard";
 import CurriculumMainPage from "../pages/curriculum/curriculumMainPage";
@@ -15,21 +16,29 @@ import SharingManagementPage from "../pages/curriculum/sharingManagementPage";
 import RegulationPage from "../pages/regulation/regulationPage";
 import RegulationEditorPage from "../pages/regulation/regulationEditorPage";
 import UsersPage from "../pages/curriculum/usersPage";
+
 import StudentDetailsPage from "../pages/student-teacher_entry/studentDetailsPage";
 import TeacherStudentDashboard from "../pages/student-teacher_entry/TeacherStudentDashboard";
 import TeacherDetailsPage from "../pages/student-teacher_entry/TeacherDetailsPage";
 import TeacherStudentMappingPage from "../pages/student-teacher_entry/TeacherStudentMappingPage";
+
 import CourseAllocationPage from "../pages/curriculum/CourseAllocationPage";
 import ElectiveManagementPage from "../pages/curriculum/ElectiveManagementPage";
 import HODElectivePage from "../pages/curriculum/HODElectivePage";
 import TeacherCoursesPage from "../pages/curriculum/TeacherCoursesPage";
 import TeacherDashboardPage from "../pages/curriculum/TeacherDashboardPage";
+import MarkEntryPage from "../pages/curriculum/MarkEntryPage";
+import TeacherCourseStudentsPage from "../pages/curriculum/TeacherCourseStudentsPage";
+
 import PrivateRoute from "../components/PrivateRoute";
 
 function App() {
   return (
     <Routes>
+      {/* Public */}
       <Route path="/" element={<LoginPage />} />
+
+      {/* Dashboards */}
       <Route
         path="/dashboard"
         element={
@@ -46,6 +55,8 @@ function App() {
           </PrivateRoute>
         }
       />
+
+      {/* Users & Student–Teacher */}
       <Route
         path="/users"
         element={
@@ -86,6 +97,34 @@ function App() {
           </PrivateRoute>
         }
       />
+
+      {/* Teacher & Courses */}
+      <Route
+        path="/teacher-courses"
+        element={
+          <PrivateRoute>
+            <TeacherCoursesPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/teacher-course/:courseId/students"
+        element={
+          <PrivateRoute>
+            <TeacherCourseStudentsPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/mark-entry"
+        element={
+          <PrivateRoute>
+            <MarkEntryPage />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Allocation & Electives */}
       <Route
         path="/course-allocation"
         element={
@@ -110,14 +149,8 @@ function App() {
           </PrivateRoute>
         }
       />
-      <Route
-        path="/teacher-courses"
-        element={
-          <PrivateRoute>
-            <TeacherCoursesPage />
-          </PrivateRoute>
-        }
-      />
+
+      {/* Regulations & Curriculum */}
       <Route
         path="/regulations"
         element={
@@ -139,22 +172,6 @@ function App() {
         element={
           <PrivateRoute>
             <CurriculumMainPage />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/clusters"
-        element={
-          <PrivateRoute>
-            <ClusterManagementPage />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/sharing"
-        element={
-          <PrivateRoute>
-            <SharingManagementPage />
           </PrivateRoute>
         }
       />
@@ -190,6 +207,8 @@ function App() {
           </PrivateRoute>
         }
       />
+
+      {/* Course */}
       <Route
         path="/course/:courseId/syllabus"
         element={
@@ -211,6 +230,24 @@ function App() {
         element={
           <PrivateRoute>
             <PEOPOMappingPage />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Admin */}
+      <Route
+        path="/clusters"
+        element={
+          <PrivateRoute>
+            <ClusterManagementPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/sharing"
+        element={
+          <PrivateRoute>
+            <SharingManagementPage />
           </PrivateRoute>
         }
       />

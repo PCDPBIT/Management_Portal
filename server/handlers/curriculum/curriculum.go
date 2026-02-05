@@ -347,7 +347,7 @@ func GetSemesterCourses(w http.ResponseWriter, r *http.Request) {
 	curriculumTemplate := getCurriculumTemplateByRegulation(curriculumID)
 
 	query := `
-		SELECT c.id, c.course_code, c.course_name, c.course_type, c.category, c.credit, 
+		SELECT c.id, c.course_code, c.course_name, ct.course_type, c.category, c.credit, 
 		       c.lecture_hrs, c.tutorial_hrs, c.practical_hrs, c.activity_hrs, COALESCE(c.` + "`tw/sl`" + `, 0) as tw_sl,
 		       COALESCE(c.theory_total_hrs, 0), COALESCE(c.tutorial_total_hrs, 0), COALESCE(c.practical_total_hrs, 0), COALESCE(c.activity_total_hrs, 0), COALESCE(c.total_hrs, 0),
 		       c.cia_marks, c.see_marks, c.total_marks,
@@ -355,6 +355,7 @@ func GetSemesterCourses(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(rc.count_towards_limit, 1) as count_towards_limit
 		FROM courses c
 		INNER JOIN curriculum_courses rc ON c.id = rc.course_id
+		LEFT JOIN course_type ct ON c.course_type = ct.id
 		WHERE rc.curriculum_id = ? AND rc.semester_id = ? AND c.status = 1
 		ORDER BY c.course_code
 	`
@@ -546,18 +547,16 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 		courseID = int(id)
 		wasReused = false
 	} else {
-		// For non-NA courses, check for existing courses
+		// For non-NA courses, check for existing courses (only active ones)
 		checkQuery := `SELECT c.id FROM courses c 
 		               INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
-		               WHERE c.course_code = ? AND cc.curriculum_id = ?`
-		err = db.DB.QueryRow(checkQuery, course.CourseCode, curriculumID).Scan(&existingCourseID)
-
+		               WHERE c.course_code = ? AND cc.curriculum_id = ? AND c.status = 1`
 		err = db.DB.QueryRow(checkQuery, course.CourseCode, curriculumID).Scan(&existingCourseID)
 
 		if err == sql.ErrNoRows {
-			// Course code doesn't exist in this curriculum, check if it exists globally
+			// Course code doesn't exist in this curriculum, check if it exists globally (only active ones)
 			var globalCourseID int
-			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ?"
+			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ? AND status = 1"
 			globalErr := db.DB.QueryRow(globalCheckQuery, course.CourseCode).Scan(&globalCourseID)
 
 			if globalErr == sql.ErrNoRows {
@@ -751,4 +750,38 @@ func RemoveCourseFromSemester(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Course removed successfully"})
+}
+
+// GetCourseTypes retrieves all course types from the database
+func GetCourseTypes(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	query := `SELECT id, course_type FROM course_type WHERE status = 1 ORDER BY id`
+	rows, err := db.DB.Query(query)
+	if err != nil {
+		log.Printf("Error fetching course types: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch course types"})
+		return
+	}
+	defer rows.Close()
+
+	var courseTypes []models.CourseType
+	for rows.Next() {
+		var ct models.CourseType
+		if err := rows.Scan(&ct.ID, &ct.Name); err != nil {
+			log.Printf("Error scanning course type: %v", err)
+			continue
+		}
+		courseTypes = append(courseTypes, ct)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(courseTypes)
 }

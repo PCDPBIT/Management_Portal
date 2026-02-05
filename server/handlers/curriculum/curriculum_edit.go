@@ -276,17 +276,17 @@ func UpdateCourse(w http.ResponseWriter, r *http.Request) {
 	var theoryTotal, tutorialTotal, practicalTotal, activityTotal int
 	if curriculumTemplate == "2026" {
 		switch course.CourseType {
-		case "Theory":
+		case "Theory": // Theory
 			theoryTotal = course.LectureHrs * 15
 			tutorialTotal = course.TutorialHrs * 15
 			activityTotal = course.ActivityHrs * 15
 			practicalTotal = 0
-		case "Lab":
+		case "Lab": // Lab
 			theoryTotal = 0
 			tutorialTotal = 0
 			activityTotal = 0
 			practicalTotal = course.PracticalHrs * 15
-		case "Theory&Lab":
+		case "Theory with Lab": // Theory with Lab
 			theoryTotal = course.LectureHrs * 15
 			tutorialTotal = course.TutorialHrs * 15
 			practicalTotal = course.PracticalHrs * 15

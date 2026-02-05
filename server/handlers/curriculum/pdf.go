@@ -111,11 +111,12 @@ func fetchRegulationData(curriculumID int) (*models.RegulationPDF, error) {
 
 		// Fetch courses for semester
 		courseRows, _ := db.DB.Query(`
-			SELECT c.id, c.course_code, c.course_name, c.course_type, c.category, c.credit,
+			SELECT c.id, c.course_code, c.course_name, ct.course_type, c.category, c.credit,
 			       c.lecture_hours, c.tutorial_hours, c.practical_hours, 
 			       c.cia_marks, c.see_marks, c.total_marks
 			FROM courses c
 			INNER JOIN curriculum_courses rc ON c.id = rc.course_id
+			LEFT JOIN course_type ct ON c.course_type = ct.id
 			WHERE rc.curriculum_id = ? AND rc.semester_id = ?
 			ORDER BY c.course_code`, curriculumID, semID)
 

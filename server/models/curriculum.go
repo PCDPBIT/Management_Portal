@@ -1,5 +1,10 @@
 package models
 
+type CourseType struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
 type Semester struct {
 	ID             int    `json:"id"`
 	CurriculumID   int    `json:"curriculum_id"`
