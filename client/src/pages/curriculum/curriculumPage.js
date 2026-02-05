@@ -156,7 +156,7 @@ function CurriculumPage() {
               <div className="invisible group-hover:visible absolute right-0 top-10 w-80 bg-gray-900 text-white text-xs rounded-lg p-4 shadow-xl z-50">
                 <div className="mb-2">
                   <span className="font-semibold text-indigo-300">Normal Card:</span>
-                  <span className="ml-1">semester, electives, verticals, open elective courses, one credit courses</span>
+                  <span className="ml-1">semester, language electives, verticals, open elective courses, one credit courses</span>
                 </div>
                 <div>
                   <span className="font-semibold text-purple-300">Honour Card:</span>
@@ -297,7 +297,7 @@ function CurriculumPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {/* Normal Cards (Semesters, Verticals, Electives, etc.) */}
+            {/* Normal Cards (Semesters, Verticals, Language Electives, etc.) */}
             {semesters.map(sem => {
               const cardType = sem.card_type || 'semester'
               const getCardLabel = () => {
@@ -305,7 +305,7 @@ function CurriculumPage() {
                 if (cardType === 'vertical') {
                   return sem.semester_number ? `Vertical ${sem.semester_number}` : 'Vertical'
                 }
-                if (cardType === 'elective') return 'Elective'
+                if (cardType === 'language_elective') return 'Language Elective'
                 if (cardType === 'open_elective') return 'Open Elective'
                 if (cardType === 'one_credit') return 'One Credit'
                 return 'Card'
@@ -313,7 +313,7 @@ function CurriculumPage() {
               
               const getCardColor = () => {
                 if (cardType === 'vertical') return 'from-green-500 to-emerald-600'
-                if (cardType === 'elective') return 'from-orange-500 to-amber-600'
+                if (cardType === 'language_elective') return 'from-orange-500 to-amber-600'
                 if (cardType === 'open_elective') return 'from-cyan-500 to-blue-600'
                 if (cardType === 'one_credit') return 'from-pink-500 to-rose-600'
                 return 'from-indigo-500 to-purple-600' // semester
@@ -332,13 +332,13 @@ function CurriculumPage() {
                       </div>
                     ) : (
                       <div className="text-4xl mb-2">
-                        {cardType === 'vertical' ? '📊' : cardType === 'elective' ? '📚' : cardType === 'open_elective' ? '🔓' : '⭐'}
+                        {cardType === 'vertical' ? '📊' : cardType === 'language_elective' ? '📚' : cardType === 'open_elective' ? '🔓' : '⭐'}
                       </div>
                     )}
                     <h3 className="text-lg font-semibold text-gray-800">{getCardLabel()}</h3>
                     <p className="text-sm text-gray-500 mt-2">Max Credits: {sem.max_credits || 0}</p>
                     <span className="inline-block mt-2 px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">
-                      {cardType === 'semester' ? 'Semester' : cardType === 'vertical' ? 'Vertical' : cardType === 'elective' ? 'Elective' : cardType === 'open_elective' ? 'Open Elective' : 'One Credit'}
+                      {cardType === 'semester' ? 'Semester' : cardType === 'vertical' ? 'Vertical' : cardType === 'language_elective' ? 'Language Elective' : cardType === 'open_elective' ? 'Open Elective' : 'One Credit'}
                     </span>
                     <p className="text-xs text-gray-400 mt-2">Click to manage courses</p>
                   </div>

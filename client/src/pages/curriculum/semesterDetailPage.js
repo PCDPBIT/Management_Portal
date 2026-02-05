@@ -436,9 +436,20 @@ function SemesterDetailPage() {
     )
   }
 
+  // Helper function to get proper card type display name
+  const getCardTypeName = () => {
+    const cardType = semester?.card_type || 'semester'
+    if (cardType === 'semester') return semester?.semester_number ? `Semester ${semester.semester_number}` : 'Semester'
+    if (cardType === 'vertical') return semester?.semester_number ? `Vertical ${semester.semester_number}` : 'Vertical'
+    if (cardType === 'language_elective') return 'Language Elective'
+    if (cardType === 'open_elective') return 'Open Elective'
+    if (cardType === 'one_credit') return 'One Credit'
+    return `Card ${semId}`
+  }
+
   return (
     <MainLayout 
-      title={`Semester ${semester?.semester_number || semId} - Courses`}
+      title={`${getCardTypeName()} - Courses`}
       subtitle={
         <div className="flex items-center space-x-4">
           <span>Curriculum ID: {id}</span>
@@ -566,6 +577,7 @@ function SemesterDetailPage() {
                   <option value="HSS - Humanities and Social Sciences">HSS - Humanities and Social Sciences</option>
                   <option value="PC - Professional Core">PC - Professional Core</option>
                   <option value="PE - Professional Elective">PE - Professional Elective</option>
+                  <option value="OE - Open Elective">OE - Open Elective</option>
                   <option value="EEC - Employability Enhancement Course">EEC - Employability Enhancement Course</option>
                   <option value="NA">NA</option>
                 </select>
@@ -1115,6 +1127,7 @@ function SemesterDetailPage() {
                       <option value="HSS - Humanities and Social Sciences">HSS - Humanities and Social Sciences</option>
                       <option value="PC - Professional Core">PC - Professional Core</option>
                       <option value="PE - Professional Elective">PE - Professional Elective</option>
+                      <option value="OE - Open Elective">OE - Open Elective</option>
                       <option value="EEC - Employability Enhancement Course">EEC - Employability Enhancement Course</option>
                       <option value="NA">NA</option>
                     </select>

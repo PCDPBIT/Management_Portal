@@ -91,7 +91,7 @@ func fetchSemestersWithVisibility(regulationID int) []map[string]interface{} {
 			CASE card_type 
 				WHEN 'semester' THEN 1 
 				WHEN 'vertical' THEN 2 
-				WHEN 'elective' THEN 3 
+				WHEN 'language_elective' THEN 3 
 				WHEN 'open_elective' THEN 4 
 				WHEN 'one_credit' THEN 5 
 				ELSE 6 

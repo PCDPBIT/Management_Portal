@@ -952,8 +952,8 @@ const htmlTemplate = `<!DOCTYPE html>
 <h2>SEMESTER {{.Number}}</h2>
 {{else if eq .CardType "vertical"}}
 <h2>VERTICAL {{.Number}}</h2>
-{{else if eq .CardType "elective"}}
-<h2>ELECTIVE COURSES</h2>
+{{else if eq .CardType "language_elective"}}
+<h2>LANGUAGE ELECTIVE COURSES</h2>
 {{else if eq .CardType "open_elective"}}
 <h2>OPEN ELECTIVE COURSES</h2>
 {{else if eq .CardType "one_credit"}}

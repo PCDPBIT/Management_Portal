@@ -85,7 +85,7 @@ function TeacherCoursesPage() {
   const getCategoryColor = (category) => {
     const colors = {
       'Core': '#3b82f6',
-      'Elective': '#8b5cf6',
+      'Language Elective': '#8b5cf6',
       'Open': '#ec4899',
       'Foundation': '#10b981',
       'Lab': '#f59e0b',
