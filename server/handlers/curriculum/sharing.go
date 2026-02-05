@@ -1390,12 +1390,13 @@ func unshareCourseFromCluster(sourceDeptID, courseID int) error {
 func copyCoursesBetweenSemesters(sourceRegID, sourceSemID, targetRegID, targetSemID int) error {
 	// Get all courses from source semester with full details
 	rows, err := db.DB.Query(`
-		SELECT c.id, c.course_code, c.course_name, c.course_type,
+		SELECT c.id, c.course_code, c.course_name, ct.course_type,
 		       c.category, c.credit, c.theory_hours, c.activity_hours, c.lecture_hours,
 		       c.tutorial_hours, c.practical_hours, c.cia_marks, c.see_marks, 
 		       c.total_marks, c.total_hours
 		FROM courses c
 		JOIN curriculum_courses cc ON c.id = cc.course_id
+		LEFT JOIN course_type ct ON c.course_type = ct.id
 		WHERE cc.curriculum_id = ? AND cc.semester_id = ?
 	`, sourceRegID, sourceSemID)
 	if err != nil {
