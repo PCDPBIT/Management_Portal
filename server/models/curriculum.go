@@ -1,5 +1,10 @@
 package models
 
+type CourseType struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
 type Semester struct {
 	ID             int    `json:"id"`
 	CurriculumID   int    `json:"curriculum_id"`
@@ -11,7 +16,7 @@ type Course struct {
 	CourseID           int    `json:"id"`
 	CourseCode         string `json:"course_code"`
 	CourseName         string `json:"course_name"`
-	CourseType         string `json:"course_type"`
+	CourseType         int    `json:"course_type"`
 	Category           string `json:"category"`
 	Credit             int    `json:"credit"`
 	LectureHrs         int    `json:"lecture_hrs"`
@@ -42,7 +47,7 @@ type CourseWithDetails struct {
 	CourseID           int    `json:"id"`
 	CourseCode         string `json:"course_code"`
 	CourseName         string `json:"course_name"`
-	CourseType         string `json:"course_type"`
+	CourseType         int    `json:"course_type"`
 	Category           string `json:"category"`
 	Credit             int    `json:"credit"`
 	LectureHrs         int    `json:"lecture_hrs"`

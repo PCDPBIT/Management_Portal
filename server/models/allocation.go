@@ -22,7 +22,7 @@ type CourseWithAllocations struct {
 	CourseID    int                `json:"id"`
 	CourseCode  string             `json:"course_code"`
 	CourseName  string             `json:"course_name"`
-	CourseType  string             `json:"course_type"`
+	CourseType  int                `json:"course_type"`
 	Credit      int                `json:"credit"`
 	Allocations []CourseAllocation `json:"allocations"`
 }

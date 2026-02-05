@@ -27,12 +27,11 @@ function LoginPage() {
       if (data.success) {
         // Store user info in localStorage
         localStorage.setItem('userRole', data.user.role)
-        localStorage.setItem('userName', data.teacher_name || data.user.username)
-        localStorage.setItem('userEmail', data.user.email)
+        localStorage.setItem('userName', data.user.full_name || data.teacher_name || data.user.username)
         localStorage.setItem('userId', data.user.id)
         
-        // Store teacher ID if user is a teacher
-        if (data.teacher_id) {
+        // Store teacher ID if teacher role
+        if (data.user.role === 'teacher' && data.teacher_id) {
           localStorage.setItem('teacherId', data.teacher_id)
         }
         

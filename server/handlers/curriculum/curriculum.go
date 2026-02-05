@@ -752,3 +752,36 @@ func RemoveCourseFromSemester(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Course removed successfully"})
 }
+// GetCourseTypes retrieves all course types from the database
+func GetCourseTypes(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	query := `SELECT id, course_type FROM course_types WHERE status = 1 ORDER BY id`
+	rows, err := db.DB.Query(query)
+	if err != nil {
+		log.Printf("Error fetching course types: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch course types"})
+		return
+	}
+	defer rows.Close()
+
+	var courseTypes []models.CourseType
+	for rows.Next() {
+		var ct models.CourseType
+		if err := rows.Scan(&ct.ID, &ct.Name); err != nil {
+			log.Printf("Error scanning course type: %v", err)
+			continue
+		}
+		courseTypes = append(courseTypes, ct)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(courseTypes)
+}
