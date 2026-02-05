@@ -61,7 +61,7 @@ export const ROLE_MENU_CONFIG = {
     ],
   },
   hod: {
-    dashboardPath: "/hod/dashboard",
+    dashboardPath: "/hod/elective-management",
     menuItems: [
       {
         id: "dashboard",

@@ -41,7 +41,7 @@ func GetHODProfile(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT 
 			u.id as user_id,
-			u.full_name,
+			u.username,
 			u.email,
 			u.role,
 			d.id as dept_id,
@@ -160,7 +160,7 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 		LIMIT 1
 	`
 
-	err = db.DB.QueryRow(deptQuery, email).Scan(&departmentID, &curriculumID)
+	err := db.DB.QueryRow(deptQuery, email).Scan(&departmentID, &curriculumID)
 	if err != nil {
 		log.Println("Error fetching department:", err)
 		w.WriteHeader(http.StatusNotFound)
@@ -183,7 +183,9 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			nc.id as card_id,
 			nc.card_type,
 			CASE WHEN hes.id IS NOT NULL THEN 1 ELSE 0 END as is_selected,
-			hes.semester as assigned_semester
+			hes.semester as assigned_semester,
+			hes.slot_id as assigned_slot_id,
+			ess.slot_name as assigned_slot
 		FROM courses c
 		INNER JOIN curriculum_courses cc ON c.id = cc.course_id
 		INNER JOIN normal_cards nc ON cc.semester_id = nc.id
@@ -194,6 +196,7 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			AND (hes.batch = ? OR hes.batch IS NULL OR ? = '')
 			AND hes.status = 'ACTIVE'
 		)
+		LEFT JOIN elective_semester_slots ess ON hes.slot_id = ess.id
 		WHERE cc.curriculum_id = ?
 			AND nc.card_type = 'vertical'
 			AND c.status = 1
@@ -218,6 +221,8 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 		var course models.ElectiveCourse
 		var isSelected int
 		var assignedSemester sql.NullInt64
+		var assignedSlotID sql.NullInt64
+		var assignedSlot sql.NullString
 		err := rows.Scan(
 			&course.ID,
 			&course.CourseCode,
@@ -229,6 +234,8 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			&course.CardType,
 			&isSelected,
 			&assignedSemester,
+			&assignedSlotID,
+			&assignedSlot,
 		)
 		if err != nil {
 			log.Println("Error scanning course:", err)
@@ -238,6 +245,14 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 		if assignedSemester.Valid {
 			sem := int(assignedSemester.Int64)
 			course.AssignedSemester = &sem
+		}
+		if assignedSlotID.Valid {
+			slotID := int(assignedSlotID.Int64)
+			course.AssignedSlotID = &slotID
+		}
+		if assignedSlot.Valid {
+			slot := assignedSlot.String
+			course.AssignedSlot = &slot
 		}
 		electives = append(electives, course)
 	}
@@ -316,6 +331,14 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		if assignment.SlotID == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"message": "Slot ID is required for each assignment",
+			})
+			return
+		}
 	}
 
 	// Get HOD's user ID, department, and curriculum
@@ -386,8 +409,8 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 	if len(req.CourseAssignments) > 0 {
 		insertQuery := `
 			INSERT INTO hod_elective_selections 
-			(department_id, curriculum_id, semester, course_id, academic_year, batch, approved_by_user_id, status, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(department_id, curriculum_id, semester, course_id, slot_id, academic_year, batch, approved_by_user_id, status, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`
 
 		now := time.Now()
@@ -409,6 +432,7 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 				curriculumID,
 				assignment.Semester,
 				assignment.CourseID,
+				assignment.SlotID,
 				req.AcademicYear,
 				batchVal,
 				userID,
@@ -530,6 +554,70 @@ func GetHODBatches(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+}
+
+// GetElectiveSemesterSlots returns available elective slots by semester
+func GetElectiveSemesterSlots(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Method not allowed",
+		})
+		return
+	}
+
+	semesterParam := r.URL.Query().Get("semester")
+	query := `
+		SELECT id, semester, slot_name, slot_order
+		FROM elective_semester_slots
+		WHERE is_active = 1
+	`
+	args := []interface{}{}
+	if semesterParam != "" {
+		semester, err := strconv.Atoi(semesterParam)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"message": "Invalid semester",
+			})
+			return
+		}
+		query += " AND semester = ?"
+		args = append(args, semester)
+	}
+	query += " ORDER BY semester, slot_order"
+
+	rows, err := db.DB.Query(query, args...)
+	if err != nil {
+		log.Println("Error fetching elective slots:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Internal server error",
+		})
+		return
+	}
+	defer rows.Close()
+
+	slots := []models.ElectiveSemesterSlot{}
+	for rows.Next() {
+		var slot models.ElectiveSemesterSlot
+		if err := rows.Scan(&slot.ID, &slot.Semester, &slot.SlotName, &slot.SlotOrder); err != nil {
+			log.Println("Error scanning elective slot:", err)
+			continue
+		}
+		slots = append(slots, slot)
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"slots":   slots,
+	})
 }
 
 // GetCurrentAcademicCalendar retrieves the current academic calendar

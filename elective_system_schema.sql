@@ -26,7 +26,22 @@ CREATE TABLE `academic_calendar` (
   KEY `idx_is_current` (`is_current`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Table 2: HOD Elective Selections
+-- Table 2: Elective Semester Slots (Fixed category slots by semester)
+CREATE TABLE `elective_semester_slots` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `semester` INT NOT NULL,
+  `slot_name` VARCHAR(100) NOT NULL,
+  `slot_order` INT NOT NULL,
+  `is_active` TINYINT(1) DEFAULT 1,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_semester_slot` (`semester`, `slot_name`),
+  KEY `idx_semester` (`semester`),
+  KEY `idx_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Table 3: HOD Elective Selections
 -- Stores which elective courses HOD has approved for their department
 CREATE TABLE `hod_elective_selections` (
   `id` INT NOT NULL AUTO_INCREMENT,
@@ -34,6 +49,7 @@ CREATE TABLE `hod_elective_selections` (
   `curriculum_id` INT NOT NULL COMMENT 'Which curriculum this applies to',
   `semester` INT NOT NULL COMMENT '4-8 (electives start from sem 4)',
   `course_id` INT NOT NULL,
+  `slot_id` INT NOT NULL COMMENT 'Foreign key to elective_semester_slots',
   `academic_year` VARCHAR(20) NOT NULL COMMENT 'e.g., "2025-2026" - allows different electives per year',
   `batch` VARCHAR(20) DEFAULT NULL COMMENT 'Student batch e.g., "2024-2028" - for batch-specific electives',
   `max_students` INT DEFAULT NULL COMMENT 'Maximum students for this elective (optional capacity limit)',
@@ -51,10 +67,11 @@ CREATE TABLE `hod_elective_selections` (
   CONSTRAINT `fk_hod_selection_dept` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_hod_selection_curriculum` FOREIGN KEY (`curriculum_id`) REFERENCES `curriculum` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_hod_selection_course` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_hod_selection_user` FOREIGN KEY (`approved_by_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT
+  CONSTRAINT `fk_hod_selection_user` FOREIGN KEY (`approved_by_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_hod_selection_slot` FOREIGN KEY (`slot_id`) REFERENCES `elective_semester_slots` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Table 3: Student Elective Choices
+-- Table 4: Student Elective Choices
 -- Stores student selections from HOD-approved electives
 CREATE TABLE `student_elective_choices` (
   `id` INT NOT NULL AUTO_INCREMENT,
@@ -76,7 +93,7 @@ CREATE TABLE `student_elective_choices` (
   CONSTRAINT `fk_student_choice_hod_selection` FOREIGN KEY (`hod_selection_id`) REFERENCES `hod_elective_selections` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Table 4: Department Curriculum Mapping
+-- Table 5: Department Curriculum Mapping
 -- Maps departments to their active curricula (if not already tracked)
 CREATE TABLE `department_curriculum_active` (
   `id` INT NOT NULL AUTO_INCREMENT,
@@ -96,6 +113,20 @@ CREATE TABLE `department_curriculum_active` (
 -- =========================================================
 -- SAMPLE DATA INSERTION
 -- =========================================================
+
+-- Insert elective semester slots
+INSERT INTO elective_semester_slots (semester, slot_name, slot_order) VALUES
+(4, 'Professional Elective 1', 1),
+(5, 'Professional Elective 2', 1),
+(5, 'Open Elective', 2),
+(6, 'Professional Elective 3', 1),
+(6, 'Professional Elective 4', 2),
+(6, 'Professional Elective 5', 3),
+(7, 'Professional Elective 6', 1),
+(7, 'Professional Elective 7', 2),
+(7, 'Professional Elective 8', 3),
+(7, 'Professional Elective 9', 4),
+(7, 'Mini Project I', 5);
 
 -- Insert current academic calendar
 INSERT INTO `academic_calendar` 

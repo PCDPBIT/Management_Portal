@@ -91,6 +91,8 @@ type ElectiveCourse struct {
 	CardType        string `json:"card_type"`
 	IsSelected      bool   `json:"is_selected"`
 	AssignedSemester *int  `json:"assigned_semester,omitempty"`
+	AssignedSlotID  *int   `json:"assigned_slot_id,omitempty"`
+	AssignedSlot    *string `json:"assigned_slot,omitempty"`
 }
 
 // AvailableElectivesResponse - Response for available electives API
@@ -115,6 +117,7 @@ type SaveElectivesRequest struct {
 type CourseAssignment struct {
 	CourseID int `json:"course_id"`
 	Semester int `json:"semester"`
+	SlotID   int `json:"slot_id"`
 }
 
 // SaveElectivesResponse - Response after saving HOD selections
@@ -133,6 +136,14 @@ type BatchInfo struct {
 // BatchesResponse - Response for batches API
 type BatchesResponse struct {
 	Batches []string `json:"batches"`
+}
+
+// ElectiveSemesterSlot represents available slots for a semester
+type ElectiveSemesterSlot struct {
+	ID       int    `json:"id"`
+	Semester  int    `json:"semester"`
+	SlotName  string `json:"slot_name"`
+	SlotOrder int    `json:"slot_order"`
 }
 
 // SelectedElectivesResponse - Response for getting HOD's selected electives

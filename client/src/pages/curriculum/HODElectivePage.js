@@ -19,14 +19,17 @@ const HODElectivePage = () => {
 
   // Available elective courses (vertical courses from API)
   const [availableElectives, setAvailableElectives] = useState([]);
-  // Course assignments: { courseId: semester }
+  // Course assignments: { courseId: { semester, slot_id } }
   const [courseAssignments, setCourseAssignments] = useState({});
+  // Elective slots per semester
+  const [semesterSlots, setSemesterSlots] = useState([]);
 
   // Fetch HOD profile on component mount
   useEffect(() => {
     fetchHODProfile();
     fetchAcademicCalendar();
     fetchBatches();
+    fetchElectiveSlots();
   }, []);
 
   // Fetch electives when batch or academic year changes
@@ -70,7 +73,7 @@ const HODElectivePage = () => {
       const data = await response.json();
       if (data.batches && data.batches.length > 0) {
         setBatches(data.batches);
-        setSelectedBatch(data.batches[0]); // Default to first batch
+        setSelectedBatch(data.batches[0]);
       }
     } catch (error) {
       console.error("Error fetching batches:", error);
@@ -80,7 +83,6 @@ const HODElectivePage = () => {
   const fetchElectives = async () => {
     setLoading(true);
     try {
-      // Fetch all vertical courses (no semester filter)
       const response = await fetch(
         `${API_BASE_URL}/hod/electives/available?email=${encodeURIComponent(userEmail)}&batch=${encodeURIComponent(selectedBatch)}&academic_year=${encodeURIComponent(academicYear)}`,
       );
@@ -89,11 +91,13 @@ const HODElectivePage = () => {
       if (data.available_electives) {
         setAvailableElectives(data.available_electives);
 
-        // Populate course assignments from assigned_semester
         const assignments = {};
         data.available_electives.forEach((course) => {
           if (course.assigned_semester) {
-            assignments[course.id] = course.assigned_semester;
+            assignments[course.id] = {
+              semester: course.assigned_semester,
+              slot_id: course.assigned_slot_id || 0,
+            };
           }
         });
         setCourseAssignments(assignments);
@@ -105,18 +109,41 @@ const HODElectivePage = () => {
     }
   };
 
+  const fetchElectiveSlots = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/hod/elective-slots`);
+      const data = await response.json();
+      if (data.success && data.slots) {
+        setSemesterSlots(data.slots);
+      }
+    } catch (error) {
+      console.error("Error fetching elective slots:", error);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setSaveMessage("");
 
     try {
-      // Convert courseAssignments object to array format
       const course_assignments = Object.entries(courseAssignments).map(
-        ([courseId, semester]) => ({
+        ([courseId, assignment]) => ({
           course_id: parseInt(courseId),
-          semester: semester,
+          semester: assignment.semester,
+          slot_id: assignment.slot_id,
         }),
       );
+
+      const missingSlots = course_assignments.some(
+        (assignment) => !assignment.slot_id,
+      );
+      if (missingSlots) {
+        setSaveMessage(
+          "⚠️ Please select a category slot for each assigned course",
+        );
+        setSaving(false);
+        return;
+      }
 
       if (course_assignments.length === 0) {
         setSaveMessage("⚠️ Please assign at least one course to a semester");
@@ -174,11 +201,38 @@ const HODElectivePage = () => {
       delete newAssignments[courseId];
       setCourseAssignments(newAssignments);
     } else {
+      const parsedSemester = parseInt(semester);
+      const existing = courseAssignments[courseId];
       setCourseAssignments({
         ...courseAssignments,
-        [courseId]: parseInt(semester),
+        [courseId]: {
+          semester: parsedSemester,
+          slot_id:
+            existing && existing.semester === parsedSemester
+              ? existing.slot_id
+              : 0,
+        },
       });
     }
+  };
+
+  const handleSlotAssignment = (courseId, slotId) => {
+    const existing = courseAssignments[courseId];
+    if (!existing) {
+      return;
+    }
+    setCourseAssignments({
+      ...courseAssignments,
+      [courseId]: {
+        ...existing,
+        slot_id: parseInt(slotId) || 0,
+      },
+    });
+  };
+
+  const getSlotsForSemester = (semester) => {
+    if (!semester) return [];
+    return semesterSlots.filter((slot) => slot.semester === semester);
   };
 
   // Get category color
@@ -381,6 +435,9 @@ const HODElectivePage = () => {
                         <th className="text-left py-3 px-4 text-gray-700 font-semibold">
                           Assign to Semester
                         </th>
+                        <th className="text-left py-3 px-4 text-gray-700 font-semibold">
+                          Category Slot
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -389,7 +446,11 @@ const HODElectivePage = () => {
                           course.course_type,
                         );
                         const colors = getCategoryColor(category);
-                        const assignedSem = courseAssignments[course.id] || "";
+                        const assignedSem =
+                          courseAssignments[course.id]?.semester || "";
+                        const assignedSlotId =
+                          courseAssignments[course.id]?.slot_id || "";
+                        const availableSlots = getSlotsForSemester(assignedSem);
 
                         return (
                           <tr
@@ -439,6 +500,31 @@ const HODElectivePage = () => {
                                 <option value="6">Semester 6</option>
                                 <option value="7">Semester 7</option>
                                 <option value="8">Semester 8</option>
+                              </select>
+                            </td>
+                            <td className="py-4 px-4">
+                              <select
+                                value={assignedSlotId}
+                                onChange={(e) =>
+                                  handleSlotAssignment(course.id, e.target.value)
+                                }
+                                disabled={!assignedSem}
+                                className={`px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                                  assignedSlotId
+                                    ? "border-green-500 bg-green-50"
+                                    : "border-gray-300"
+                                } ${!assignedSem ? "bg-gray-100 text-gray-500" : ""}`}
+                              >
+                                <option value="">
+                                  {assignedSem
+                                    ? "Select category"
+                                    : "Select semester first"}
+                                </option>
+                                {availableSlots.map((slot) => (
+                                  <option key={slot.id} value={slot.id}>
+                                    {slot.slot_name}
+                                  </option>
+                                ))}
                               </select>
                             </td>
                           </tr>

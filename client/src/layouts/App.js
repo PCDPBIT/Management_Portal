@@ -95,6 +95,22 @@ function App() {
         }
       />
       <Route
+        path="/elective-management"
+        element={
+          <PrivateRoute>
+            <ElectiveManagementPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/hod/elective-management"
+        element={
+          <PrivateRoute>
+            <HODElectivePage />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/teacher-courses"
         element={
           <PrivateRoute>
