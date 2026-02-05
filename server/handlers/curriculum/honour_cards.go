@@ -241,7 +241,7 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 		CourseID          *int   `json:"course_id,omitempty"`
 		CourseCode        string `json:"course_code,omitempty"`
 		CourseName        string `json:"course_name,omitempty"`
-		CourseType        string `json:"course_type,omitempty"`
+		CourseType        int    `json:"course_type,omitempty"`
 		Category          string `json:"category,omitempty"`
 		Credit            int    `json:"credit,omitempty"`
 		LectureHrs        int    `json:"lecture_hrs,omitempty"`
@@ -298,7 +298,7 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 		courseID = *payload.CourseID
 	} else {
 		// New path: create or reuse a course based on course_code (similar to AddCourseToSemester)
-		if payload.CourseCode == "" || payload.CourseName == "" || payload.CourseType == "" || payload.Category == "" || payload.Credit < 0 {
+		if payload.CourseCode == "" || payload.CourseName == "" || payload.CourseType == 0 || payload.Category == "" || payload.Credit < 0 {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]string{"error": "Missing required course fields"})
 			return
