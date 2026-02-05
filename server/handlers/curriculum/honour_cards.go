@@ -354,17 +354,17 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Check if course with same code AND name already exists in this curriculum
+		// Check if course with same code AND name already exists in this curriculum (only active ones)
 		var existingCourseID int
 		checkQuery := `SELECT c.id FROM courses c 
 		               INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
-		               WHERE c.course_code = ? AND c.course_name = ? AND cc.curriculum_id = ?`
+		               WHERE c.course_code = ? AND c.course_name = ? AND cc.curriculum_id = ? AND c.status = 1`
 		err = db.DB.QueryRow(checkQuery, payload.CourseCode, payload.CourseName, curriculumID).Scan(&existingCourseID)
 
 		if err == sql.ErrNoRows {
-			// Course code doesn't exist in this curriculum, check if it exists globally with same name
+			// Course code doesn't exist in this curriculum, check if it exists globally with same name (only active ones)
 			var globalCourseID int
-			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ? AND course_name = ?"
+			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ? AND course_name = ? AND status = 1"
 			globalErr := db.DB.QueryRow(globalCheckQuery, payload.CourseCode, payload.CourseName).Scan(&globalCourseID)
 
 			if globalErr == sql.ErrNoRows {

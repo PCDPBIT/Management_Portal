@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
 
 function TeacherDashboardPage() {
+  const navigate = useNavigate()
   const teacherID = localStorage.getItem('teacherId')
   const teacherName = localStorage.getItem('userName')
   const [coursesByCategory, setCoursesByCategory] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [expandedCourses, setExpandedCourses] = useState({})
 
   useEffect(() => {
     if (teacherID) {
@@ -112,11 +113,8 @@ function TeacherDashboardPage() {
     return total
   }
 
-  const toggleCourseExpand = (courseId) => {
-    setExpandedCourses((prev) => ({
-      ...prev,
-      [courseId]: !prev[courseId]
-    }))
+  const handleCourseClick = (course) => {
+    navigate(`/teacher-course/${course.id}/students`, { state: { course } })
   }
 
   return (
@@ -228,68 +226,36 @@ function TeacherDashboardPage() {
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {courses.map((course, idx) => (
-                          <React.Fragment key={`${course.id}-${idx}`}>
-                            <tr
-                              className="hover:bg-gray-50 transition-colors cursor-pointer"
-                              onClick={() => toggleCourseExpand(course.id)}
-                            >
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="font-semibold text-blue-600">{course.course_code}</span>
-                              </td>
-                              <td className="px-6 py-4">
-                                <p className="text-gray-900 font-medium">{course.course_name}</p>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                                  {course.course_type}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="font-semibold text-gray-700">{course.credit}</span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                                  {course.enrollments?.length || 0} students
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right">
-                                <span className="text-xl text-gray-400">
-                                  {expandedCourses[course.id] ? '▼' : '▶'}
-                                </span>
-                              </td>
-                            </tr>
-                            {expandedCourses[course.id] && (
-                              <tr className="bg-gray-50">
-                                <td colSpan="6" className="px-6 py-4">
-                                  <div className="bg-white rounded-lg p-4 border border-gray-200">
-                                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                                      Allocated Students ({course.enrollments?.length || 0})
-                                    </h4>
-                                    {course.enrollments && course.enrollments.length > 0 ? (
-                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {course.enrollments.map((student) => (
-                                          <div
-                                            key={student.student_id}
-                                            className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                          >
-                                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm" style={{ background: 'linear-gradient(to bottom right, rgb(67, 113, 229), rgb(47, 93, 209))' }}>
-                                              {student.student_name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                              <p className="text-sm font-medium text-gray-800">{student.student_name}</p>
-                                              <p className="text-xs text-gray-500">ID: {student.student_id}</p>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <p className="text-gray-500 text-sm italic">No students allocated to this course yet</p>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
+                          <tr
+                            key={`${course.id}-${idx}`}
+                            className="hover:bg-blue-50 transition-colors cursor-pointer"
+                            onClick={() => handleCourseClick(course)}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="font-semibold text-blue-600">{course.course_code}</span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-gray-900 font-medium">{course.course_name}</p>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                                {course.course_type}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="font-semibold text-gray-700">{course.credit}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                                {course.enrollments?.length || 0} students
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                              <span className="text-blue-500">
+                                →
+                              </span>
+                            </td>
+                          </tr>
                         ))}
                       </tbody>
                     </table>

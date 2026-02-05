@@ -23,6 +23,7 @@ import CourseAllocationPage from "../pages/curriculum/CourseAllocationPage";
 import TeacherCoursesPage from "../pages/curriculum/TeacherCoursesPage";
 import TeacherDashboardPage from "../pages/curriculum/TeacherDashboardPage";
 import MarkEntryPage from "../pages/curriculum/MarkEntryPage";
+import TeacherCourseStudentsPage from "../pages/curriculum/TeacherCourseStudentsPage";
 import PrivateRoute from "../components/PrivateRoute";
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
       <Route path="/" element={<LoginPage />} />
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/teacher-dashboard" element={<PrivateRoute><TeacherDashboardPage /></PrivateRoute>} />
+      <Route path="/teacher-course/:courseId/students" element={<PrivateRoute><TeacherCourseStudentsPage /></PrivateRoute>} />
       <Route path="/users" element={<PrivateRoute><UsersPage /></PrivateRoute>} />
       <Route path="/Student_details" element={<PrivateRoute><StudentDetailsPage /></PrivateRoute>} />
       <Route path="/student-teacher-dashboard" element={<PrivateRoute><TeacherStudentDashboard /></PrivateRoute>} />

@@ -546,18 +546,16 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 		courseID = int(id)
 		wasReused = false
 	} else {
-		// For non-NA courses, check for existing courses
+		// For non-NA courses, check for existing courses (only active ones)
 		checkQuery := `SELECT c.id FROM courses c 
 		               INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
-		               WHERE c.course_code = ? AND cc.curriculum_id = ?`
-		err = db.DB.QueryRow(checkQuery, course.CourseCode, curriculumID).Scan(&existingCourseID)
-
+		               WHERE c.course_code = ? AND cc.curriculum_id = ? AND c.status = 1`
 		err = db.DB.QueryRow(checkQuery, course.CourseCode, curriculumID).Scan(&existingCourseID)
 
 		if err == sql.ErrNoRows {
-			// Course code doesn't exist in this curriculum, check if it exists globally
+			// Course code doesn't exist in this curriculum, check if it exists globally (only active ones)
 			var globalCourseID int
-			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ?"
+			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ? AND status = 1"
 			globalErr := db.DB.QueryRow(globalCheckQuery, course.CourseCode).Scan(&globalCourseID)
 
 			if globalErr == sql.ErrNoRows {
