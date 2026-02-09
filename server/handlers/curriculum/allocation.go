@@ -307,6 +307,59 @@ func GetCourseTeachers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(teachers)
 }
 
+// GetDepartmentSemesterCourses returns distinct courses for a department and semester.
+func GetDepartmentSemesterCourses(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	vars := mux.Vars(r)
+	departmentID := vars["departmentId"]
+	semester := vars["semester"]
+
+	query := `
+		SELECT DISTINCT c.id, c.course_code, c.course_name
+		FROM teacher_course_allocation tca
+		JOIN curriculum_courses cc ON tca.course_id = cc.course_id
+		JOIN normal_cards nc ON cc.semester_id = nc.id
+		JOIN courses c ON tca.course_id = c.id
+		JOIN department_teachers dt ON dt.teacher_id = tca.teacher_id
+		WHERE dt.department_id = ?
+			AND dt.status = 1
+			AND nc.semester_number = ?
+		ORDER BY c.course_code
+	`
+
+	rows, err := db.DB.Query(query, departmentID, semester)
+	if err != nil {
+		log.Printf("Error fetching department courses: %v", err)
+		http.Error(w, "Failed to fetch courses", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	type DepartmentCourse struct {
+		CourseID   int    `json:"course_id"`
+		CourseCode string `json:"course_code"`
+		CourseName string `json:"course_name"`
+	}
+
+	var courses []DepartmentCourse
+	for rows.Next() {
+		var course DepartmentCourse
+		if err := rows.Scan(&course.CourseID, &course.CourseCode, &course.CourseName); err != nil {
+			log.Printf("Error scanning department course: %v", err)
+			continue
+		}
+		courses = append(courses, course)
+	}
+
+	if courses == nil {
+		courses = []DepartmentCourse{}
+	}
+
+	json.NewEncoder(w).Encode(courses)
+}
+
 // GetUnassignedCourses retrieves courses without teacher assignments
 func GetUnassignedCourses(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
