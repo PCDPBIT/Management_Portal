@@ -25,9 +25,10 @@ func GetCourseAllocations(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Fetch all courses linked to this semester
 	courseQuery := `
-		SELECT c.id, c.course_code, c.course_name, c.course_type, c.credit
+		SELECT c.id, c.course_code, c.course_name, ct.course_type, c.credit
 		FROM courses c
 		JOIN curriculum_courses cc ON c.id = cc.course_id
+		LEFT JOIN course_type ct ON c.course_type = ct.id
 		WHERE cc.semester_id = ? AND c.status = 1
 	`
 	rows, err := db.DB.Query(courseQuery, semesterID)
@@ -172,10 +173,11 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT 
-			ca.id, ca.course_id, c.course_code, c.course_name, COALESCE(c.course_type, 'Theory'), 
+			ca.id, ca.course_id, c.course_code, c.course_name, ct.course_type, 
 			c.credit, COALESCE(c.category, 'General')
 		FROM teacher_course_allocation ca
 		JOIN courses c ON ca.course_id = c.id
+		LEFT JOIN course_type ct ON c.course_type = ct.id
 		WHERE ca.teacher_id = ?
 		ORDER BY c.course_code
 	`
@@ -374,9 +376,10 @@ func GetUnassignedCourses(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		SELECT c.id, c.course_code, c.course_name, c.course_type, c.credit
+		SELECT c.id, c.course_code, c.course_name, ct.course_type, c.credit
 		FROM courses c
 		JOIN curriculum_courses cc ON c.id = cc.course_id
+		LEFT JOIN course_type ct ON c.course_type = ct.id
 		WHERE cc.semester_id = ? AND c.status = 1
 		AND NOT EXISTS (
 			SELECT 1 FROM teacher_course_allocation ca

@@ -34,7 +34,7 @@ type CoursePDF struct {
 	CourseID       int                `json:"id"`
 	CourseCode     string             `json:"course_code"`
 	CourseName     string             `json:"course_name"`
-	CourseType     int                `json:"course_type"`
+	CourseType     string             `json:"course_type"`
 	Category       string             `json:"category"`
 	Credit         int                `json:"credit"`
 	LectureHours   int                `json:"lecture_hours"`

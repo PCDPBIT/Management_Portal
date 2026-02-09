@@ -1,7 +1,16 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
+
 import LoginPage from "../pages/curriculum/loginPage";
+import AppShell from "../components/AppShell";
+import PrivateRoute from "../components/PrivateRoute";
+
+// Dashboard & Users
 import Dashboard from "../pages/curriculum/dashboard";
+import TeacherDashboardPage from "../pages/curriculum/TeacherDashboardPage";
+import UsersPage from "../pages/curriculum/usersPage";
+
+// Curriculum
 import CurriculumMainPage from "../pages/curriculum/curriculumMainPage";
 import DepartmentOverviewPage from "../pages/curriculum/departmentOverviewPage";
 import ManageCurriculumPage from "../pages/curriculum/manageCurriculumPage";
@@ -12,64 +21,67 @@ import MappingPage from "../pages/curriculum/mappingPage";
 import PEOPOMappingPage from "../pages/curriculum/peoPOMappingPage";
 import ClusterManagementPage from "../pages/curriculum/clusterManagementPage";
 import SharingManagementPage from "../pages/curriculum/sharingManagementPage";
+
+// Regulation
 import RegulationPage from "../pages/regulation/regulationPage";
 import RegulationEditorPage from "../pages/regulation/regulationEditorPage";
-import UsersPage from "../pages/curriculum/usersPage";
+
+// Student–Teacher
 import StudentDetailsPage from "../pages/student-teacher_entry/studentDetailsPage";
 import TeacherStudentDashboard from "../pages/student-teacher_entry/TeacherStudentDashboard";
 import TeacherDetailsPage from "../pages/student-teacher_entry/TeacherDetailsPage";
 import TeacherStudentMappingPage from "../pages/student-teacher_entry/TeacherStudentMappingPage";
+
+// Courses & Marks
 import CourseAllocationPage from "../pages/curriculum/CourseAllocationPage";
 import TeacherCoursesPage from "../pages/curriculum/TeacherCoursesPage";
-import TeacherDashboardPage from "../pages/curriculum/TeacherDashboardPage";
+import TeacherCourseStudentsPage from "../pages/curriculum/TeacherCourseStudentsPage";
 import MarkEntryPage from "../pages/curriculum/MarkEntryPage";
 import MarkEntryPermissionsPage from "../pages/curriculum/MarkEntryPermissionsPage";
-import TeacherCourseStudentsPage from "../pages/curriculum/TeacherCourseStudentsPage";
-import PrivateRoute from "../components/PrivateRoute";
 
 function App() {
   return (
     <Routes>
+      {/* Public */}
       <Route path="/" element={<LoginPage />} />
-      <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-      <Route path="/teacher-dashboard" element={<PrivateRoute><TeacherDashboardPage /></PrivateRoute>} />
-      <Route path="/teacher-course/:courseId/students" element={<PrivateRoute><TeacherCourseStudentsPage /></PrivateRoute>} />
-      <Route path="/users" element={<PrivateRoute><UsersPage /></PrivateRoute>} />
-      <Route path="/Student_details" element={<PrivateRoute><StudentDetailsPage /></PrivateRoute>} />
-      <Route path="/student-teacher-dashboard" element={<PrivateRoute><TeacherStudentDashboard /></PrivateRoute>} />
-      <Route path="/teacher-details" element={<PrivateRoute><TeacherDetailsPage /></PrivateRoute>} />
-      <Route path="/teacher-student-mapping" element={<PrivateRoute><TeacherStudentMappingPage /></PrivateRoute>} />
-      <Route path="/course-allocation" element={<PrivateRoute><CourseAllocationPage /></PrivateRoute>} />
-      <Route path="/teacher-courses" element={<PrivateRoute><TeacherCoursesPage /></PrivateRoute>} />
-      <Route path="/mark-entry-permissions" element={<PrivateRoute><MarkEntryPermissionsPage /></PrivateRoute>} />
-      <Route path="/mark-entry" element={<PrivateRoute><MarkEntryPage /></PrivateRoute>} />
-      <Route path="/regulations" element={<PrivateRoute><RegulationPage /></PrivateRoute>} />
-      <Route path="/curriculum/:id/editor" element={<PrivateRoute><RegulationEditorPage /></PrivateRoute>} />
-      <Route path="/curriculum" element={<PrivateRoute><CurriculumMainPage /></PrivateRoute>} />
-      <Route path="/clusters" element={<PrivateRoute><ClusterManagementPage /></PrivateRoute>} />
-      <Route path="/sharing" element={<PrivateRoute><SharingManagementPage /></PrivateRoute>} />
-      <Route
-        path="/curriculum/:id/overview"
-        element={<PrivateRoute><DepartmentOverviewPage /></PrivateRoute>}
-      />
-      <Route
-        path="/curriculum/:id/curriculum"
-        element={<PrivateRoute><ManageCurriculumPage /></PrivateRoute>}
-      />
-      <Route
-        path="/curriculum/:id/curriculum/semester/:semId"
-        element={<PrivateRoute><SemesterDetailPage /></PrivateRoute>}
-      />
-      <Route
-        path="/curriculum/:id/curriculum/honour/:cardId"
-        element={<PrivateRoute><HonourCardPage /></PrivateRoute>}
-      />
-      <Route path="/course/:courseId/syllabus" element={<PrivateRoute><SyllabusPage /></PrivateRoute>} />
-      <Route path="/course/:courseId/mapping" element={<PrivateRoute><MappingPage /></PrivateRoute>} />
-      <Route
-        path="/curriculum/:id/peo-po-mapping"
-        element={<PrivateRoute><PEOPOMappingPage /></PrivateRoute>}
-      />
+
+      {/* Protected */}
+      <Route element={<PrivateRoute />}>
+        <Route element={<AppShell />}>
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="teacher-dashboard" element={<TeacherDashboardPage />} />
+
+          <Route path="users" element={<UsersPage />} />
+
+          <Route path="Student_details" element={<StudentDetailsPage />} />
+          <Route path="student-teacher-dashboard" element={<TeacherStudentDashboard />} />
+          <Route path="teacher-details" element={<TeacherDetailsPage />} />
+          <Route path="teacher-student-mapping" element={<TeacherStudentMappingPage />} />
+
+          <Route path="course-allocation" element={<CourseAllocationPage />} />
+          <Route path="teacher-courses" element={<TeacherCoursesPage />} />
+          <Route path="teacher-course/:courseId/students" element={<TeacherCourseStudentsPage />} />
+
+          <Route path="mark-entry" element={<MarkEntryPage />} />
+          <Route path="mark-entry-permissions" element={<MarkEntryPermissionsPage />} />
+
+          <Route path="regulations" element={<RegulationPage />} />
+          <Route path="curriculum/:id/editor" element={<RegulationEditorPage />} />
+
+          <Route path="curriculum" element={<CurriculumMainPage />} />
+          <Route path="clusters" element={<ClusterManagementPage />} />
+          <Route path="sharing" element={<SharingManagementPage />} />
+
+          <Route path="curriculum/:id/overview" element={<DepartmentOverviewPage />} />
+          <Route path="curriculum/:id/curriculum" element={<ManageCurriculumPage />} />
+          <Route path="curriculum/:id/curriculum/semester/:semId" element={<SemesterDetailPage />} />
+          <Route path="curriculum/:id/curriculum/honour/:cardId" element={<HonourCardPage />} />
+
+          <Route path="course/:courseId/syllabus" element={<SyllabusPage />} />
+          <Route path="course/:courseId/mapping" element={<MappingPage />} />
+          <Route path="curriculum/:id/peo-po-mapping" element={<PEOPOMappingPage />} />
+        </Route>
+      </Route>
     </Routes>
   );
 }
