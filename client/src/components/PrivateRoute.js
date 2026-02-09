@@ -1,5 +1,5 @@
 import React from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Outlet } from 'react-router-dom'
 
 const PrivateRoute = ({ children }) => {
   const isAuthenticated = () => {
@@ -9,7 +9,11 @@ const PrivateRoute = ({ children }) => {
     return userId && userRole
   }
 
-  return isAuthenticated() ? children : <Navigate to="/" replace />
+  if (!isAuthenticated()) {
+    return <Navigate to="/" replace />
+  }
+
+  return children ? children : <Outlet />
 }
 
 export default PrivateRoute

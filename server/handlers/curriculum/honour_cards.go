@@ -84,13 +84,14 @@ func fetchVerticalsForCard(honourCardID int) []models.HonourVerticalWithCourses 
 
 // fetchCoursesForVertical retrieves all courses for a given vertical
 func fetchCoursesForVertical(verticalID int) []models.CourseWithDetails {
-	query := `SELECT c.id, c.course_code, c.course_name, c.course_type, c.category, 
+	query := `SELECT c.id, c.course_code, c.course_name, ct.course_type, c.category, 
 	       c.credit, c.lecture_hrs, c.tutorial_hrs, c.practical_hrs, c.activity_hrs, COALESCE(c.` + "`tw/sl`" + `, 0) as tw_sl,
 	       COALESCE(c.theory_total_hrs, 0), COALESCE(c.tutorial_total_hrs, 0), COALESCE(c.practical_total_hrs, 0), COALESCE(c.activity_total_hrs, 0), COALESCE(c.total_hrs, 0),
 	       c.cia_marks, c.see_marks, c.total_marks,
 	       hvc.id as honour_vertical_course_id
 		FROM courses c
 		INNER JOIN honour_vertical_courses hvc ON c.id = hvc.course_id
+		LEFT JOIN course_type ct ON c.course_type = ct.id
 		WHERE hvc.honour_vertical_id = ? AND hvc.status = 1 AND c.status = 1
 		ORDER BY c.course_code`
 	rows, err := db.DB.Query(query, verticalID)
@@ -242,7 +243,7 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 		CourseID          *int   `json:"course_id,omitempty"`
 		CourseCode        string `json:"course_code,omitempty"`
 		CourseName        string `json:"course_name,omitempty"`
-		CourseType        int    `json:"course_type,omitempty"`
+		CourseType        string `json:"course_type,omitempty"`
 		Category          string `json:"category,omitempty"`
 		Credit            int    `json:"credit,omitempty"`
 		LectureHrs        int    `json:"lecture_hrs,omitempty"`
@@ -299,7 +300,7 @@ func AddCourseToVertical(w http.ResponseWriter, r *http.Request) {
 		courseID = *payload.CourseID
 	} else {
 		// New path: create or reuse a course based on course_code (similar to AddCourseToSemester)
-		if payload.CourseCode == "" || payload.CourseName == "" || payload.CourseType == 0 || payload.Category == "" || payload.Credit < 0 {
+		if payload.CourseCode == "" || payload.CourseName == "" || payload.CourseType == "" || payload.Category == "" || payload.Credit < 0 {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]string{"error": "Missing required course fields"})
 			return

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import MainLayout from '../../components/MainLayout'
+import { API_BASE_URL } from '../../config'
 
 function MarkEntryPage() {
   const [courses, setCourses] = useState([])
@@ -25,7 +26,7 @@ function MarkEntryPage() {
   const fetchTeacherCourses = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`http://localhost:5000/api/teachers/${teacherId}/courses`)
+      const response = await fetch(`${API_BASE_URL}/teachers/${teacherId}/courses`)
       if (!response.ok) throw new Error('Failed to fetch courses')
       const data = await response.json()
       
@@ -115,7 +116,7 @@ function MarkEntryPage() {
   const enrichStudentsWithEnrollmentNumbers = async (enrollments) => {
     try {
       // Fetch all students to get enrollment numbers
-      const response = await fetch('http://localhost:5000/api/students')
+      const response = await fetch(`${API_BASE_URL}/students`)
       if (!response.ok) throw new Error('Failed to fetch students')
       const allStudents = await response.json()
       
@@ -227,7 +228,7 @@ function MarkEntryPage() {
 
     try {
       setSavingMarks(true)
-      const response = await fetch('http://localhost:5000/api/student-marks/save', {
+      const response = await fetch(`${API_BASE_URL}/student-marks/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
