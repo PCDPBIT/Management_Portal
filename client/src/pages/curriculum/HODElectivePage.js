@@ -3,23 +3,22 @@ import MainLayout from "../../components/MainLayout";
 import { API_BASE_URL } from "../../config";
 
 const HODElectivePage = () => {
-  const [selectedSemesterForView, setSelectedSemesterForView] = useState(4);
   const [batches, setBatches] = useState([]);
-  const [selectedBatch, setSelectedBatch] = useState("");
+  const [selectedBatch, setSelectedBatch] = useState("ALL");
   const [academicYear, setAcademicYear] = useState("2025-2026");
+  const [currentSemester, setCurrentSemester] = useState(null);
+  const [targetSemester, setTargetSemester] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hodProfile, setHodProfile] = useState(null);
   const [saveMessage, setSaveMessage] = useState("");
-
-  const semesters = [4, 5, 6, 7, 8]; // Only semesters with electives
 
   // Get user email from localStorage (set during login)
   const userEmail = localStorage.getItem("userEmail");
 
   // Available elective courses (vertical courses from API)
   const [availableElectives, setAvailableElectives] = useState([]);
-  // Course assignments: { courseId: { semester, slot_id } }
+  // Course assignments for target semester: { courseId: { slot_id } }
   const [courseAssignments, setCourseAssignments] = useState({});
   // Elective slots per semester
   const [semesterSlots, setSemesterSlots] = useState([]);
@@ -32,12 +31,12 @@ const HODElectivePage = () => {
     fetchElectiveSlots();
   }, []);
 
-  // Fetch electives when batch or academic year changes
+  // Fetch electives when batch, academic year, or target semester changes
   useEffect(() => {
-    if (selectedBatch && academicYear) {
+    if (academicYear && targetSemester) {
       fetchElectives();
     }
-  }, [selectedBatch, academicYear]);
+  }, [selectedBatch, academicYear, targetSemester]);
 
   const fetchHODProfile = async () => {
     try {
@@ -60,6 +59,14 @@ const HODElectivePage = () => {
       if (data.academic_year) {
         setAcademicYear(data.academic_year);
       }
+      if (data.current_semester) {
+        const nextSemester = Math.min(
+          parseInt(data.current_semester, 10) + 1,
+          8,
+        );
+        setCurrentSemester(parseInt(data.current_semester, 10));
+        setTargetSemester(nextSemester);
+      }
     } catch (error) {
       console.error("Error fetching academic calendar:", error);
     }
@@ -72,9 +79,11 @@ const HODElectivePage = () => {
       );
       const data = await response.json();
       if (data.batches && data.batches.length > 0) {
-        setBatches(data.batches);
-        setSelectedBatch(data.batches[0]);
+        setBatches(["ALL", ...data.batches]);
+      } else {
+        setBatches(["ALL"]);
       }
+      setSelectedBatch("ALL");
     } catch (error) {
       console.error("Error fetching batches:", error);
     }
@@ -83,8 +92,9 @@ const HODElectivePage = () => {
   const fetchElectives = async () => {
     setLoading(true);
     try {
+      const batchParam = selectedBatch === "ALL" ? "" : selectedBatch;
       const response = await fetch(
-        `${API_BASE_URL}/hod/electives/available?email=${encodeURIComponent(userEmail)}&batch=${encodeURIComponent(selectedBatch)}&academic_year=${encodeURIComponent(academicYear)}`,
+        `${API_BASE_URL}/hod/electives/available?email=${encodeURIComponent(userEmail)}&batch=${encodeURIComponent(batchParam)}&academic_year=${encodeURIComponent(academicYear)}`,
       );
       const data = await response.json();
 
@@ -93,9 +103,8 @@ const HODElectivePage = () => {
 
         const assignments = {};
         data.available_electives.forEach((course) => {
-          if (course.assigned_semester) {
+          if (course.assigned_semester === targetSemester) {
             assignments[course.id] = {
-              semester: course.assigned_semester,
               slot_id: course.assigned_slot_id || 0,
             };
           }
@@ -128,8 +137,8 @@ const HODElectivePage = () => {
     try {
       const course_assignments = Object.entries(courseAssignments).map(
         ([courseId, assignment]) => ({
-          course_id: parseInt(courseId),
-          semester: assignment.semester,
+          course_id: parseInt(courseId, 10),
+          semester: targetSemester,
           slot_id: assignment.slot_id,
         }),
       );
@@ -159,7 +168,7 @@ const HODElectivePage = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            batch: selectedBatch,
+            batch: selectedBatch === "ALL" ? "" : selectedBatch,
             academic_year: academicYear,
             course_assignments: course_assignments,
             status: "ACTIVE",
@@ -183,51 +192,19 @@ const HODElectivePage = () => {
     }
   };
 
-  const getCategoryFromCourseType = (courseType) => {
-    const type = courseType.toUpperCase();
-    if (type.includes("OPEN") || type.includes("OE")) return "openElective";
-    if (type.includes("PROFESSIONAL") || type.includes("PE"))
-      return "professionalElective";
-    if (type.includes("HONOR") || type.includes("HONOUR")) return "honor";
-    if (type.includes("MINOR")) return "minor";
-    return "professionalElective"; // Default
-  };
-
-  // Handle semester assignment for a course
-  const handleSemesterAssignment = (courseId, semester) => {
-    if (semester === "" || semester === null) {
-      // Remove assignment
-      const newAssignments = { ...courseAssignments };
-      delete newAssignments[courseId];
-      setCourseAssignments(newAssignments);
-    } else {
-      const parsedSemester = parseInt(semester);
-      const existing = courseAssignments[courseId];
-      setCourseAssignments({
-        ...courseAssignments,
-        [courseId]: {
-          semester: parsedSemester,
-          slot_id:
-            existing && existing.semester === parsedSemester
-              ? existing.slot_id
-              : 0,
-        },
-      });
-    }
-  };
-
-  const handleSlotAssignment = (courseId, slotId) => {
-    const existing = courseAssignments[courseId];
-    if (!existing) {
-      return;
-    }
+  const handleAddCourseToSlot = (courseId, slotId) => {
     setCourseAssignments({
       ...courseAssignments,
       [courseId]: {
-        ...existing,
-        slot_id: parseInt(slotId) || 0,
+        slot_id: parseInt(slotId, 10) || 0,
       },
     });
+  };
+
+  const handleRemoveCourse = (courseId) => {
+    const next = { ...courseAssignments };
+    delete next[courseId];
+    setCourseAssignments(next);
   };
 
   const getSlotsForSemester = (semester) => {
@@ -235,67 +212,15 @@ const HODElectivePage = () => {
     return semesterSlots.filter((slot) => slot.semester === semester);
   };
 
-  // Get category color
-  const getCategoryColor = (category) => {
-    switch (category) {
-      case "openElective":
-        return {
-          bg: "bg-blue-50",
-          border: "border-blue-500",
-          text: "text-blue-700",
-          badge: "bg-blue-500",
-        };
-      case "professionalElective":
-        return {
-          bg: "bg-purple-50",
-          border: "border-purple-500",
-          text: "text-purple-700",
-          badge: "bg-purple-500",
-        };
-      case "honor":
-        return {
-          bg: "bg-amber-50",
-          border: "border-amber-500",
-          text: "text-amber-700",
-          badge: "bg-amber-500",
-        };
-      case "minor":
-        return {
-          bg: "bg-emerald-50",
-          border: "border-emerald-500",
-          text: "text-emerald-700",
-          badge: "bg-emerald-500",
-        };
-      default:
-        return {
-          bg: "bg-gray-50",
-          border: "border-gray-500",
-          text: "text-gray-700",
-          badge: "bg-gray-500",
-        };
-    }
-  };
-
-  // Get category display name
-  const getCategoryDisplayName = (category) => {
-    switch (category) {
-      case "openElective":
-        return "Open Elective";
-      case "professionalElective":
-        return "Professional Elective";
-      case "honor":
-        return "Honor";
-      case "minor":
-        return "Minor";
-      default:
-        return category;
-    }
-  };
-
-  const handleAddCourse = () => {
-    // Placeholder for future functionality
-    console.log("Add course functionality");
-  };
+  const targetSlots = targetSemester
+    ? semesterSlots.filter((slot) => slot.semester === targetSemester)
+    : [];
+  const selectedCourseIds = new Set(
+    Object.keys(courseAssignments).map((id) => parseInt(id, 10)),
+  );
+  const unselectedCourses = availableElectives.filter(
+    (course) => !selectedCourseIds.has(course.id),
+  );
 
   return (
     <MainLayout
@@ -316,11 +241,23 @@ const HODElectivePage = () => {
                 Vertical Course Assignment
               </h2>
               <p className="text-gray-600">
-                Assign vertical courses to semesters (4-8)
+                Assign vertical courses for Semester {targetSemester || "-"}
               </p>
               {academicYear && (
                 <p className="text-sm text-blue-600 mt-1">
                   Academic Year: {academicYear}
+                </p>
+              )}
+              {currentSemester && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Current Semester: {currentSemester} → Assigning for Semester{" "}
+                  {targetSemester}
+                </p>
+              )}
+              {hodProfile?.curriculum && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Curriculum: {hodProfile.curriculum.name} (
+                  {hodProfile.curriculum.academic_year})
                 </p>
               )}
             </div>
@@ -381,160 +318,132 @@ const HODElectivePage = () => {
           </div>
         )}
 
-        {/* Course List with Semester Assignment */}
+        {/* Split Selection Panels */}
         {!loading && (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 text-white">
-              <h3 className="text-xl font-bold">Vertical Elective Courses</h3>
-              <p className="text-sm opacity-90 mt-1">
-                {availableElectives.length} course
-                {availableElectives.length !== 1 ? "s" : ""} available
-              </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 text-white">
+                <h3 className="text-xl font-bold">
+                  Semester {targetSemester} Elective Slots
+                </h3>
+                <p className="text-sm opacity-90 mt-1">
+                  Click a course to add to the slot
+                </p>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {targetSlots.length === 0 ? (
+                  <div className="text-center text-gray-500">
+                    No slots configured for Semester {targetSemester}
+                  </div>
+                ) : (
+                  targetSlots.map((slot) => (
+                    <div key={slot.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-gray-900">
+                          {slot.slot_name}
+                        </h4>
+                        <span className="text-xs text-gray-500">
+                          {unselectedCourses.length} available
+                        </span>
+                      </div>
+                      {unselectedCourses.length === 0 ? (
+                        <p className="text-sm text-gray-500">
+                          No available courses to add.
+                        </p>
+                      ) : (
+                        <div className="space-y-2 max-h-72 overflow-y-auto">
+                          {unselectedCourses.map((course) => (
+                            <button
+                              key={`${slot.id}-${course.id}`}
+                              type="button"
+                              onClick={() =>
+                                handleAddCourseToSlot(course.id, slot.id)
+                              }
+                              className="w-full text-left px-3 py-2 rounded-lg border hover:border-blue-500 hover:bg-blue-50 transition"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium text-gray-900">
+                                    {course.course_code} - {course.course_name}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {course.credit} credits
+                                  </div>
+                                </div>
+                                <span className="text-blue-600 text-sm font-semibold">
+                                  Add
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
-            {availableElectives.length === 0 ? (
-              <div className="p-8 text-center">
-                <svg
-                  className="w-16 h-16 mx-auto text-gray-300 mb-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <p className="text-gray-500 text-lg">
-                  No vertical courses found
-                </p>
-                <p className="text-gray-400 text-sm mt-2">
-                  Please check if vertical cards exist in the curriculum
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 text-white">
+                <h3 className="text-xl font-bold">Selected Courses</h3>
+                <p className="text-sm opacity-90 mt-1">
+                  {Object.keys(courseAssignments).length} selected
                 </p>
               </div>
-            ) : (
-              <div className="p-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b-2 border-gray-200">
-                        <th className="text-left py-3 px-4 text-gray-700 font-semibold">
-                          Course Code
-                        </th>
-                        <th className="text-left py-3 px-4 text-gray-700 font-semibold">
-                          Course Name
-                        </th>
-                        <th className="text-left py-3 px-4 text-gray-700 font-semibold">
-                          Type
-                        </th>
-                        <th className="text-center py-3 px-4 text-gray-700 font-semibold">
-                          Credits
-                        </th>
-                        <th className="text-left py-3 px-4 text-gray-700 font-semibold">
-                          Assign to Semester
-                        </th>
-                        <th className="text-left py-3 px-4 text-gray-700 font-semibold">
-                          Category Slot
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {availableElectives.map((course) => {
-                        const category = getCategoryFromCourseType(
-                          course.course_type,
-                        );
-                        const colors = getCategoryColor(category);
-                        const assignedSem =
-                          courseAssignments[course.id]?.semester || "";
-                        const assignedSlotId =
-                          courseAssignments[course.id]?.slot_id || "";
-                        const availableSlots = getSlotsForSemester(assignedSem);
-
-                        return (
-                          <tr
-                            key={course.id}
-                            className="border-b border-gray-100 hover:bg-gray-50"
-                          >
-                            <td className="py-4 px-4">
-                              <span className={`font-bold ${colors.text}`}>
-                                {course.course_code}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span className="text-gray-700 font-medium">
-                                {course.course_name}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span
-                                className={`text-xs px-3 py-1 rounded-full ${colors.badge} text-white`}
+              <div className="p-6 space-y-6">
+                {Object.keys(courseAssignments).length === 0 ? (
+                  <div className="text-center text-gray-500">
+                    No courses selected yet.
+                  </div>
+                ) : (
+                  targetSlots.map((slot) => {
+                    const selectedForSlot = availableElectives.filter(
+                      (course) =>
+                        courseAssignments[course.id]?.slot_id === slot.id,
+                    );
+                    if (selectedForSlot.length === 0) {
+                      return null;
+                    }
+                    return (
+                      <div
+                        key={`selected-${slot.id}`}
+                        className="border rounded-lg p-4"
+                      >
+                        <h4 className="font-semibold text-gray-900 mb-3">
+                          {slot.slot_name}
+                        </h4>
+                        <div className="space-y-2">
+                          {selectedForSlot.map((course) => (
+                            <div
+                              key={course.id}
+                              className="flex items-center justify-between px-3 py-2 rounded-lg border"
+                            >
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {course.course_code} - {course.course_name}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {course.credit} credits
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCourse(course.id)}
+                                className="text-red-600 text-sm font-semibold hover:underline"
                               >
-                                {getCategoryDisplayName(category)}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-center">
-                              <span className="text-gray-700">
-                                {course.credit}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <select
-                                value={assignedSem}
-                                onChange={(e) =>
-                                  handleSemesterAssignment(
-                                    course.id,
-                                    e.target.value,
-                                  )
-                                }
-                                className={`px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                  assignedSem
-                                    ? "border-green-500 bg-green-50"
-                                    : "border-gray-300"
-                                }`}
-                              >
-                                <option value="">Not Assigned</option>
-                                <option value="4">Semester 4</option>
-                                <option value="5">Semester 5</option>
-                                <option value="6">Semester 6</option>
-                                <option value="7">Semester 7</option>
-                                <option value="8">Semester 8</option>
-                              </select>
-                            </td>
-                            <td className="py-4 px-4">
-                              <select
-                                value={assignedSlotId}
-                                onChange={(e) =>
-                                  handleSlotAssignment(course.id, e.target.value)
-                                }
-                                disabled={!assignedSem}
-                                className={`px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                  assignedSlotId
-                                    ? "border-green-500 bg-green-50"
-                                    : "border-gray-300"
-                                } ${!assignedSem ? "bg-gray-100 text-gray-500" : ""}`}
-                              >
-                                <option value="">
-                                  {assignedSem
-                                    ? "Select category"
-                                    : "Select semester first"}
-                                </option>
-                                {availableSlots.map((slot) => (
-                                  <option key={slot.id} value={slot.id}>
-                                    {slot.slot_name}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
       </div>

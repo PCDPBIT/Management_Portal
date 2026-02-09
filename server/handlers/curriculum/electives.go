@@ -409,8 +409,8 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 	if len(req.CourseAssignments) > 0 {
 		insertQuery := `
 			INSERT INTO hod_elective_selections 
-			(department_id, curriculum_id, semester, course_id, slot_id, academic_year, batch, approved_by_user_id, status, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(department_id, curriculum_id, semester, course_id, slot_id, slot_name, academic_year, batch, approved_by_user_id, status, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, (SELECT slot_name FROM elective_semester_slots WHERE id = ?), ?, ?, ?, ?, ?, ?)
 		`
 
 		now := time.Now()
@@ -432,6 +432,7 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 				curriculumID,
 				assignment.Semester,
 				assignment.CourseID,
+				assignment.SlotID,
 				assignment.SlotID,
 				req.AcademicYear,
 				batchVal,
