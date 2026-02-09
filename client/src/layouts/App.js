@@ -23,6 +23,7 @@ import CourseAllocationPage from "../pages/curriculum/CourseAllocationPage";
 import TeacherCoursesPage from "../pages/curriculum/TeacherCoursesPage";
 import TeacherDashboardPage from "../pages/curriculum/TeacherDashboardPage";
 import MarkEntryPage from "../pages/curriculum/MarkEntryPage";
+import MarkEntryPermissionsPage from "../pages/curriculum/MarkEntryPermissionsPage";
 import TeacherCourseStudentsPage from "../pages/curriculum/TeacherCourseStudentsPage";
 import PrivateRoute from "../components/PrivateRoute";
 
@@ -40,6 +41,7 @@ function App() {
       <Route path="/teacher-student-mapping" element={<PrivateRoute><TeacherStudentMappingPage /></PrivateRoute>} />
       <Route path="/course-allocation" element={<PrivateRoute><CourseAllocationPage /></PrivateRoute>} />
       <Route path="/teacher-courses" element={<PrivateRoute><TeacherCoursesPage /></PrivateRoute>} />
+      <Route path="/mark-entry-permissions" element={<PrivateRoute><MarkEntryPermissionsPage /></PrivateRoute>} />
       <Route path="/mark-entry" element={<PrivateRoute><MarkEntryPage /></PrivateRoute>} />
       <Route path="/regulations" element={<PrivateRoute><RegulationPage /></PrivateRoute>} />
       <Route path="/curriculum/:id/editor" element={<PrivateRoute><RegulationEditorPage /></PrivateRoute>} />

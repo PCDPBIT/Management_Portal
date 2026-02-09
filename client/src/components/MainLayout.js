@@ -139,6 +139,26 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
       ),
       roles: ["teacher"], // Only teacher
     },
+    {
+      name: "Mark Entry Permissions",
+      path: "/mark-entry-permissions",
+      icon: (
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 4.5l7.5 3.75v7.5L12 19.5l-7.5-3.75v-7.5L12 4.5zm0 4.5v6m-3-3h6"
+          />
+        </svg>
+      ),
+      roles: ["admin"], // Only admin
+    },
   ];
 
   // Filter menu items based on user role

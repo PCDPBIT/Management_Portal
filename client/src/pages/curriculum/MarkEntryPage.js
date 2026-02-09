@@ -13,19 +13,6 @@ function MarkEntryPage() {
 
   const teacherId = localStorage.getItem('teacher_id') || localStorage.getItem('teacherId')
 
-  // Map course category string to course_type_id
-  const mapCategoryToTypeId = (category) => {
-    if (!category) return null
-    const categoryLower = category.toLowerCase()
-    if (categoryLower.includes('theory') && categoryLower.includes('lab')) {
-      return 3 // Theory with Lab
-    } else if (categoryLower.includes('lab')) {
-      return 2 // Lab
-    } else {
-      return 1 // Theory
-    }
-  }
-
   // Fetch teacher's courses on component mount
   useEffect(() => {
     if (!teacherId) {
@@ -68,13 +55,19 @@ function MarkEntryPage() {
 
   const fetchMarkCategories = async () => {
     try {
-      const courseTypeId = mapCategoryToTypeId(selectedCourse.category)
-      if (!courseTypeId) {
-        setMessage({ type: 'warning', text: 'Could not determine course type' })
+      if (!teacherId) {
+        setMessage({ type: 'error', text: 'Teacher ID not found. Please login again.' })
         return
       }
 
-      const response = await fetch(`http://localhost:5000/api/mark-categories-by-type/${courseTypeId}`)
+      const response = await fetch(
+        `http://localhost:5000/api/course/${selectedCourse.course_id}/mark-categories?teacher_id=${teacherId}`
+      )
+      if (response.status === 403) {
+        setMarkCategories([])
+        setMessage({ type: 'warning', text: 'Mark entry window is closed for this course.' })
+        return
+      }
       if (!response.ok) throw new Error('Failed to fetch mark categories')
       const data = await response.json()
       setMarkCategories(data || [])
@@ -86,7 +79,14 @@ function MarkEntryPage() {
 
   const loadExistingMarks = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/course/${selectedCourse.course_id}/student-marks`)
+      const response = await fetch(
+        `http://localhost:5000/api/course/${selectedCourse.course_id}/student-marks?teacher_id=${teacherId}`
+      )
+      if (response.status === 403) {
+        setStudentMarks({})
+        setMessage({ type: 'warning', text: 'Mark entry window is closed for this course.' })
+        return
+      }
       if (!response.ok) throw new Error('Failed to fetch marks')
       const data = await response.json()
       
