@@ -1,0 +1,379 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+
+const COLLAPSED_WIDTH_PX = 80; // Tailwind w-20
+const EXPANDED_WIDTH_PX = 256; // Tailwind w-64
+
+function Sidebar({ onExpandedChange }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // "Pinned" means keep expanded without hover.
+  const [sidebarPinned, setSidebarPinned] = useState(false);
+
+  // Hover state is handled via hysteresis based on mouse X.
+  const [isHovering, setIsHovering] = useState(false);
+
+  // Prevent collapse while clicking/dragging in sidebar.
+  const [isPointerDownInSidebar, setIsPointerDownInSidebar] = useState(false);
+
+  const rafId = useRef(0);
+
+  const userRole = localStorage.getItem("userRole");
+  const userName = localStorage.getItem("userName") || "User";
+  const userEmail = localStorage.getItem("userEmail") || "user@cms.edu";
+
+  const isSidebarExpanded = sidebarPinned || isHovering || isPointerDownInSidebar;
+
+  useEffect(() => {
+    onExpandedChange?.(isSidebarExpanded);
+  }, [isSidebarExpanded, onExpandedChange]);
+
+  useEffect(() => {
+    const endInteraction = () => setIsPointerDownInSidebar(false);
+    window.addEventListener("pointerup", endInteraction, true);
+    window.addEventListener("pointercancel", endInteraction, true);
+
+    return () => {
+      window.removeEventListener("pointerup", endInteraction, true);
+      window.removeEventListener("pointercancel", endInteraction, true);
+    };
+  }, []);
+
+  useEffect(() => {
+    // If pinned open, ignore hover tracking.
+    if (sidebarPinned) {
+      setIsHovering(true);
+      return;
+    }
+
+    const updateHoverFromMouseX = (mouseX) => {
+      // Hysteresis:
+      // - When collapsed: expand only if mouse is within collapsed width.
+      // - When expanded: stay expanded until mouse leaves expanded width.
+      setIsHovering((wasHovering) => {
+        if (isPointerDownInSidebar) return true;
+        if (wasHovering) return mouseX <= EXPANDED_WIDTH_PX;
+        return mouseX <= COLLAPSED_WIDTH_PX;
+      });
+    };
+
+    const onMouseMove = (e) => {
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+      const mouseX = e.clientX;
+      rafId.current = requestAnimationFrame(() => updateHoverFromMouseX(mouseX));
+    };
+
+    const onWindowLeave = () => {
+      if (isPointerDownInSidebar) return;
+      setIsHovering(false);
+    };
+
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    window.addEventListener("mouseleave", onWindowLeave);
+
+    return () => {
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+      rafId.current = 0;
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseleave", onWindowLeave);
+    };
+  }, [sidebarPinned, isPointerDownInSidebar]);
+
+  const menuItems = useMemo(() => {
+    const allMenuItems = [
+      {
+        name: "Dashboard",
+        path: userRole === "teacher" ? "/teacher-dashboard" : "/dashboard",
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+            />
+          </svg>
+        ),
+        roles: ["admin", "teacher", "coe"],
+      },
+      {
+        name: "Curriculum",
+        path: "/curriculum",
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+        ),
+        roles: ["admin", "curriculum_entry_user"],
+      },
+      {
+        name: "Student & Teacher",
+        path: "/student-teacher-dashboard",
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+            />
+          </svg>
+        ),
+        roles: ["admin"],
+      },
+      {
+        name: "Course Allocation",
+        path: "/course-allocation",
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+            />
+          </svg>
+        ),
+        roles: ["admin"],
+      },
+      {
+        name: "Teacher Courses",
+        path: "/teacher-courses",
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+            />
+          </svg>
+        ),
+        roles: ["admin"],
+      },
+      {
+        name: "Mark Entry",
+        path: "/mark-entry",
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+        ),
+        roles: ["teacher"],
+      },
+      {
+        name: "Assign Mark Entry",
+        path: "/coe-assign-mark-entry",
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+        ),
+        roles: ["coe"],
+      },
+    ];
+
+    return allMenuItems.filter((item) => item.roles.includes(userRole));
+  }, [userRole]);
+
+  const isActive = (path) => {
+    return location.pathname === path || location.pathname.startsWith(path + "/");
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userName");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("teacherId");
+    localStorage.removeItem("token");
+    navigate("/");
+  };
+
+  return (
+    <aside
+      onPointerDownCapture={() => setIsPointerDownInSidebar(true)}
+      className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 ${
+        isSidebarExpanded ? "w-64" : "w-20"
+      }`}
+    >
+      {/* Logo Header */}
+      <div
+        className={`h-16 flex items-center border-b border-gray-200 transition-all duration-300 ${
+          isSidebarExpanded ? "justify-between px-6" : "justify-center"
+        }`}
+      >
+        <div
+          className={`flex items-center transition-all duration-300 ${
+            isSidebarExpanded ? "space-x-3" : ""
+          }`}
+        >
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0"
+            style={{
+              background:
+                "linear-gradient(to bottom right, rgb(67, 113, 229), rgb(47, 93, 209))",
+            }}
+          >
+            <svg
+              className="w-6 h-6 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+              />
+            </svg>
+          </div>
+          {isSidebarExpanded && (
+            <div className="flex flex-col overflow-hidden">
+              <span
+                className="text-lg font-bold whitespace-nowrap"
+                style={{
+                  background:
+                    "linear-gradient(to right, rgb(67, 113, 229), rgb(47, 93, 209))",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                CMS
+              </span>
+              <span className="text-xs text-gray-500 font-medium whitespace-nowrap">
+                Curriculum Portal
+              </span>
+            </div>
+          )}
+        </div>
+
+        {isSidebarExpanded && (
+          <button
+            onClick={() => setSidebarPinned((v) => !v)}
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition-all duration-300 flex-shrink-0"
+            title={sidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
+          >
+            <svg
+              className="w-5 h-5 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d={
+                  sidebarPinned
+                    ? "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    : "M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                }
+              />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <nav className="p-4 space-y-1">
+        {menuItems.map((item) => (
+          <button
+            key={item.path}
+            onClick={() => navigate(item.path)}
+            className={`w-full flex items-center rounded-lg transition-all duration-300 ease-in-out ${
+              isActive(item.path)
+                ? "font-medium"
+                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+            } ${
+              isSidebarExpanded
+                ? "px-4 py-3 justify-start"
+                : "px-0 py-3 justify-center"
+            }`}
+            style={{
+              ...(isActive(item.path)
+                ? {
+                    backgroundColor: "rgba(67, 113, 229, 0.1)",
+                    color: "rgb(67, 113, 229)",
+                  }
+                : {}),
+            }}
+          >
+            <div className="flex items-center gap-3 transition-all duration-300 ease-in-out">
+              <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+                {item.icon}
+              </div>
+              {isSidebarExpanded && (
+                <span className="whitespace-nowrap overflow-hidden">{item.name}</span>
+              )}
+            </div>
+          </button>
+        ))}
+      </nav>
+
+      {/* User Section */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+        <div
+          className={`flex items-center transition-all duration-300 overflow-hidden ${
+            isSidebarExpanded ? "space-x-3" : "justify-center"
+          }`}
+        >
+          <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+            {userName.charAt(0).toUpperCase()}
+          </div>
+          <div
+            className="flex-1 min-w-0 transition-all duration-300"
+            style={{
+              opacity: isSidebarExpanded ? 1 : 0,
+              transform: isSidebarExpanded ? "translateX(0)" : "translateX(-10px)",
+              width: isSidebarExpanded ? "auto" : "0",
+            }}
+          >
+            <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
+            <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          className="mt-3 w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-all duration-300 overflow-hidden"
+          style={{
+            opacity: isSidebarExpanded ? 1 : 0,
+            transform: isSidebarExpanded ? "scaleY(1)" : "scaleY(0)",
+            maxHeight: isSidebarExpanded ? "100px" : "0",
+            marginTop: isSidebarExpanded ? "0.75rem" : "0",
+          }}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            />
+          </svg>
+          <span>Logout</span>
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+export default React.memo(Sidebar);

@@ -20,6 +20,7 @@ import (
 // Teacher represents the teacher model
 type Teacher struct {
 	ID         int64     `json:"id"`
+	FacultyID  string    `json:"faculty_id"`
 	Name       string    `json:"name"`
 	Email      string    `json:"email"`
 	Phone      *string   `json:"phone"`
@@ -48,7 +49,7 @@ func GetTeachers(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT 
-			t.id, t.name, t.email, t.phone, t.profile_img, 
+			t.id, t.faculty_id, t.name, t.email, t.phone, t.profile_img, 
 			t.dept, d.department_name as department, t.desg, 
 			t.last_login, t.status
 		FROM teachers t
@@ -69,7 +70,7 @@ func GetTeachers(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var teacher Teacher
 		err := rows.Scan(
-			&teacher.ID, &teacher.Name, &teacher.Email, &teacher.Phone,
+			&teacher.ID, &teacher.FacultyID, &teacher.Name, &teacher.Email, &teacher.Phone,
 			&teacher.ProfileImg, &teacher.Dept, &teacher.Department, &teacher.Desg,
 			&teacher.LastLogin, &teacher.Status,
 		)
@@ -103,7 +104,7 @@ func GetTeacherByID(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT 
-			t.id, t.name, t.email, t.phone, t.profile_img, 
+			t.id, t.faculty_id, t.name, t.email, t.phone, t.profile_img, 
 			t.dept, d.department_name as department, t.desg, 
 			t.last_login, t.status
 		FROM teachers t
@@ -113,7 +114,7 @@ func GetTeacherByID(w http.ResponseWriter, r *http.Request) {
 
 	var teacher Teacher
 	err = db.DB.QueryRow(query, id).Scan(
-		&teacher.ID, &teacher.Name, &teacher.Email, &teacher.Phone,
+		&teacher.ID, &teacher.FacultyID, &teacher.Name, &teacher.Email, &teacher.Phone,
 		&teacher.ProfileImg, &teacher.Dept, &teacher.Department, &teacher.Desg,
 		&teacher.LastLogin, &teacher.Status,
 	)

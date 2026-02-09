@@ -12,6 +12,20 @@ import (
 	"server/models"
 )
 
+func mapCourseCategoryToTypeID(category string) int {
+	categoryLower := strings.ToLower(strings.TrimSpace(category))
+	if categoryLower == "" {
+		return 0
+	}
+	if strings.Contains(categoryLower, "theory") && strings.Contains(categoryLower, "lab") {
+		return 3
+	}
+	if strings.Contains(categoryLower, "lab") {
+		return 2
+	}
+	return 1
+}
+
 // GetMarkCategoriesByType fetches all mark categories for a specific course type
 func GetMarkCategoriesByType(w http.ResponseWriter, r *http.Request) {
 	// Enable CORS
@@ -28,7 +42,7 @@ func GetMarkCategoriesByType(w http.ResponseWriter, r *http.Request) {
 	// Extract courseTypeId from URL path: /api/mark-categories-by-type/{courseTypeId}
 	pathParts := strings.Split(r.URL.Path, "/")
 	courseTypeIdStr := pathParts[len(pathParts)-1]
-	
+
 	courseTypeID, err := strconv.Atoi(courseTypeIdStr)
 	if err != nil {
 		http.Error(w, "Invalid course type ID", http.StatusBadRequest)
@@ -44,18 +58,151 @@ func GetMarkCategoriesByType(w http.ResponseWriter, r *http.Request) {
 	// Query mark categories filtered by course_type_id and learning_mode_id, ordered by position
 	query := `
 		SELECT 
-			id,
-			name,
-			max_marks,
-			conversion_marks,
-			position,
-			course_type_id,
-			category_name_id,
-			learning_mode_id,
-			status
-		FROM mark_category_types
-		WHERE course_type_id = ? AND learning_mode_id = 2 AND status = 1
-		ORDER BY position ASC
+			mct.id,
+			mct.name,
+			mct.max_marks,
+			mct.conversion_marks,
+			mct.position,
+			mct.course_type_id,
+			COALESCE(ct.course_type, '') as course_type_name,
+			mct.category_name_id,
+			COALESCE(mcn.category_name, '') as category_name,
+			mct.learning_mode_id,
+			mct.status
+		FROM mark_category_types mct
+		LEFT JOIN course_type ct ON mct.course_type_id = ct.id
+		LEFT JOIN mark_category_name mcn ON mct.category_name_id = mcn.id
+		WHERE mct.course_type_id = ? AND mct.learning_mode_id = 2 AND mct.status = 1
+		ORDER BY mct.position ASC
+	`
+
+	log.Printf("[DEBUG] Executing query with courseTypeID=%d", courseTypeID)
+	rows, err := database.Query(query, courseTypeID)
+	if err != nil {
+		log.Printf("Error fetching mark categories: %v", err)
+		http.Error(w, "Error fetching mark categories", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var categories []models.MarkCategoryType
+	for rows.Next() {
+		var category models.MarkCategoryType
+		err := rows.Scan(
+			&category.ID,
+			&category.Name,
+			&category.MaxMarks,
+			&category.ConversionMarks,
+			&category.Position,
+			&category.CourseTypeID,
+			&category.CourseTypeName,
+			&category.CategoryNameID,
+			&category.CategoryName,
+			&category.LearningModeID,
+			&category.Status,
+		)
+		if err != nil {
+			log.Printf("Error scanning mark category: %v", err)
+			continue
+		}
+		log.Printf("[DEBUG] Category ID=%d, Name=%s, CourseTypeName=%s, CategoryName=%s",
+			category.ID, category.Name, category.CourseTypeName, category.CategoryName)
+		categories = append(categories, category)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("Error iterating mark categories: %v", err)
+		http.Error(w, "Error processing mark categories", http.StatusInternalServerError)
+		return
+	}
+
+	// Return empty array if no categories found
+	if categories == nil {
+		categories = []models.MarkCategoryType{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(categories)
+}
+
+// GetMarkCategoriesForCourse returns mark categories enabled for a course and teacher.
+func GetMarkCategoriesForCourse(w http.ResponseWriter, r *http.Request) {
+	// Enable CORS
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Extract courseId from URL path: /api/course/{courseId}/mark-categories
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 3 {
+		http.Error(w, "Invalid course ID", http.StatusBadRequest)
+		return
+	}
+	courseIdStr := pathParts[len(pathParts)-2]
+	courseID, err := strconv.Atoi(courseIdStr)
+	if err != nil {
+		http.Error(w, "Invalid course ID", http.StatusBadRequest)
+		return
+	}
+
+	teacherID := r.URL.Query().Get("teacher_id")
+	if teacherID == "" {
+		http.Error(w, "Teacher ID is required", http.StatusBadRequest)
+		return
+	}
+
+	database := db.DB
+	if database == nil {
+		http.Error(w, "Database connection failed", http.StatusInternalServerError)
+		return
+	}
+
+	windowOpen, allowedComponents, err := resolveMarkEntryWindow(courseID, teacherID)
+	if err != nil {
+		log.Printf("Error resolving mark entry window: %v", err)
+		http.Error(w, "Failed to validate mark entry window", http.StatusInternalServerError)
+		return
+	}
+	if !windowOpen {
+		http.Error(w, "Mark entry window is closed", http.StatusForbidden)
+		return
+	}
+
+	var courseCategory string
+	err = database.QueryRow(`SELECT COALESCE(category, '') FROM courses WHERE id = ?`, courseID).Scan(&courseCategory)
+	if err != nil {
+		log.Printf("Error fetching course category: %v", err)
+		http.Error(w, "Failed to resolve course category", http.StatusInternalServerError)
+		return
+	}
+
+	courseTypeID := mapCourseCategoryToTypeID(courseCategory)
+	if courseTypeID == 0 {
+		http.Error(w, "Could not determine course type", http.StatusBadRequest)
+		return
+	}
+
+	// Window component filtering now handles all access control
+	query := `
+		SELECT 
+			mct.id,
+			mct.name,
+			mct.max_marks,
+			mct.conversion_marks,
+			mct.position,
+			mct.course_type_id,
+			mct.category_name_id,
+			mct.learning_mode_id,
+			mct.status
+		FROM mark_category_types mct
+		WHERE mct.course_type_id = ? AND mct.learning_mode_id = 2 AND mct.status = 1
+		ORDER BY mct.position ASC
 	`
 
 	rows, err := database.Query(query, courseTypeID)
@@ -84,6 +231,21 @@ func GetMarkCategoriesByType(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error scanning mark category: %v", err)
 			continue
 		}
+
+		// Filter by window component permissions (if specified)
+		if len(allowedComponents) > 0 {
+			allowed := false
+			for _, allowedID := range allowedComponents {
+				if category.ID == allowedID {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				continue // Skip this component - not in window's allowed list
+			}
+		}
+
 		categories = append(categories, category)
 	}
 
@@ -93,12 +255,10 @@ func GetMarkCategoriesByType(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return empty array if no categories found
 	if categories == nil {
 		categories = []models.MarkCategoryType{}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(categories)
 }
 
@@ -133,11 +293,36 @@ func SaveStudentMarks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	windowOpen, allowedComponents, err := resolveMarkEntryWindow(saveRequest.CourseID, saveRequest.FacultyID)
+	if err != nil {
+		log.Printf("Error resolving mark entry window: %v", err)
+		http.Error(w, "Failed to validate mark entry window", http.StatusInternalServerError)
+		return
+	}
+	if !windowOpen {
+		http.Error(w, "Mark entry window is closed", http.StatusForbidden)
+		return
+	}
+
+	// Build map of window-allowed components (empty = all allowed)
+	allowedByWindow := map[int]bool{}
+	if len(allowedComponents) > 0 {
+		for _, componentID := range allowedComponents {
+			allowedByWindow[componentID] = true
+		}
+	}
+
 	savedCount := 0
 	var errors []string
 
 	// Process each mark entry
 	for _, entry := range saveRequest.MarkEntries {
+		// Check window component permissions
+		if len(allowedByWindow) > 0 && !allowedByWindow[entry.AssessmentComponentID] {
+			errors = append(errors, fmt.Sprintf("Student %d: component %d not allowed by window", entry.StudentID, entry.AssessmentComponentID))
+			continue
+		}
+
 		// Validate student enrollment in course
 		var studentEnrolled bool
 		err := database.QueryRow(`
@@ -171,7 +356,7 @@ func SaveStudentMarks(w http.ResponseWriter, r *http.Request) {
 
 		// Validate obtained marks against max marks
 		if entry.ObtainedMarks < 0 || entry.ObtainedMarks > maxMarks {
-			errors = append(errors, fmt.Sprintf("Student %d: marks %.2f exceed maximum %.0f", 
+			errors = append(errors, fmt.Sprintf("Student %d: marks %.2f exceed maximum %.0f",
 				entry.StudentID, entry.ObtainedMarks, maxMarks))
 			continue
 		}
@@ -216,7 +401,7 @@ func SaveStudentMarks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(errors) > 0 {
-		response.Message = fmt.Sprintf("Saved %d/%d marks. Errors: %s", 
+		response.Message = fmt.Sprintf("Saved %d/%d marks. Errors: %s",
 			savedCount, len(saveRequest.MarkEntries), strings.Join(errors, "; "))
 	} else {
 		response.Message = fmt.Sprintf("Successfully saved %d mark entries", savedCount)
@@ -242,16 +427,33 @@ func GetStudentMarks(w http.ResponseWriter, r *http.Request) {
 	// Extract courseId from URL path: /api/course/{courseId}/student-marks
 	pathParts := strings.Split(r.URL.Path, "/")
 	courseIdStr := pathParts[len(pathParts)-2]
-	
+
 	courseID, err := strconv.Atoi(courseIdStr)
 	if err != nil {
 		http.Error(w, "Invalid course ID", http.StatusBadRequest)
 		return
 	}
 
+	teacherID := r.URL.Query().Get("teacher_id")
+	if teacherID == "" {
+		http.Error(w, "Teacher ID is required", http.StatusBadRequest)
+		return
+	}
+
 	database := db.DB
 	if database == nil {
 		http.Error(w, "Database connection failed", http.StatusInternalServerError)
+		return
+	}
+
+	windowOpen, _, err := resolveMarkEntryWindow(courseID, teacherID)
+	if err != nil {
+		log.Printf("Error resolving mark entry window: %v", err)
+		http.Error(w, "Failed to validate mark entry window", http.StatusInternalServerError)
+		return
+	}
+	if !windowOpen {
+		http.Error(w, "Mark entry window is closed", http.StatusForbidden)
 		return
 	}
 
