@@ -148,11 +148,10 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/cluster/{id}/shared-content", curriculum.GetClusterSharedContent).Methods("GET", "OPTIONS")
 
 	// Mark Entry routes
-	router.HandleFunc("/api/mark-entry-permissions", curriculum.GetMarkEntryPermissions).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/mark-entry-permissions", curriculum.SaveMarkEntryPermissions).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/mark-entry-window", curriculum.GetMarkEntryWindow).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/mark-entry-window", curriculum.SaveMarkEntryWindow).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/mark-entry-windows", curriculum.GetAllMarkEntryWindows).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/mark-entry-windows/stats", curriculum.GetMarkEntryStats).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/mark-entry-windows/{id}", curriculum.UpdateMarkEntryWindow).Methods("PUT", "OPTIONS")
 	router.HandleFunc("/api/mark-entry-windows/{id}", curriculum.DeleteMarkEntryWindow).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/course/{courseId}/mark-categories", curriculum.GetMarkCategoriesForCourse).Methods("GET", "OPTIONS")

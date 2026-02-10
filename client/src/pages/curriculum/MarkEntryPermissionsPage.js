@@ -1,15 +1,28 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
 
+// Helper function to format date for datetime-local input (preserves local timezone)
+const formatDateTimeLocal = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
 function MarkEntryPermissionsPage() {
+  const navigate = useNavigate()
+  const userRole = localStorage.getItem('userRole')
+  
   const [teachers, setTeachers] = useState([])
   const [selectedTeacherId, setSelectedTeacherId] = useState('')
   const [courses, setCourses] = useState([])
   const [selectedCourseId, setSelectedCourseId] = useState('')
-  const [categories, setCategories] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [departments, setDepartments] = useState([])
   const [windowScope, setWindowScope] = useState('teacher_course')
@@ -28,6 +41,13 @@ function MarkEntryPermissionsPage() {
   const [showWindowList, setShowWindowList] = useState(false)
   const [teacherSearch, setTeacherSearch] = useState('')
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false)
+
+  // Check if user has COE role
+  useEffect(() => {
+    if (userRole !== 'coe') {
+      navigate('/dashboard')
+    }
+  }, [userRole, navigate])
 
   useEffect(() => {
     fetchTeachers()
@@ -65,20 +85,13 @@ function MarkEntryPermissionsPage() {
     } else {
       setCourses([])
       setSelectedCourseId('')
-      setCategories([])
     }
   }, [selectedTeacherId])
 
-  useEffect(() => {
-    if (selectedTeacherId && selectedCourseId) {
-      fetchPermissions(selectedCourseId, selectedTeacherId)
-    } else {
-      setCategories([])
-    }
-  }, [selectedTeacherId, selectedCourseId])
+
 
   useEffect(() => {
-    if (windowScope === 'department_semester_course' && windowDepartmentId && windowSemester) {
+    if (windowScope === 'department_semester_course' && windowDepartmentId && windowDepartmentId !== '0' && windowSemester) {
       fetchDepartmentCourses(windowDepartmentId, windowSemester)
     } else {
       setWindowCourses([])
@@ -185,7 +198,6 @@ function MarkEntryPermissionsPage() {
   }
 
   const fetchTeacherCourses = async (teacherId) => {
-    setLoading(true)
     setMessage({ type: '', text: '' })
     try {
       const res = await fetch(`${API_BASE_URL}/teachers/${teacherId}/courses`)
@@ -202,29 +214,10 @@ function MarkEntryPermissionsPage() {
       setCourses([])
       setSelectedCourseId('')
       setMessage({ type: 'error', text: 'Failed to load courses for teacher.' })
-    } finally {
-      setLoading(false)
     }
   }
 
-  const fetchPermissions = async (courseId, teacherId) => {
-    setLoading(true)
-    setMessage({ type: '', text: '' })
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/mark-entry-permissions?course_id=${courseId}&teacher_id=${teacherId}`
-      )
-      if (!res.ok) throw new Error('Failed to fetch permissions')
-      const data = await res.json()
-      setCategories(Array.isArray(data) ? data : [])
-    } catch (error) {
-      console.error('Error fetching permissions:', error)
-      setCategories([])
-      setMessage({ type: 'error', text: 'Failed to load mark entry permissions.' })
-    } finally {
-      setLoading(false)
-    }
-  }
+
 
   const fetchDepartmentCourses = async (departmentId, semester) => {
     setWindowLoading(true)
@@ -258,14 +251,18 @@ function MarkEntryPermissionsPage() {
     }
 
     if (windowScope === 'department_semester') {
-      if (!windowDepartmentId || !windowSemester) return ''
-      params.append('department_id', windowDepartmentId)
+      if (windowDepartmentId === '' || !windowSemester) return ''
+      if (windowDepartmentId !== '0') {
+        params.append('department_id', windowDepartmentId)
+      }
       params.append('semester', windowSemester)
     }
 
     if (windowScope === 'department_semester_course') {
-      if (!windowDepartmentId || !windowSemester || !windowCourseId) return ''
-      params.append('department_id', windowDepartmentId)
+      if (windowDepartmentId === '' || !windowSemester || !windowCourseId) return ''
+      if (windowDepartmentId !== '0') {
+        params.append('department_id', windowDepartmentId)
+      }
       params.append('semester', windowSemester)
       params.append('course_id', windowCourseId)
     }
@@ -296,8 +293,8 @@ function MarkEntryPermissionsPage() {
         return
       }
 
-      setWindowStartAt(data.start_at || '')
-      setWindowEndAt(data.end_at || '')
+      setWindowStartAt(formatDateTimeLocal(data.start_at))
+      setWindowEndAt(formatDateTimeLocal(data.end_at))
       setWindowEnabled(data.enabled !== false)
       setSelectedWindowComponents(data.component_ids || [])
     } catch (error) {
@@ -308,53 +305,7 @@ function MarkEntryPermissionsPage() {
     }
   }
 
-  const toggleCategory = (categoryId) => {
-    setCategories((prev) =>
-      prev.map((category) =>
-        category.id === categoryId
-          ? { ...category, enabled: !category.enabled }
-          : category
-      )
-    )
-  }
 
-  const setAllCategories = (enabled) => {
-    setCategories((prev) => prev.map((category) => ({ ...category, enabled })))
-  }
-
-  const savePermissions = async () => {
-    if (!selectedTeacherId || !selectedCourseId) {
-      setMessage({ type: 'error', text: 'Select a teacher and course first.' })
-      return
-    }
-
-    setSaving(true)
-    setMessage({ type: '', text: '' })
-    try {
-      const payload = {
-        course_id: parseInt(selectedCourseId, 10),
-        teacher_id: selectedTeacherId,
-        permissions: categories.map((category) => ({
-          assessment_component_id: category.id,
-          enabled: !!category.enabled,
-        })),
-      }
-
-      const res = await fetch(`${API_BASE_URL}/mark-entry-permissions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!res.ok) throw new Error('Failed to save permissions')
-      setMessage({ type: 'success', text: 'Permissions updated successfully.' })
-    } catch (error) {
-      console.error('Error saving permissions:', error)
-      setMessage({ type: 'error', text: 'Failed to save permissions.' })
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const saveWindowRule = async () => {
     if (!windowStartAt || !windowEndAt) {
@@ -362,9 +313,13 @@ function MarkEntryPermissionsPage() {
       return
     }
 
+    // Convert datetime-local to ISO 8601 format with timezone
+    const startDate = new Date(windowStartAt)
+    const endDate = new Date(windowEndAt)
+
     const payload = {
-      start_at: windowStartAt,
-      end_at: windowEndAt,
+      start_at: startDate.toISOString(),
+      end_at: endDate.toISOString(),
       enabled: windowEnabled,
       component_ids: selectedWindowComponents.length > 0 ? selectedWindowComponents : null,
     }
@@ -379,20 +334,24 @@ function MarkEntryPermissionsPage() {
     }
 
     if (windowScope === 'department_semester') {
-      if (!windowDepartmentId || !windowSemester) {
+      if (windowDepartmentId === '' || !windowSemester) {
         setMessage({ type: 'error', text: 'Select a department and semester.' })
         return
       }
-      payload.department_id = parseInt(windowDepartmentId, 10)
+      if (windowDepartmentId !== '0') {
+        payload.department_id = parseInt(windowDepartmentId, 10)
+      }
       payload.semester = parseInt(windowSemester, 10)
     }
 
     if (windowScope === 'department_semester_course') {
-      if (!windowDepartmentId || !windowSemester || !windowCourseId) {
+      if (windowDepartmentId === '' || !windowSemester || !windowCourseId) {
         setMessage({ type: 'error', text: 'Select department, semester, and course.' })
         return
       }
-      payload.department_id = parseInt(windowDepartmentId, 10)
+      if (windowDepartmentId !== '0') {
+        payload.department_id = parseInt(windowDepartmentId, 10)
+      }
       payload.semester = parseInt(windowSemester, 10)
       payload.course_id = parseInt(windowCourseId, 10)
     }
@@ -444,8 +403,8 @@ function MarkEntryPermissionsPage() {
 
   const editWindow = (win) => {
     setEditingWindow(win)
-    setWindowStartAt(new Date(win.start_at).toISOString().slice(0, 16))
-    setWindowEndAt(new Date(win.end_at).toISOString().slice(0, 16))
+    setWindowStartAt(formatDateTimeLocal(win.start_at))
+    setWindowEndAt(formatDateTimeLocal(win.end_at))
     setWindowEnabled(win.enabled)
     setSelectedWindowComponents(win.component_ids || [])
     
@@ -454,14 +413,14 @@ function MarkEntryPermissionsPage() {
       setWindowScope('teacher_course')
       setSelectedTeacherId(win.teacher_id)
       setSelectedCourseId(win.course_id.toString())
-    } else if (win.department_id && win.semester && win.course_id) {
+    } else if (win.semester && win.course_id) {
       setWindowScope('department_semester_course')
-      setWindowDepartmentId(win.department_id.toString())
+      setWindowDepartmentId(win.department_id ? win.department_id.toString() : '0')
       setWindowSemester(win.semester.toString())
       setWindowCourseId(win.course_id.toString())
-    } else if (win.department_id && win.semester) {
+    } else if (win.semester) {
       setWindowScope('department_semester')
-      setWindowDepartmentId(win.department_id.toString())
+      setWindowDepartmentId(win.department_id ? win.department_id.toString() : '0')
       setWindowSemester(win.semester.toString())
     }
 
@@ -472,9 +431,13 @@ function MarkEntryPermissionsPage() {
   const updateWindow = async () => {
     if (!editingWindow) return
 
+    // Convert datetime-local to ISO 8601 format with timezone
+    const startDate = new Date(windowStartAt)
+    const endDate = new Date(windowEndAt)
+
     const payload = {
-      start_at: windowStartAt,
-      end_at: windowEndAt,
+      start_at: startDate.toISOString(),
+      end_at: endDate.toISOString(),
       enabled: windowEnabled,
       component_ids: selectedWindowComponents.length > 0 ? selectedWindowComponents : null,
     }
@@ -513,300 +476,152 @@ function MarkEntryPermissionsPage() {
       return `${window.department_name} - Sem ${window.semester} - ${window.course_code}`
     } else if (window.department_id && window.semester) {
       return `${window.department_name} - Semester ${window.semester} (Least Specific)`
+    } else if (!window.department_id && window.semester && window.course_id) {
+      return `All Departments - Sem ${window.semester} - ${window.course_code}`
+    } else if (!window.department_id && window.semester) {
+      return `All Departments - Semester ${window.semester}`
     }
     return 'Unknown scope'
   }
 
   const getWindowStatus = (win) => {
     const now = new Date()
+    const startAt = new Date(win.start_at)
     const endAt = new Date(win.end_at)
     
-    if (now > endAt) {
-      return { status: 'Expired', color: 'bg-yellow-100 text-yellow-800' }
-    } else if (!win.enabled) {
+    if (!win.enabled) {
       return { status: 'Disabled', color: 'bg-red-100 text-red-800' }
+    } else if (now < startAt) {
+      return { status: 'Scheduled', color: 'bg-blue-100 text-blue-800' }
+    } else if (now > endAt) {
+      return { status: 'Expired', color: 'bg-yellow-100 text-yellow-800' }
     } else {
       return { status: 'Active', color: 'bg-green-100 text-green-800' }
     }
   }
 
   return (
-    <MainLayout title="Mark Entry Permissions" subtitle="Enable mark entry components for teachers">
+    <MainLayout title="Mark Permissions" subtitle="Manage mark entry windows and permissions">
       <div className="space-y-6">
+        
+        {/* Message Alert */}
         {message.text && (
           <div
-            className={`rounded-lg p-4 ${
+            className={`rounded-lg p-4 border-l-4 ${
               message.type === 'error'
-                ? 'bg-red-100 text-red-800 border border-red-400'
+                ? 'bg-red-50 text-red-700 border-red-400'
                 : message.type === 'success'
-                ? 'bg-green-100 text-green-800 border border-green-400'
-                : 'bg-yellow-100 text-yellow-800 border border-yellow-400'
+                ? 'bg-green-50 text-green-700 border-green-400'
+                : 'bg-blue-50 text-blue-700 border-blue-400'
             }`}
           >
             {message.text}
           </div>
         )}
 
-        {/* Toggle button for existing windows list */}
-        <div className="flex justify-end">
-          <button
-            onClick={() => setShowWindowList(!showWindowList)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            {showWindowList ? 'Hide' : 'View'} Existing Windows ({existingWindows.length})
-          </button>
-        </div>
-
-        {/* Existing Windows List */}
-        {showWindowList && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Existing Mark Entry Windows</h3>
-            {existingWindows.length === 0 ? (
-              <p className="text-gray-500">No windows configured yet.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Scope
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Start
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        End
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Components
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {existingWindows.map((win) => (
-                      <tr key={win.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {getScopeDescription(win)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {new Date(win.start_at).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {new Date(win.end_at).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          {(() => {
-                            const { status, color } = getWindowStatus(win)
-                            return (
-                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${color}`}>
-                                {status}
-                              </span>
-                            )
-                          })()}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {win.component_ids && win.component_ids.length > 0
-                            ? `${win.component_ids.length} selected`
-                            : 'All allowed'}
-                        </td>
-                        <td className="px-4 py-3 text-sm space-x-2">
-                          <button
-                            onClick={() => editWindow(win)}
-                            className="text-indigo-600 hover:text-indigo-900 font-medium"
+        {/* Teacher & Course Selection Card */}
+        {windowScope === 'teacher_course' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="border-b border-gray-200 px-6 py-3">
+              <h3 className="text-sm font-semibold text-gray-700">Teacher & Course Selection</h3>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="relative teacher-search-container">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Teacher
+                  </label>
+                  <input
+                    type="text"
+                    value={teacherSearch}
+                    onChange={(e) => {
+                      setTeacherSearch(e.target.value)
+                      setShowTeacherDropdown(true)
+                    }}
+                    onFocus={() => setShowTeacherDropdown(true)}
+                    placeholder="Search by name or ID..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  {showTeacherDropdown && (
+                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {teachers
+                        .filter(
+                          (teacher) =>
+                            teacher.name.toLowerCase().includes(teacherSearch.toLowerCase()) ||
+                            teacher.faculty_id.toLowerCase().includes(teacherSearch.toLowerCase())
+                        )
+                        .slice(0, 50)
+                        .map((teacher) => (
+                          <div
+                            key={teacher.faculty_id}
+                            onClick={() => {
+                              setSelectedTeacherId(teacher.faculty_id)
+                              setTeacherSearch(`${teacher.name} (${teacher.faculty_id})`)
+                              setShowTeacherDropdown(false)
+                            }}
+                            className={`px-3 py-2 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-0 ${
+                              selectedTeacherId === teacher.faculty_id ? 'bg-blue-50' : ''
+                            }`}
                           >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => deleteWindow(win.id)}
-                            className="text-red-600 hover:text-red-900 font-medium"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-indigo-500">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative teacher-search-container">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Teacher</label>
-              <input
-                type="text"
-                value={teacherSearch}
-                onChange={(e) => {
-                  setTeacherSearch(e.target.value)
-                  setShowTeacherDropdown(true)
-                }}
-                onFocus={() => setShowTeacherDropdown(true)}
-                placeholder="Search teacher by name or ID..."
-                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
-              />
-              {showTeacherDropdown && (
-                <div className="absolute z-10 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {teachers
-                    .filter(
-                      (teacher) =>
-                        teacher.name.toLowerCase().includes(teacherSearch.toLowerCase()) ||
-                        teacher.faculty_id.toLowerCase().includes(teacherSearch.toLowerCase())
-                    )
-                    .slice(0, 50)
-                    .map((teacher) => (
-                      <div
-                        key={teacher.faculty_id}
-                        onClick={() => {
-                          setSelectedTeacherId(teacher.faculty_id)
-                          setTeacherSearch(`${teacher.name} (${teacher.faculty_id})`)
-                          setShowTeacherDropdown(false)
-                        }}
-                        className={`px-4 py-2 cursor-pointer hover:bg-indigo-50 ${
-                          selectedTeacherId === teacher.faculty_id ? 'bg-indigo-100' : ''
-                        }`}
-                      >
-                        <div className="font-medium text-gray-900">{teacher.name}</div>
-                        <div className="text-sm text-gray-500">ID: {teacher.faculty_id}</div>
-                      </div>
-                    ))}
-                  {teachers.filter(
-                    (teacher) =>
-                      teacher.name.toLowerCase().includes(teacherSearch.toLowerCase()) ||
-                      teacher.faculty_id.toLowerCase().includes(teacherSearch.toLowerCase())
-                  ).length === 0 && (
-                    <div className="px-4 py-3 text-sm text-gray-500">No teachers found</div>
+                            <div className="font-medium text-gray-900">{teacher.name}</div>
+                            <div className="text-sm text-gray-500">{teacher.faculty_id}</div>
+                          </div>
+                        ))}
+                      {teachers.filter(
+                        (teacher) =>
+                          teacher.name.toLowerCase().includes(teacherSearch.toLowerCase()) ||
+                          teacher.faculty_id.toLowerCase().includes(teacherSearch.toLowerCase())
+                      ).length === 0 && (
+                        <div className="px-3 py-4 text-sm text-gray-500 text-center">No teachers found</div>
+                      )}
+                    </div>
+                  )}
+                  {selectedTeacherId && (
+                    <button
+                      onClick={() => {
+                        setSelectedTeacherId('')
+                        setTeacherSearch('')
+                        setCourses([])
+                        setSelectedCourseId('')
+                      }}
+                      className="absolute right-2 top-9 text-gray-400 hover:text-gray-600"
+                    >
+                      ✕
+                    </button>
                   )}
                 </div>
-              )}
-              {selectedTeacherId && (
-                <button
-                  onClick={() => {
-                    setSelectedTeacherId('')
-                    setTeacherSearch('')
-                    setCourses([])
-                    setSelectedCourseId('')
-                  }}
-                  className="absolute right-2 top-9 text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Course</label>
-              <select
-                value={selectedCourseId}
-                onChange={(e) => setSelectedCourseId(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
-                disabled={!selectedTeacherId}
-              >
-                <option value="">Select Course</option>
-                {courses.map((course) => (
-                  <option key={course.course_id} value={course.course_id}>
-                    {course.course_code} - {course.course_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {selectedTeacherId && selectedCourseId && (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="p-6 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-800">Mark Components</h3>
-                <p className="text-sm text-gray-600 mt-1">Toggle which components teachers can enter</p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => setAllCategories(true)}
-                  className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                  Enable All
-                </button>
-                <button
-                  onClick={() => setAllCategories(false)}
-                  className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Disable All
-                </button>
-                <button
-                  onClick={savePermissions}
-                  disabled={saving}
-                  className="px-5 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors"
-                >
-                  {saving ? 'Saving...' : 'Save Permissions'}
-                </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Course
+                  </label>
+                  <select
+                    value={selectedCourseId}
+                    onChange={(e) => setSelectedCourseId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    disabled={!selectedTeacherId}
+                  >
+                    <option value="">Select Course</option>
+                    {courses.map((course) => (
+                      <option key={course.course_id} value={course.course_id}>
+                        {course.course_code} - {course.course_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
-
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse">
-                <thead>
-                  <tr className="bg-indigo-600 text-white">
-                    <th className="border border-indigo-400 px-4 py-2 text-left text-sm font-semibold">Component</th>
-                    <th className="border border-indigo-400 px-4 py-2 text-center text-sm font-semibold">Max Marks</th>
-                    <th className="border border-indigo-400 px-4 py-2 text-center text-sm font-semibold">Conversion</th>
-                    <th className="border border-indigo-400 px-4 py-2 text-center text-sm font-semibold">Enabled</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categories.map((category, idx) => (
-                    <tr
-                      key={category.id}
-                      className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                    >
-                      <td className="border border-gray-200 px-4 py-2 text-sm text-gray-800">
-                        {category.name}
-                      </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center text-sm text-gray-700">
-                        {category.max_marks}
-                      </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center text-sm text-gray-700">
-                        {category.conversion_marks}
-                      </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={!!category.enabled}
-                          onChange={() => toggleCategory(category.id)}
-                          className="h-4 w-4 accent-indigo-600"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {loading && (
-              <div className="p-4 text-sm text-gray-600">Loading permissions...</div>
-            )}
-
-            {!loading && categories.length === 0 && (
-              <div className="p-4 text-sm text-gray-600">No mark categories found for this course.</div>
-            )}
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-md overflow-hidden">
-          <div className="p-6 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        {/* Window Configuration Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-semibold text-gray-800">
+              <h3 className="text-sm font-semibold text-gray-700">
                 {editingWindow ? 'Edit Mark Entry Window' : 'Create Mark Entry Window'}
               </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                {editingWindow ? 'Update window dates and settings' : 'Control the date range for mark entry'}
+              <p className="text-xs text-gray-500 mt-1">
+                {editingWindow ? 'Update window configuration' : 'Define time-based access control'}
               </p>
             </div>
             <div className="flex gap-2">
@@ -814,13 +629,13 @@ function MarkEntryPermissionsPage() {
                 <>
                   <button
                     onClick={cancelEdit}
-                    className="px-5 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition-colors"
+                    className="px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={updateWindow}
-                    className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     disabled={windowLoading}
                   >
                     {windowLoading ? 'Updating...' : 'Update Window'}
@@ -829,7 +644,7 @@ function MarkEntryPermissionsPage() {
               ) : (
                 <button
                   onClick={saveWindowRule}
-                  className="px-5 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   disabled={windowLoading}
                 >
                   {windowLoading ? 'Saving...' : 'Save Window'}
@@ -838,23 +653,27 @@ function MarkEntryPermissionsPage() {
             </div>
           </div>
 
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-5">
             {editingWindow && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-blue-800">
-                  <strong>Editing:</strong> {getScopeDescription(editingWindow)}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-900">
+                  <span className="font-semibold">Editing:</span> {getScopeDescription(editingWindow)}
                 </p>
               </div>
             )}
+
+            {/* Scope Selection */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Scope</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Window Scope
+              </label>
               <select
                 value={windowScope}
                 onChange={(e) => setWindowScope(e.target.value)}
                 disabled={editingWindow !== null}
-                className="w-full max-w-md px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
-                <option value="teacher_course">Teacher + Course</option>
+                <option value="teacher_course">Teacher + Course (Most Specific)</option>
                 <option value="department_semester">Department + Semester</option>
                 <option value="department_semester_course">Department + Semester + Course</option>
               </select>
@@ -863,144 +682,232 @@ function MarkEntryPermissionsPage() {
               )}
             </div>
 
-            {windowScope === 'teacher_course' && (
-              <div className="text-sm text-gray-600">
-                Using the selected teacher and course above.
-              </div>
-            )}
-
+            {/* Department/Semester Selection */}
             {(windowScope === 'department_semester' || windowScope === 'department_semester_course') && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Department</label>
-                  <select
-                    value={windowDepartmentId}
-                    onChange={(e) => setWindowDepartmentId(e.target.value)}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
-                  >
-                    <option value="">Select Department</option>
-                    {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.department_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Semester</label>
-                  <select
-                    value={windowSemester}
-                    onChange={(e) => setWindowSemester(e.target.value)}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
-                  >
-                    <option value="">Select Semester</option>
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
-                      <option key={sem} value={sem}>
-                        Semester {sem}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {windowScope === 'department_semester_course' && (
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Department & Semester</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Course</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
                     <select
-                      value={windowCourseId}
-                      onChange={(e) => setWindowCourseId(e.target.value)}
-                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
+                      value={windowDepartmentId}
+                      onChange={(e) => setWindowDepartmentId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                     >
-                      <option value="">Select Course</option>
-                      {windowCourses.map((course) => (
-                        <option key={course.course_id} value={course.course_id}>
-                          {course.course_code} - {course.course_name}
+                      <option value="">Select Department</option>
+                      <option value="0">All Departments</option>
+                      {departments.map((department) => (
+                        <option key={department.id} value={department.id}>
+                          {department.department_name}
                         </option>
                       ))}
                     </select>
                   </div>
-                )}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Semester</label>
+                    <select
+                      value={windowSemester}
+                      onChange={(e) => setWindowSemester(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                    >
+                      <option value="">Select Semester</option>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                        <option key={sem} value={sem}>
+                          Semester {sem}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {windowScope === 'department_semester_course' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Course</label>
+                      {windowDepartmentId === '0' ? (
+                        <input
+                          type="number"
+                          value={windowCourseId}
+                          onChange={(e) => setWindowCourseId(e.target.value)}
+                          placeholder="Enter Course ID"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                        />
+                      ) : (
+                        <select
+                          value={windowCourseId}
+                          onChange={(e) => setWindowCourseId(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                        >
+                          <option value="">Select Course</option>
+                          {windowCourses.map((course) => (
+                            <option key={course.course_id} value={course.course_id}>
+                              {course.course_code} - {course.course_name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Allowed Components (empty = all allowed)
-              </label>
-              <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                {Object.entries(
-                  windowComponents.reduce((groups, component) => {
-                    const courseTypeName = component.course_type_name || 'Other'
-                    console.log(`[DEBUG] Grouping component ${component.id} (${component.name}): course_type_name='${component.course_type_name}' -> group='${courseTypeName}'`)
-                    if (!groups[courseTypeName]) groups[courseTypeName] = []
-                    groups[courseTypeName].push(component)
-                    return groups
-                  }, {})
-                ).map(([courseTypeName, components]) => (
-                  <div key={courseTypeName} className="space-y-2">
-                    <h4 className="text-sm font-bold text-indigo-700 uppercase tracking-wide">
-                      {courseTypeName}
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pl-2">
-                      {components.map((component) => (
-                        <label
-                          key={component.id}
-                          className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:text-indigo-600"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedWindowComponents.includes(component.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedWindowComponents([...selectedWindowComponents, component.id])
-                              } else {
-                                setSelectedWindowComponents(
-                                  selectedWindowComponents.filter((id) => id !== component.id)
-                                )
-                              }
-                            }}
-                            className="h-4 w-4 accent-indigo-600"
-                          />
-                          <span className="font-medium">{component.name}</span>
-                        </label>
-                      ))}
+            {/* Time Window */}
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Time Window Configuration</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Start Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={windowStartAt}
+                    onChange={(e) => setWindowStartAt(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">End Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={windowEndAt}
+                    onChange={(e) => setWindowEndAt(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="mt-3">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={windowEnabled}
+                    onChange={(e) => setWindowEnabled(e.target.checked)}
+                    className="h-4 w-4 accent-blue-600 cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-700 font-medium">Enable this window</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Component Selection */}
+            {windowComponents.length > 0 && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Allowed Mark Components
+                </label>
+                <div className="space-y-3">
+                  {Object.entries(
+                    windowComponents.reduce((groups, component) => {
+                      const courseTypeName = component.course_type_name || 'Other'
+                      if (!groups[courseTypeName]) groups[courseTypeName] = []
+                      groups[courseTypeName].push(component)
+                      return groups
+                    }, {})
+                  ).map(([courseTypeName, components]) => (
+                    <div key={courseTypeName} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">
+                        {courseTypeName}
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {components.map((component) => (
+                          <label
+                            key={component.id}
+                            className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:text-blue-600"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedWindowComponents.includes(component.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedWindowComponents([...selectedWindowComponents, component.id])
+                                } else {
+                                  setSelectedWindowComponents(
+                                    selectedWindowComponents.filter((id) => id !== component.id)
+                                  )
+                                }
+                              }}
+                              className="h-4 w-4 accent-blue-600 cursor-pointer"
+                            />
+                            <span className="font-medium">{component.name}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Leave all unchecked to allow all components, or select specific ones to restrict access.
+                </p>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Leave all unchecked to allow all components. Select specific ones to restrict access.
-              </p>
-            </div>
+            )}
+          </div>
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Start Date</label>
-                <input
-                  type="datetime-local"
-                  value={windowStartAt}
-                  onChange={(e) => setWindowStartAt(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
-                />
+        {/* Existing Windows List */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-700">Existing Windows</h3>
+            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+              {existingWindows.length} {existingWindows.length === 1 ? 'window' : 'windows'}
+            </span>
+          </div>
+          <div className="p-6">
+            {existingWindows.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <p className="text-sm">No windows configured yet</p>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">End Date</label>
-                <input
-                  type="datetime-local"
-                  value={windowEndAt}
-                  onChange={(e) => setWindowEndAt(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
-                />
+            ) : (
+              <div className="space-y-3">
+                {existingWindows.map((win) => {
+                  const { status, color } = getWindowStatus(win)
+                  return (
+                    <div
+                      key={win.id}
+                      className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-800 text-sm mb-2">
+                            {getScopeDescription(win)}
+                          </p>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${color}`}>
+                            {status}
+                          </span>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <button
+                            onClick={() => editWindow(win)}
+                            className="px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg font-medium transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteWindow(win.id)}
+                            className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-gray-600">
+                        <div className="bg-white rounded p-2 border border-gray-100">
+                          <div className="text-gray-500 mb-1">Start</div>
+                          <div className="font-medium">{new Date(win.start_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                        <div className="bg-white rounded p-2 border border-gray-100">
+                          <div className="text-gray-500 mb-1">End</div>
+                          <div className="font-medium">{new Date(win.end_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                        <div className="bg-white rounded p-2 border border-gray-100">
+                          <div className="text-gray-500 mb-1">Components</div>
+                          <div className="font-medium">
+                            {win.component_ids && win.component_ids.length > 0
+                              ? `${win.component_ids.length} selected`
+                              : 'All allowed'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-            </div>
-
-            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={windowEnabled}
-                onChange={(e) => setWindowEnabled(e.target.checked)}
-                className="h-4 w-4 accent-indigo-600"
-              />
-              Enable window
-            </label>
+            )}
           </div>
         </div>
       </div>
