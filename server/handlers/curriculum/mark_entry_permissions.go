@@ -2,9 +2,11 @@ package curriculum
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"server/db"
 	"server/models"
@@ -56,7 +58,35 @@ func GetMarkEntryPermissions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `
+	// Get learning modes from query parameter (comma-separated)
+	learningModesStr := r.URL.Query().Get("learning_modes")
+	var learningModes []int
+	if learningModesStr != "" {
+		modeStrs := strings.Split(learningModesStr, ",")
+		for _, modeStr := range modeStrs {
+			mode, err := strconv.Atoi(strings.TrimSpace(modeStr))
+			if err == nil && (mode == 1 || mode == 2) {
+				learningModes = append(learningModes, mode)
+			}
+		}
+	}
+
+	// Default to both UAL and PBL if no modes specified (backward compatibility)
+	if len(learningModes) == 0 {
+		learningModes = []int{1, 2}
+	}
+
+	// Build WHERE clause for learning modes
+	learningModePlaceholders := make([]string, len(learningModes))
+	learningModeArgs := make([]interface{}, 0)
+	learningModeArgs = append(learningModeArgs, courseID, teacherIDStr, courseTypeID)
+	for i, mode := range learningModes {
+		learningModePlaceholders[i] = "?"
+		learningModeArgs = append(learningModeArgs, mode)
+	}
+	learningModeClause := strings.Join(learningModePlaceholders, ",")
+
+	query := fmt.Sprintf(`
 		SELECT 
 			mct.id,
 			mct.name,
@@ -71,11 +101,11 @@ func GetMarkEntryPermissions(w http.ResponseWriter, r *http.Request) {
 		FROM mark_category_types mct
 		LEFT JOIN mark_entry_field_permissions p
 			ON p.course_id = ? AND p.teacher_id = ? AND p.assessment_component_id = mct.id
-		WHERE mct.course_type_id = ? AND mct.learning_mode_id = 2 AND mct.status = 1
+		WHERE mct.course_type_id = ? AND mct.learning_mode_id IN (%s) AND mct.status = 1
 		ORDER BY mct.position ASC
-	`
+	`, learningModeClause)
 
-	rows, err := database.Query(query, courseID, teacherIDStr, courseTypeID)
+	rows, err := database.Query(query, learningModeArgs...)
 	if err != nil {
 		log.Printf("Error fetching mark entry permissions: %v", err)
 		http.Error(w, "Error fetching mark entry permissions", http.StatusInternalServerError)

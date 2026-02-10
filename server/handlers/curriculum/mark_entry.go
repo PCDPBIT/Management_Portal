@@ -49,14 +49,42 @@ func GetMarkCategoriesByType(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get learning modes from query parameter (comma-separated)
+	learningModesStr := r.URL.Query().Get("learning_modes")
+	var learningModes []int
+	if learningModesStr != "" {
+		modeStrs := strings.Split(learningModesStr, ",")
+		for _, modeStr := range modeStrs {
+			mode, err := strconv.Atoi(strings.TrimSpace(modeStr))
+			if err == nil && (mode == 1 || mode == 2) {
+				learningModes = append(learningModes, mode)
+			}
+		}
+	}
+
+	// Default to PBL (mode 2) if no valid modes specified
+	if len(learningModes) == 0 {
+		learningModes = []int{2}
+	}
+
 	database := db.DB
 	if database == nil {
 		http.Error(w, "Database connection failed", http.StatusInternalServerError)
 		return
 	}
 
+	// Build WHERE clause for learning modes
+	learningModePlaceholders := make([]string, len(learningModes))
+	learningModeArgs := make([]interface{}, len(learningModes)+1)
+	learningModeArgs[0] = courseTypeID
+	for i, mode := range learningModes {
+		learningModePlaceholders[i] = "?"
+		learningModeArgs[i+1] = mode
+	}
+	learningModeClause := strings.Join(learningModePlaceholders, ",")
+
 	// Query mark categories filtered by course_type_id and learning_mode_id, ordered by position
-	query := `
+	query := fmt.Sprintf(`
 		SELECT 
 			mct.id,
 			mct.name,
@@ -72,12 +100,12 @@ func GetMarkCategoriesByType(w http.ResponseWriter, r *http.Request) {
 		FROM mark_category_types mct
 		LEFT JOIN course_type ct ON mct.course_type_id = ct.id
 		LEFT JOIN mark_category_name mcn ON mct.category_name_id = mcn.id
-		WHERE mct.course_type_id = ? AND mct.learning_mode_id = 2 AND mct.status = 1
+		WHERE mct.course_type_id = ? AND mct.learning_mode_id IN (%s) AND mct.status = 1
 		ORDER BY mct.position ASC
-	`
+	`, learningModeClause)
 
-	log.Printf("[DEBUG] Executing query with courseTypeID=%d", courseTypeID)
-	rows, err := database.Query(query, courseTypeID)
+	log.Printf("[DEBUG] Executing query with courseTypeID=%d, learningModes=%v", courseTypeID, learningModes)
+	rows, err := database.Query(query, learningModeArgs...)
 	if err != nil {
 		log.Printf("Error fetching mark categories: %v", err)
 		http.Error(w, "Error fetching mark categories", http.StatusInternalServerError)
@@ -188,8 +216,36 @@ func GetMarkCategoriesForCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get learning modes from query parameter (comma-separated)
+	learningModesStr := r.URL.Query().Get("learning_modes")
+	var learningModes []int
+	if learningModesStr != "" {
+		modeStrs := strings.Split(learningModesStr, ",")
+		for _, modeStr := range modeStrs {
+			mode, err := strconv.Atoi(strings.TrimSpace(modeStr))
+			if err == nil && (mode == 1 || mode == 2) {
+				learningModes = append(learningModes, mode)
+			}
+		}
+	}
+
+	// Default to both UAL and PBL if no modes specified (backward compatibility)
+	if len(learningModes) == 0 {
+		learningModes = []int{1, 2}
+	}
+
+	// Build WHERE clause for learning modes
+	learningModePlaceholders := make([]string, len(learningModes))
+	learningModeArgs := make([]interface{}, len(learningModes)+1)
+	learningModeArgs[0] = courseTypeID
+	for i, mode := range learningModes {
+		learningModePlaceholders[i] = "?"
+		learningModeArgs[i+1] = mode
+	}
+	learningModeClause := strings.Join(learningModePlaceholders, ",")
+
 	// Window component filtering now handles all access control
-	query := `
+	query := fmt.Sprintf(`
 		SELECT 
 			mct.id,
 			mct.name,
@@ -201,11 +257,11 @@ func GetMarkCategoriesForCourse(w http.ResponseWriter, r *http.Request) {
 			mct.learning_mode_id,
 			mct.status
 		FROM mark_category_types mct
-		WHERE mct.course_type_id = ? AND mct.learning_mode_id = 2 AND mct.status = 1
+		WHERE mct.course_type_id = ? AND mct.learning_mode_id IN (%s) AND mct.status = 1
 		ORDER BY mct.position ASC
-	`
+	`, learningModeClause)
 
-	rows, err := database.Query(query, courseTypeID)
+	rows, err := database.Query(query, learningModeArgs...)
 	if err != nil {
 		log.Printf("Error fetching mark categories: %v", err)
 		http.Error(w, "Error fetching mark categories", http.StatusInternalServerError)

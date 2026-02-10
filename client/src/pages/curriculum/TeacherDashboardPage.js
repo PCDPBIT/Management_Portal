@@ -119,7 +119,7 @@ function TeacherDashboardPage() {
 
   return (
     <MainLayout title={`Welcome, ${teacherName || 'Teacher'}`} subtitle="Your Teaching Dashboard">
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="space-y-6">
         {/* Loading State */}
         {loading && (
           <div className="flex items-center justify-center py-12">
@@ -135,7 +135,7 @@ function TeacherDashboardPage() {
 
         {/* Error Message */}
         {error && !loading && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
             <div className="flex items-center">
               <svg className="w-5 h-5 text-red-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
@@ -149,18 +149,18 @@ function TeacherDashboardPage() {
         {!loading && !error && Object.keys(coursesByCategory).length > 0 && (
           <>
             {/* Summary Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Total Courses Card */}
-              <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 hover:shadow-lg transition-shadow">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-600 text-sm font-medium mb-1">My Courses</p>
-                    <p className="text-3xl font-bold" style={{ color: 'rgb(67, 113, 229)' }}>
+                    <p className="text-3xl font-bold text-blue-600">
                       {getTotalCourses()}
                     </p>
                   </div>
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, rgba(67, 113, 229, 0.1), rgba(47, 93, 209, 0.1))' }}>
-                    <svg className="w-7 h-7" style={{ color: 'rgb(67, 113, 229)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
                   </div>
@@ -168,14 +168,14 @@ function TeacherDashboardPage() {
               </div>
 
               {/* Total Students Card */}
-              <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 hover:shadow-lg transition-shadow">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-600 text-sm font-medium mb-1">Total Students</p>
                     <p className="text-3xl font-bold text-green-600">{getTotalStudents()}</p>
                   </div>
-                  <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center">
-                    <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
                   </div>
@@ -183,14 +183,14 @@ function TeacherDashboardPage() {
               </div>
 
               {/* Total Credits Card */}
-              <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 hover:shadow-lg transition-shadow">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-600 text-sm font-medium mb-1">Total Credits</p>
                     <p className="text-3xl font-bold text-purple-600">{getTotalCredits()}</p>
                   </div>
-                  <div className="w-14 h-14 rounded-full bg-purple-50 flex items-center justify-center">
-                    <svg className="w-7 h-7 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                     </svg>
                   </div>
@@ -199,15 +199,12 @@ function TeacherDashboardPage() {
             </div>
 
             {/* Courses by Category */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {Object.entries(coursesByCategory).map(([category, courses]) => (
-                <div key={category} className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-                  <div
-                    className="px-6 py-4 border-l-4 flex items-center justify-between"
-                    style={{ borderLeftColor: getCategoryColor(category), background: 'linear-gradient(to right, rgba(67, 113, 229, 0.05), transparent)' }}
-                  >
-                    <h3 className="text-xl font-bold text-gray-800">{category}</h3>
-                    <span className="px-3 py-1 bg-white rounded-full text-sm font-semibold text-gray-700 shadow-sm">
+                <div key={category} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-700">{category}</h3>
+                    <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
                       {courses.length} {courses.length === 1 ? 'course' : 'courses'}
                     </span>
                   </div>
@@ -216,15 +213,15 @@ function TeacherDashboardPage() {
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Code</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Course Name</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Credit</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Students</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"></th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course Name</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      <tbody className="bg-white divide-y divide-gray-200">
                         {courses.map((course, idx) => (
                           <tr
                             key={`${course.id}-${idx}`}
@@ -238,20 +235,20 @@ function TeacherDashboardPage() {
                               <p className="text-gray-900 font-medium">{course.course_name}</p>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                              <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
                                 {course.course_type}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="font-semibold text-gray-700">{course.credit}</span>
+                              <span className="font-medium text-gray-700">{course.credit}</span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                              <span className="px-2 py-1 bg-green-50 text-green-700 rounded text-xs font-medium">
                                 {course.enrollments?.length || 0} students
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right">
-                              <span className="text-blue-500">
+                              <span className="text-blue-500 hover:text-blue-700">
                                 →
                               </span>
                             </td>
@@ -268,13 +265,13 @@ function TeacherDashboardPage() {
 
         {/* Empty State */}
         {!loading && !error && Object.keys(coursesByCategory).length === 0 && (
-          <div className="bg-white rounded-xl shadow-md border border-gray-100 p-12 text-center">
-            <div className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, rgba(67, 113, 229, 0.1), rgba(47, 93, 209, 0.1))' }}>
-              <svg className="w-10 h-10" style={{ color: 'rgb(67, 113, 229)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-blue-50 mx-auto mb-4 flex items-center justify-center">
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">No Courses Assigned</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">No Courses Assigned</h3>
             <p className="text-gray-600">You don't have any courses assigned to you at the moment.</p>
           </div>
         )}

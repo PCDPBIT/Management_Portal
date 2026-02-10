@@ -191,8 +191,9 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type StudentEnrollment struct {
-		StudentID   int    `json:"student_id"`
-		StudentName string `json:"student_name"`
+		StudentID      int    `json:"student_id"`
+		StudentName    string `json:"student_name"`
+		LearningModeID *int   `json:"learning_mode_id"`
 	}
 
 	type TeacherCourse struct {
@@ -218,7 +219,7 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 
 		// Fetch allocated students for this course and teacher
 		studentQuery := `
-			SELECT DISTINCT s.id, s.student_name
+			SELECT DISTINCT s.id, s.student_name, s.learning_mode_id
 			FROM course_student_teacher_allocation csta
 			JOIN students s ON csta.student_id = s.id
 			WHERE csta.course_id = ? AND csta.teacher_id = ?
@@ -232,7 +233,7 @@ func GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
 			course.Enrollments = []StudentEnrollment{}
 			for sRows.Next() {
 				var enrollment StudentEnrollment
-				if err := sRows.Scan(&enrollment.StudentID, &enrollment.StudentName); err != nil {
+				if err := sRows.Scan(&enrollment.StudentID, &enrollment.StudentName, &enrollment.LearningModeID); err != nil {
 					log.Printf("Error scanning student row: %v", err)
 					continue
 				}

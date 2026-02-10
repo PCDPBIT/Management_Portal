@@ -15,6 +15,26 @@ import (
 
 const markEntryTimeLayout = "2006-01-02T15:04"
 
+// parseDateTime attempts to parse datetime in multiple formats (ISO 8601 with timezone, or simple local format)
+func parseDateTime(dateStr string) (time.Time, error) {
+	// Try RFC3339 first (ISO 8601 with timezone: "2006-01-02T15:04:05Z07:00")
+	if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
+		return t.UTC(), nil
+	}
+
+	// Try RFC3339 without seconds
+	if t, err := time.Parse("2006-01-02T15:04Z07:00", dateStr); err == nil {
+		return t.UTC(), nil
+	}
+
+	// Fallback to local time format for backward compatibility
+	t, err := time.ParseInLocation(markEntryTimeLayout, dateStr, time.Local)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return t.UTC(), nil
+}
+
 // GetMarkEntryWindow returns a window rule matching the exact scope.
 func GetMarkEntryWindow(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -200,14 +220,16 @@ func SaveMarkEntryWindow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	startAt, err := time.ParseInLocation(markEntryTimeLayout, req.StartAt, time.Local)
+	startAt, err := parseDateTime(req.StartAt)
 	if err != nil {
+		log.Printf("Error parsing start date '%s': %v", req.StartAt, err)
 		http.Error(w, "Invalid start date", http.StatusBadRequest)
 		return
 	}
 
-	endAt, err := time.ParseInLocation(markEntryTimeLayout, req.EndAt, time.Local)
+	endAt, err := parseDateTime(req.EndAt)
 	if err != nil {
+		log.Printf("Error parsing end date '%s': %v", req.EndAt, err)
 		http.Error(w, "Invalid end date", http.StatusBadRequest)
 		return
 	}
@@ -223,7 +245,8 @@ func SaveMarkEntryWindow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deleteQuery := "DELETE FROM mark_entry_windows WHERE 1 = 1"
+	// Only delete non-expired windows for the same scope
+	deleteQuery := "DELETE FROM mark_entry_windows WHERE end_at > UTC_TIMESTAMP() AND 1 = 1"
 	deleteArgs := []interface{}{}
 
 	if req.TeacherID != nil && strings.TrimSpace(*req.TeacherID) != "" {
@@ -254,11 +277,15 @@ func SaveMarkEntryWindow(w http.ResponseWriter, r *http.Request) {
 		deleteQuery += " AND course_id IS NULL"
 	}
 
-	if _, err := database.Exec(deleteQuery, deleteArgs...); err != nil {
+	result, err := database.Exec(deleteQuery, deleteArgs...)
+	if err != nil {
 		log.Printf("Error clearing mark entry window: %v", err)
 		http.Error(w, "Failed to save mark entry window", http.StatusInternalServerError)
 		return
 	}
+
+	rowsAffected, _ := result.RowsAffected()
+	log.Printf("Deleted %d non-expired window(s) for scope", rowsAffected)
 
 	teacherValue := sql.NullString{}
 	if req.TeacherID != nil && strings.TrimSpace(*req.TeacherID) != "" {
@@ -285,7 +312,7 @@ func SaveMarkEntryWindow(w http.ResponseWriter, r *http.Request) {
 		enabledValue = 1
 	}
 
-	result, err := database.Exec(`
+	result, err = database.Exec(`
 		INSERT INTO mark_entry_windows
 		(teacher_id, department_id, semester, course_id, start_at, end_at, enabled)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -367,7 +394,7 @@ func resolveMarkEntryWindow(courseID int, teacherID string) (bool, []int, error)
 		  (department_id IS NOT NULL) DESC,
 		  (semester IS NOT NULL) DESC,
 		  updated_at DESC
-		LIMIT 1
+		LIMIT 25
 	`
 
 	deptValue := interface{}(nil)
@@ -380,32 +407,48 @@ func resolveMarkEntryWindow(courseID int, teacherID string) (bool, []int, error)
 		semValue = semester.Int64
 	}
 
+	rows, rowErr := database.Query(query, teacherID, courseID, deptValue, semValue)
+	if rowErr != nil {
+		if rowErr == sql.ErrNoRows {
+			log.Printf("No matching window rule found")
+			return false, nil, nil
+		}
+		return false, nil, rowErr
+	}
+	defer rows.Close()
+
+	nowLocal := time.Now()
+	nowUTC := nowLocal.UTC()
+
 	var windowID int
 	var startAt time.Time
 	var endAt time.Time
 	var enabledInt int
-	rowErr := database.QueryRow(query, teacherID, courseID, deptValue, semValue).Scan(&windowID, &startAt, &endAt, &enabledInt)
-	if rowErr == sql.ErrNoRows {
+	found := false
+	for rows.Next() {
+		if err := rows.Scan(&windowID, &startAt, &endAt, &enabledInt); err != nil {
+			return false, nil, err
+		}
+
+		if enabledInt != 1 {
+			continue
+		}
+
+		inLocal := !nowLocal.Before(startAt) && !nowLocal.After(endAt)
+		inUTC := !nowUTC.Before(startAt.UTC()) && !nowUTC.After(endAt.UTC())
+		if inLocal || inUTC {
+			found = true
+			break
+		}
+	}
+
+	if !found {
 		log.Printf("No matching window rule found")
 		return false, nil, nil
 	}
-	if rowErr != nil {
-		return false, nil, rowErr
-	}
 
-	log.Printf("Found window: id=%d, enabled=%d, start=%s, end=%s, now=%s",
-		windowID, enabledInt, startAt.Format("2006-01-02 15:04:05"), endAt.Format("2006-01-02 15:04:05"), time.Now().Format("2006-01-02 15:04:05"))
-
-	if enabledInt != 1 {
-		log.Printf("Window is disabled")
-		return false, nil, nil
-	}
-
-	now := time.Now()
-	if now.Before(startAt) || now.After(endAt) {
-		log.Printf("Current time outside window range")
-		return false, nil, nil
-	}
+	log.Printf("Found active window: id=%d, start=%s, end=%s, now=%s",
+		windowID, startAt.Format("2006-01-02 15:04:05"), endAt.Format("2006-01-02 15:04:05"), nowLocal.Format("2006-01-02 15:04:05"))
 
 	// Load allowed component IDs for this window (empty = all allowed)
 	var allowedComponents []int
@@ -464,7 +507,9 @@ func GetAllMarkEntryWindows(w http.ResponseWriter, r *http.Request) {
 		LEFT JOIN teachers t ON w.teacher_id = t.faculty_id
 		LEFT JOIN departments d ON w.department_id = d.id
 		LEFT JOIN courses c ON w.course_id = c.id
-		ORDER BY w.start_at DESC
+		ORDER BY 
+			CASE WHEN w.end_at > UTC_TIMESTAMP() THEN 0 ELSE 1 END,
+			w.start_at DESC
 	`
 
 	rows, err := database.Query(query)
@@ -606,14 +651,16 @@ func UpdateMarkEntryWindow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse times
-	startAt, err := time.Parse(markEntryTimeLayout, request.StartAt)
+	startAt, err := parseDateTime(request.StartAt)
 	if err != nil {
+		log.Printf("Error parsing start time '%s': %v", request.StartAt, err)
 		http.Error(w, "Invalid start time format", http.StatusBadRequest)
 		return
 	}
 
-	endAt, err := time.Parse(markEntryTimeLayout, request.EndAt)
+	endAt, err := parseDateTime(request.EndAt)
 	if err != nil {
+		log.Printf("Error parsing end time '%s': %v", request.EndAt, err)
 		http.Error(w, "Invalid end time format", http.StatusBadRequest)
 		return
 	}
@@ -697,6 +744,103 @@ func DeleteMarkEntryWindow(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": "Window deletedsuccessfully",
+		"message": "Window deleted successfully",
 	})
+}
+
+// GetMarkEntryStats returns statistics about mark entry windows and permissions
+func GetMarkEntryStats(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	database := db.DB
+	if database == nil {
+		http.Error(w, "Database connection failed", http.StatusInternalServerError)
+		return
+	}
+
+	stats := make(map[string]interface{})
+
+	// Total number of mark entry windows
+	var totalWindows int
+	err := database.QueryRow("SELECT COUNT(*) FROM mark_entry_windows").Scan(&totalWindows)
+	if err != nil {
+		log.Printf("Error counting total windows: %v", err)
+		totalWindows = 0
+	}
+	stats["totalWindows"] = totalWindows
+
+	// Active windows (currently enabled and within time range)
+	var activeWindows int
+	err = database.QueryRow(`
+		SELECT COUNT(*) FROM mark_entry_windows 
+		WHERE enabled = 1 
+		AND start_at <= UTC_TIMESTAMP() 
+		AND end_at >= UTC_TIMESTAMP()
+	`).Scan(&activeWindows)
+	if err != nil {
+		log.Printf("Error counting active windows: %v", err)
+		activeWindows = 0
+	}
+	stats["activeWindows"] = activeWindows
+
+	// Upcoming windows (enabled but not yet started)
+	var upcomingWindows int
+	err = database.QueryRow(`
+		SELECT COUNT(*) FROM mark_entry_windows 
+		WHERE enabled = 1 
+		AND start_at > UTC_TIMESTAMP()
+	`).Scan(&upcomingWindows)
+	if err != nil {
+		log.Printf("Error counting upcoming windows: %v", err)
+		upcomingWindows = 0
+	}
+	stats["upcomingWindows"] = upcomingWindows
+
+	// Total teachers with mark entry permissions
+	var totalTeachersWithPermissions int
+	err = database.QueryRow(`
+		SELECT COUNT(DISTINCT teacher_id) 
+		FROM mark_entry_windows 
+		WHERE teacher_id IS NOT NULL
+	`).Scan(&totalTeachersWithPermissions)
+	if err != nil {
+		log.Printf("Error counting teachers with permissions: %v", err)
+		totalTeachersWithPermissions = 0
+	}
+	stats["teachersWithPermissions"] = totalTeachersWithPermissions
+
+	// Department-wide windows count
+	var departmentWindows int
+	err = database.QueryRow(`
+		SELECT COUNT(*) FROM mark_entry_windows 
+		WHERE department_id IS NOT NULL 
+		AND teacher_id IS NULL
+	`).Scan(&departmentWindows)
+	if err != nil {
+		log.Printf("Error counting department windows: %v", err)
+		departmentWindows = 0
+	}
+	stats["departmentWindows"] = departmentWindows
+
+	// Teacher-specific windows count
+	var teacherWindows int
+	err = database.QueryRow(`
+		SELECT COUNT(*) FROM mark_entry_windows 
+		WHERE teacher_id IS NOT NULL
+	`).Scan(&teacherWindows)
+	if err != nil {
+		log.Printf("Error counting teacher windows: %v", err)
+		teacherWindows = 0
+	}
+	stats["teacherWindows"] = teacherWindows
+
+	json.NewEncoder(w).Encode(stats)
 }
