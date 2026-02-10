@@ -457,7 +457,7 @@ function HonourCardPage() {
                   type="text"
                   value={newVerticalName}
                   onChange={(e) => setNewVerticalName(e.target.value)}
-                  placeholder="e.g., Data Science Track, AI & ML Specialization"
+                  placeholder="e.g., HONOUR VERTICAL"
                   required
                   className="input-custom"
                 />

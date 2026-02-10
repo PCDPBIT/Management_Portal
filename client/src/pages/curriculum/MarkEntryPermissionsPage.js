@@ -35,12 +35,14 @@ function MarkEntryPermissionsPage() {
   const [windowEnabled, setWindowEnabled] = useState(true)
   const [windowLoading, setWindowLoading] = useState(false)
   const [windowComponents, setWindowComponents] = useState([])
-  const [selectedWindowComponents, setSelectedWindowComponents] = useState([])
+  const [selectedPBLComponents, setSelectedPBLComponents] = useState([])
+  const [selectedUALComponents, setSelectedUALComponents] = useState([])
   const [existingWindows, setExistingWindows] = useState([])
   const [editingWindow, setEditingWindow] = useState(null)
   const [showWindowList, setShowWindowList] = useState(false)
   const [teacherSearch, setTeacherSearch] = useState('')
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false)
+  const [learningMode, setLearningMode] = useState('PBL') // 'PBL' or 'UAL'
 
   // Check if user has COE role
   useEffect(() => {
@@ -77,7 +79,7 @@ function MarkEntryPermissionsPage() {
     } else {
       setWindowComponents([])
     }
-  }, [windowScope, selectedCourseId, windowCourseId])
+  }, [windowScope, selectedCourseId, windowCourseId, learningMode])
 
   useEffect(() => {
     if (selectedTeacherId) {
@@ -118,11 +120,16 @@ function MarkEntryPermissionsPage() {
 
   const fetchAllMarkCategories = async () => {
     try {
+      // Convert learning mode to ID (UAL=1, PBL=2)
+      const learningModeId = learningMode === 'UAL' ? 1 : 2
+      
+      console.log(`[DEBUG] Fetching mark categories for learning mode: ${learningMode} (ID=${learningModeId})`)
+      
       // Fetch all mark category types (Theory=1, Lab=2, Theory+Lab=3)
       const results = await Promise.all([
-        fetch(`${API_BASE_URL}/mark-categories-by-type/1`).then(r => r.json()),
-        fetch(`${API_BASE_URL}/mark-categories-by-type/2`).then(r => r.json()),
-        fetch(`${API_BASE_URL}/mark-categories-by-type/3`).then(r => r.json())
+        fetch(`${API_BASE_URL}/mark-categories-by-type/1?learning_modes=${learningModeId}`).then(r => r.json()),
+        fetch(`${API_BASE_URL}/mark-categories-by-type/2?learning_modes=${learningModeId}`).then(r => r.json()),
+        fetch(`${API_BASE_URL}/mark-categories-by-type/3?learning_modes=${learningModeId}`).then(r => r.json())
       ])
       
       // Combine and deduplicate
@@ -139,6 +146,8 @@ function MarkEntryPermissionsPage() {
           })
         }
       })
+      
+      console.log(`[DEBUG] Found ${allCategories.length} components for ${learningMode}:`, allCategories.map(c => ({id: c.id, name: c.name, learning_mode_id: c.learning_mode_id})))
       
       // Sort by position
       allCategories.sort((a, b) => (a.position || 0) - (b.position || 0))
@@ -158,6 +167,9 @@ function MarkEntryPermissionsPage() {
 
   const fetchMarkCategoriesForCourseType = async (courseId) => {
     try {
+      // Convert learning mode to ID (UAL=1, PBL=2)
+      const learningModeId = learningMode === 'UAL' ? 1 : 2
+      
       // First fetch the course to get its category
       const courseRes = await fetch(`${API_BASE_URL}/courses/${courseId}`)
       if (!courseRes.ok) throw new Error('Failed to fetch course')
@@ -169,8 +181,8 @@ function MarkEntryPermissionsPage() {
         return
       }
       
-      // Fetch mark categories for this course type (learning_mode_id=2 is already filtered by API)
-      const res = await fetch(`${API_BASE_URL}/mark-categories-by-type/${courseTypeID}`)
+      // Fetch mark categories for this course type with selected learning mode
+      const res = await fetch(`${API_BASE_URL}/mark-categories-by-type/${courseTypeID}?learning_modes=${learningModeId}`)
       if (!res.ok) throw new Error('Failed to fetch mark categories')
       const categories = await res.json()
       
@@ -289,14 +301,45 @@ function MarkEntryPermissionsPage() {
         setWindowStartAt('')
         setWindowEndAt('')
         setWindowEnabled(true)
-        setSelectedWindowComponents([])
+        setSelectedPBLComponents([])
+        setSelectedUALComponents([])
         return
       }
 
       setWindowStartAt(formatDateTimeLocal(data.start_at))
       setWindowEndAt(formatDateTimeLocal(data.end_at))
       setWindowEnabled(data.enabled !== false)
-      setSelectedWindowComponents(data.component_ids || [])
+      
+      // Separate components by learning mode
+      if (data.component_ids && data.component_ids.length > 0) {
+        // Fetch all components to check their learning modes
+        const allComponentsRes = await Promise.all([
+          fetch(`${API_BASE_URL}/mark-categories-by-type/1?learning_modes=1,2`).then(r => r.json()),
+          fetch(`${API_BASE_URL}/mark-categories-by-type/2?learning_modes=1,2`).then(r => r.json()),
+          fetch(`${API_BASE_URL}/mark-categories-by-type/3?learning_modes=1,2`).then(r => r.json())
+        ])
+        
+        const allComponents = []
+        allComponentsRes.forEach(cats => {
+          if (Array.isArray(cats)) allComponents.push(...cats)
+        })
+        
+        const pblIds = []
+        const ualIds = []
+        data.component_ids.forEach(id => {
+          const comp = allComponents.find(c => c.id === id)
+          if (comp) {
+            if (comp.learning_mode_id === 2) pblIds.push(id)
+            else if (comp.learning_mode_id === 1) ualIds.push(id)
+          }
+        })
+        
+        setSelectedPBLComponents(pblIds)
+        setSelectedUALComponents(ualIds)
+      } else {
+        setSelectedPBLComponents([])
+        setSelectedUALComponents([])
+      }
     } catch (error) {
       console.error('Error loading window rule:', error)
       setMessage({ type: 'error', text: 'Failed to load window rule.' })
@@ -321,7 +364,9 @@ function MarkEntryPermissionsPage() {
       start_at: startDate.toISOString(),
       end_at: endDate.toISOString(),
       enabled: windowEnabled,
-      component_ids: selectedWindowComponents.length > 0 ? selectedWindowComponents : null,
+      component_ids: [...selectedPBLComponents, ...selectedUALComponents].length > 0 
+        ? [...selectedPBLComponents, ...selectedUALComponents] 
+        : null,
     }
 
     if (windowScope === 'teacher_course') {
@@ -406,7 +451,10 @@ function MarkEntryPermissionsPage() {
     setWindowStartAt(formatDateTimeLocal(win.start_at))
     setWindowEndAt(formatDateTimeLocal(win.end_at))
     setWindowEnabled(win.enabled)
-    setSelectedWindowComponents(win.component_ids || [])
+    
+    // Will be populated by loadWindowRule which separates by learning mode
+    setSelectedPBLComponents([])
+    setSelectedUALComponents([])
     
     // Determine scope and set appropriate fields
     if (win.teacher_id && win.course_id) {
@@ -439,7 +487,9 @@ function MarkEntryPermissionsPage() {
       start_at: startDate.toISOString(),
       end_at: endDate.toISOString(),
       enabled: windowEnabled,
-      component_ids: selectedWindowComponents.length > 0 ? selectedWindowComponents : null,
+      component_ids: [...selectedPBLComponents, ...selectedUALComponents].length > 0 
+        ? [...selectedPBLComponents, ...selectedUALComponents] 
+        : null,
     }
 
     setWindowLoading(true)
@@ -466,7 +516,8 @@ function MarkEntryPermissionsPage() {
     setWindowStartAt('')
     setWindowEndAt('')
     setWindowEnabled(true)
-    setSelectedWindowComponents([])
+    setSelectedPBLComponents([])
+    setSelectedUALComponents([])
   }
 
   const getScopeDescription = (window) => {
@@ -785,6 +836,45 @@ function MarkEntryPermissionsPage() {
               </div>
             </div>
 
+            {/* Learning Mode Toggle */}
+            <div className="bg-purple-50 rounded-lg p-4 border border-purple-100">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Learning Mode Selection</h4>
+              <p className="text-xs text-gray-600 mb-3">
+                Toggle to select mark components for each learning mode. Students of both UAL and PBL can be in the same course.
+                <strong className="block mt-1">Both PBL and UAL component selections will be saved together in this window.</strong>
+              </p>
+              <div className="flex items-center justify-center gap-4">
+                <span className={`text-sm font-semibold transition-colors ${learningMode === 'PBL' ? 'text-blue-700' : 'text-gray-400'}`}>
+                  PBL
+                </span>
+                <button
+                  onClick={() => setLearningMode(learningMode === 'PBL' ? 'UAL' : 'PBL')}
+                  className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                    learningMode === 'PBL' ? 'bg-blue-600' : 'bg-orange-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform ${
+                      learningMode === 'PBL' ? 'translate-x-1' : 'translate-x-9'
+                    }`}
+                  />
+                </button>
+                <span className={`text-sm font-semibold transition-colors ${learningMode === 'UAL' ? 'text-orange-700' : 'text-gray-400'}`}>
+                  UAL
+                </span>
+              </div>
+              <div className="mt-3 flex items-center justify-between px-4">
+                <p className="text-xs text-gray-600">
+                  Currently viewing: <span className="font-semibold text-gray-800">{learningMode === 'PBL' ? 'Problem-Based Learning' : 'University Aided Learning'}</span>
+                </p>
+                <div className="flex gap-4 text-xs">
+                  <span className="text-blue-600 font-medium">PBL: {selectedPBLComponents.length}</span>
+                  <span className="text-orange-600 font-medium">UAL: {selectedUALComponents.length}</span>
+                  <span className="text-gray-600 font-semibold">Total: {selectedPBLComponents.length + selectedUALComponents.length}</span>
+                </div>
+              </div>
+            </div>
+
             {/* Component Selection */}
             {windowComponents.length > 0 && (
               <div>
@@ -805,28 +895,33 @@ function MarkEntryPermissionsPage() {
                         {courseTypeName}
                       </h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {components.map((component) => (
-                          <label
-                            key={component.id}
-                            className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:text-blue-600"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedWindowComponents.includes(component.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedWindowComponents([...selectedWindowComponents, component.id])
-                                } else {
-                                  setSelectedWindowComponents(
-                                    selectedWindowComponents.filter((id) => id !== component.id)
-                                  )
-                                }
-                              }}
-                              className="h-4 w-4 accent-blue-600 cursor-pointer"
-                            />
-                            <span className="font-medium">{component.name}</span>
-                          </label>
-                        ))}
+                        {components.map((component) => {
+                          const selectedComponents = learningMode === 'PBL' ? selectedPBLComponents : selectedUALComponents
+                          const setSelectedComponents = learningMode === 'PBL' ? setSelectedPBLComponents : setSelectedUALComponents
+                          
+                          return (
+                            <label
+                              key={component.id}
+                              className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:text-blue-600"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedComponents.includes(component.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedComponents([...selectedComponents, component.id])
+                                  } else {
+                                    setSelectedComponents(
+                                      selectedComponents.filter((id) => id !== component.id)
+                                    )
+                                  }
+                                }}
+                                className="h-4 w-4 accent-blue-600 cursor-pointer"
+                              />
+                              <span className="font-medium">{component.name}</span>
+                            </label>
+                          )
+                        })}
                       </div>
                     </div>
                   ))}
