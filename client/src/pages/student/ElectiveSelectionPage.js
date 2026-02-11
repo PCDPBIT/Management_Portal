@@ -51,8 +51,31 @@ const ElectiveSelectionPage = () => {
         setGroupedElectives(grouped);
         console.log('Grouped Electives:', grouped);
         
-        // Load saved selections from localStorage
-        loadSavedSelections(data.next_semester);
+        // Load existing selections from backend response (PRIMARY SOURCE OF TRUTH)
+        if (data.existing_selections && Object.keys(data.existing_selections).length > 0) {
+          console.log('Loading existing selections from backend:', data.existing_selections);
+          setSelections(data.existing_selections);
+          calculateTotalCredits(data.existing_selections);
+          
+          // Check if already submitted (has selections for all slots)
+          const totalSlots = data.slots.length;
+          const selectedSlots = Object.keys(data.existing_selections).length;
+          if (selectedSlots === totalSlots) {
+            setIsSubmitted(true);
+          } else {
+            setIsSubmitted(false);
+          }
+        } else {
+          // No existing selections in database - clear any old localStorage data
+          console.log('No existing selections found in backend - clearing localStorage');
+          setSelections({});
+          setIsSubmitted(false);
+          setTotalCreditUsed(0);
+          // Clear old localStorage data for this semester
+          localStorage.removeItem(`elective_selections_${userEmail}_sem${data.next_semester}`);
+          localStorage.removeItem(`elective_submitted_${userEmail}_sem${data.next_semester}`);
+          localStorage.removeItem(`elective_submission_${userEmail}_sem${data.next_semester}`);
+        }
       } else {
         const errorText = await response.text();
         console.error('Error response:', errorText);
@@ -148,8 +171,15 @@ const ElectiveSelectionPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (Object.keys(selections).length === 0) {
-      setMessage({ type: 'error', text: 'Please select at least one elective before submitting.' });
+    // Validate: Check if ALL slots have a selection
+    const totalSlots = Object.keys(groupedElectives).length;
+    const selectedSlots = Object.keys(selections).length;
+    
+    if (selectedSlots < totalSlots) {
+      setMessage({ 
+        type: 'error', 
+        text: `Please select one course from each slot. Selected: ${selectedSlots}/${totalSlots}` 
+      });
       setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       return;
     }
@@ -339,13 +369,21 @@ const ElectiveSelectionPage = () => {
 
         {/* Submit Button */}
         {!isSubmitted && (
-          <div className="mt-6 flex justify-center">
+          <div className="mt-6 flex flex-col items-center gap-3">
             <button
               onClick={handleSubmit}
-              className="px-8 py-3 bg-gray-900 text-white text-lg font-bold rounded hover:bg-gray-800 transition"
+              disabled={Object.keys(selections).length < Object.keys(groupedElectives).length}
+              className={`px-8 py-3 text-white text-lg font-bold rounded transition ${
+                Object.keys(selections).length < Object.keys(groupedElectives).length
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-gray-900 hover:bg-gray-800'
+              }`}
             >
               Submit Selections
             </button>
+            <p className="text-sm text-gray-600">
+              Selected: {Object.keys(selections).length} / {Object.keys(groupedElectives).length} slots
+            </p>
           </div>
         )}
       </div>

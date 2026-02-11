@@ -32,12 +32,13 @@ type ElectiveSlot struct {
 
 // ElectivesBySlot represents electives organized by slots
 type ElectivesBySlot struct {
-	StudentID       int             `json:"student_id"`
-	DepartmentID    int             `json:"department_id"`
-	CurrentSemester int             `json:"current_semester"`
-	NextSemester    int             `json:"next_semester"`
-	Batch           string          `json:"batch"`
-	Slots           []ElectiveSlot  `json:"slots"`
+	StudentID        int                `json:"student_id"`
+	DepartmentID     int                `json:"department_id"`
+	CurrentSemester  int                `json:"current_semester"`
+	NextSemester     int                `json:"next_semester"`
+	Batch            string             `json:"batch"`
+	Slots            []ElectiveSlot     `json:"slots"`
+	ExistingSelections map[string]int   `json:"existing_selections"` // slot_name -> course_id
 }
 
 // ElectiveSelection represents a student's elective choice
@@ -124,35 +125,40 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 	nextSemester := currentSemester + 1
 	log.Printf("Student department_id: %d, current semester: %d, next semester: %d, batch: %s", departmentID, currentSemester, nextSemester, batch)
 
-	// Step 4: Get HOD elective selections for this department, semester, and batch
-	// Now including slot information from elective_semester_slots table
-	// Group courses by their slot (Professional Elective 1, 2, Open Elective, etc.)
+	// Step 4: Get ALL elective slots for this semester, with their courses (if any)
+	// FIXED QUERY: Only return courses explicitly assigned by HOD in hod_elective_selections
+	// Show all slot headers even if empty, but only show courses that are assigned
 	query := `
 		SELECT 
-			c.id as course_id,
-			c.course_code,
-			c.course_name,
-			c.credit as credits,
-			c.category,
-			COALESCE(hes.slot_id, 0) as slot_id,
-			COALESCE(ess.slot_name, c.category) as slot_name,
-			COALESCE(ess.is_active, 1) as is_active,
-			COALESCE(ess.slot_order, 999) as slot_order
-		FROM hod_elective_selections hes
-		INNER JOIN courses c ON hes.course_id = c.id
-		LEFT JOIN elective_semester_slots ess ON hes.slot_id = ess.id 
-			AND ess.semester = hes.semester 
-			AND ess.is_active = 1
+			COALESCE(c.id, 0) as course_id,
+			COALESCE(c.course_code, '') as course_code,
+			COALESCE(c.course_name, '') as course_name,
+			COALESCE(c.credit, 0) as credits,
+			COALESCE(c.category, '') as category,
+			ess.id as slot_id,
+			ess.slot_name,
+			ess.is_active,
+			ess.slot_order
+		FROM elective_semester_slots ess
+		LEFT JOIN hod_elective_selections hes ON ess.id = hes.slot_id 
+			AND hes.semester = ?
+			AND hes.department_id = ?
+			AND (hes.batch = ? OR hes.batch IS NULL)
+			AND hes.status = 'ACTIVE'
+		LEFT JOIN courses c ON hes.course_id = c.id
 		LEFT JOIN student_courses sc ON sc.course_id = c.id AND sc.student_id = ?
-		WHERE hes.department_id = ?
-		AND hes.semester = ?
-		AND hes.batch = ?
-		AND hes.status = 'ACTIVE'
-		AND sc.id IS NULL
-		ORDER BY slot_order, slot_name, c.category, c.course_code
+		WHERE ess.semester = ?
+		AND ess.is_active = 1
+		AND (hes.course_id IS NULL OR sc.id IS NULL)
+		ORDER BY ess.slot_order, ess.slot_name, c.category, c.course_code
 	`
 
-	rows, err := db.DB.Query(query, studentID, departmentID, nextSemester, batch)
+	// Log query parameters for debugging
+	log.Printf("Executing electives query with params: semester=%d, dept=%d, batch=%s, studentID=%d", 
+		nextSemester, departmentID, batch, studentID)
+	log.Printf("FULL QUERY:\n%s", query)
+	
+	rows, err := db.DB.Query(query, nextSemester, departmentID, batch, studentID, nextSemester)
 	if err != nil {
 		log.Printf("Error fetching available electives: %v", err)
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -164,8 +170,10 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 	slotMap := make(map[int]*ElectiveSlot)
 	var slotOrderList []int // To maintain order
 	courseCount := 0
+	rowCount := 0
 
 	for rows.Next() {
+		rowCount++
 		var elective ElectiveOption
 		var isActive bool
 		var slotOrder int
@@ -185,8 +193,9 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		courseCount++
-		log.Printf("Found course: %s - %s (slot_id: %d, slot_name: %s)", elective.CourseCode, elective.CourseName, elective.SlotID, elective.SlotName)
+		// Log each row for debugging
+		log.Printf("Row %d: slot_id=%d (%s), course_id=%d (%s)", 
+			rowCount, elective.SlotID, elective.SlotName, elective.CourseID, elective.CourseCode)
 
 		// Create slot if it doesn't exist
 		if _, exists := slotMap[elective.SlotID]; !exists {
@@ -199,10 +208,19 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 				IsActive: isActive,
 			}
 			slotOrderList = append(slotOrderList, elective.SlotID)
+			log.Printf("  -> Created slot: %s (slot_id: %d, slot_type: %s)", elective.SlotName, elective.SlotID, slotType)
 		}
 
-		// Add course to the slot
-		slotMap[elective.SlotID].Courses = append(slotMap[elective.SlotID].Courses, elective)
+		// Only add course if it exists (course_id > 0)
+		if elective.CourseID > 0 {
+			courseCount++
+			log.Printf("  -> Adding course #%d: %s - %s to slot %d", 
+				courseCount, elective.CourseCode, elective.CourseName, elective.SlotID)
+			// Add course to the slot
+			slotMap[elective.SlotID].Courses = append(slotMap[elective.SlotID].Courses, elective)
+		} else {
+			log.Printf("  -> Empty slot (no courses assigned)")
+		}
 	}
 
 	// Convert map to ordered slice
@@ -214,18 +232,45 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 	// Handle mixed slots (last professional elective can include open electives)
 	slots = handleMixedSlots(slots, nextSemester)
 
-	log.Printf("Found %d courses in %d elective slots for next semester %d, batch %s", courseCount, len(slots), nextSemester, batch)
+	// Fetch existing selections for this student and semester
+	existingSelections := make(map[string]int)
+	selectionRows, err := db.DB.Query(`
+		SELECT ess.slot_name, hes.course_id
+		FROM student_elective_choices sec
+		INNER JOIN hod_elective_selections hes ON sec.hod_selection_id = hes.id
+		INNER JOIN elective_semester_slots ess ON hes.slot_id = ess.id
+		WHERE sec.student_id = ? AND sec.semester = ?
+	`, studentID, nextSemester)
+	
+	if err != nil {
+		log.Printf("Warning: Could not fetch existing selections: %v", err)
+	} else {
+		defer selectionRows.Close()
+		for selectionRows.Next() {
+			var slotName string
+			var courseID int
+			if err := selectionRows.Scan(&slotName, &courseID); err != nil {
+				log.Printf("Error scanning selection: %v", err)
+				continue
+			}
+			existingSelections[slotName] = courseID
+		}
+		log.Printf("Found %d existing selections for student", len(existingSelections))
+	}
+
+	log.Printf("Processed %d rows from query, found %d courses in %d elective slots for next semester %d, batch %s", rowCount, courseCount, len(slots), nextSemester, batch)
 	for i, slot := range slots {
 		log.Printf("Slot %d: %s (%s) with %d courses", i+1, slot.SlotName, slot.SlotType, len(slot.Courses))
 	}
 
 	response := ElectivesBySlot{
-		StudentID:       studentID,
-		DepartmentID:    departmentID,
-		CurrentSemester: currentSemester,
-		NextSemester:    nextSemester,
-		Batch:           batch,
-		Slots:           slots,
+		StudentID:          studentID,
+		DepartmentID:       departmentID,
+		CurrentSemester:    currentSemester,
+		NextSemester:       nextSemester,
+		Batch:              batch,
+		Slots:              slots,
+		ExistingSelections: existingSelections,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -502,17 +547,19 @@ func GetStudentElectiveSelections(w http.ResponseWriter, r *http.Request) {
 // Helper function to determine slot type based on slot name and category
 func determineSlotType(slotName, category string) string {
 	slotNameLower := strings.ToLower(slotName)
-	categoryLower := strings.ToLower(category)
 	
-	// Check if it's an open elective
-	if strings.Contains(slotNameLower, "open") || strings.Contains(categoryLower, "open") {
+	// Determine slot type ONLY by slot name from elective_semester_slots table
+	// NOT by course category - this ensures correct typing even with mixed courses
+	if strings.Contains(slotNameLower, "open") {
 		return "OPEN"
 	}
 	
-	// Check if it's a professional elective
-	if strings.Contains(slotNameLower, "professional") || 
-	   strings.Contains(categoryLower, "professional") ||
-	   strings.Contains(slotNameLower, "elective") {
+	if strings.Contains(slotNameLower, "professional") {
+		return "PROFESSIONAL"
+	}
+	
+	// Default to professional if it contains "elective" but not "open"
+	if strings.Contains(slotNameLower, "elective") {
 		return "PROFESSIONAL"
 	}
 	
@@ -528,64 +575,44 @@ func handleMixedSlots(slots []ElectiveSlot, semester int) []ElectiveSlot {
 		return slots
 	}
 
-	// Count professional and open elective slots
+	// Count professional slots and check for dedicated "Open Elective" slot
 	var professionalSlots []*ElectiveSlot
-	var openSlots []*ElectiveSlot
 	var dedicatedOpenExists bool
 
 	for i := range slots {
 		if slots[i].SlotType == "PROFESSIONAL" {
 			professionalSlots = append(professionalSlots, &slots[i])
 		} else if slots[i].SlotType == "OPEN" {
-			openSlots = append(openSlots, &slots[i])
-			// Check if this is a dedicated open elective slot (only contains open electives)
-			if len(slots[i].Courses) > 0 {
-				allOpen := true
-				for _, course := range slots[i].Courses {
-					if !strings.Contains(strings.ToLower(course.Category), "open") &&
-					   !strings.Contains(strings.ToLower(course.SlotName), "open") {
-						allOpen = false
-						break
-					}
-				}
-				if allOpen {
-					dedicatedOpenExists = true
-				}
-			}
+			// This is a dedicated "Open Elective" slot from database
+			dedicatedOpenExists = true
 		}
 	}
 
-	// If there's more than 1 professional elective and open electives exist
-	// and no dedicated open elective slot, merge open courses into the last professional slot
-	if len(professionalSlots) > 1 && len(openSlots) > 0 && !dedicatedOpenExists {
+	// Check if we need to merge: multiple PEs, no dedicated open slot
+	if len(professionalSlots) > 1 && !dedicatedOpenExists {
 		lastProfSlot := professionalSlots[len(professionalSlots)-1]
 		
-		// Add all open elective courses to the last professional slot
-		for _, openSlot := range openSlots {
-			lastProfSlot.Courses = append(lastProfSlot.Courses, openSlot.Courses...)
-		}
-		
-		// Update slot type to MIXED
-		lastProfSlot.SlotType = "MIXED"
-		lastProfSlot.SlotName = lastProfSlot.SlotName + " + Open Electives"
-		
-		// Remove the separate open slots from the result
-		var result []ElectiveSlot
-		openSlotIDs := make(map[int]bool)
-		for _, openSlot := range openSlots {
-			openSlotIDs[openSlot.SlotID] = true
-		}
-		
-		for _, slot := range slots {
-			if !openSlotIDs[slot.SlotID] {
-				result = append(result, slot)
+		// Check if the last PE slot contains any open elective courses
+		hasOpenElectives := false
+		for _, course := range lastProfSlot.Courses {
+			if strings.Contains(strings.ToLower(course.Category), "open") {
+				hasOpenElectives = true
+				break
 			}
 		}
 		
-		log.Printf("Merged open electives into last professional slot for semester %d", semester)
-		return result
+		// If last PE slot has open electives, mark it as MIXED (don't change slot name)
+		if hasOpenElectives {
+			lastProfSlot.SlotType = "MIXED"
+			log.Printf("Marked last professional slot as MIXED (%s) for semester %d", lastProfSlot.SlotName, semester)
+		} else {
+			log.Printf("Last PE slot has no open electives, keeping separate for semester %d", semester)
+		}
+	} else if dedicatedOpenExists {
+		log.Printf("Keeping dedicated Open Elective slot separate for semester %d", semester)
+	} else {
+		log.Printf("Only 1 PE slot, keeping all %d slots separate for semester %d", len(slots), semester)
 	}
-
-	// If there's a dedicated open elective slot, keep everything separate
+	
 	return slots
 }

@@ -14,6 +14,26 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// decodeCourseRequest decodes the course request from JSON
+func decodeCourseRequest(r *http.Request) (*models.Course, error) {
+	var course models.Course
+	if err := json.NewDecoder(r.Body).Decode(&course); err != nil {
+		return nil, err
+	}
+	return &course, nil
+}
+
+// resolveCourseTypeID converts course type name to ID
+func resolveCourseTypeID(courseTypeName string) (int, error) {
+	var courseTypeID int
+	query := `SELECT id FROM course_type WHERE course_type = ? AND status = 1 LIMIT 1`
+	err := db.DB.QueryRow(query, courseTypeName).Scan(&courseTypeID)
+	if err != nil {
+		return 0, fmt.Errorf("course type '%s' not found: %w", courseTypeName, err)
+	}
+	return courseTypeID, nil
+}
+
 // cascadeSoftDeleteCourse sets status=0 for all child records of a course
 // If tx is provided, uses transaction; otherwise uses direct DB connection
 func cascadeSoftDeleteCourse(courseID int, tx *sql.Tx) error {
@@ -347,7 +367,7 @@ func GetSemesterCourses(w http.ResponseWriter, r *http.Request) {
 	curriculumTemplate := getCurriculumTemplateByRegulation(curriculumID)
 
 	query := `
-		SELECT c.id, c.course_code, c.course_name, c.course_type, c.category, c.credit, 
+		SELECT c.id, c.course_code, c.course_name, ct.course_type, c.category, c.credit, 
 		       c.lecture_hrs, c.tutorial_hrs, c.practical_hrs, c.activity_hrs, COALESCE(c.` + "`tw/sl`" + `, 0) as tw_sl,
 		       COALESCE(c.theory_total_hrs, 0), COALESCE(c.tutorial_total_hrs, 0), COALESCE(c.practical_total_hrs, 0), COALESCE(c.activity_total_hrs, 0), COALESCE(c.total_hrs, 0),
 		       c.cia_marks, c.see_marks, c.total_marks,
@@ -355,6 +375,7 @@ func GetSemesterCourses(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(rc.count_towards_limit, 1) as count_towards_limit
 		FROM courses c
 		INNER JOIN curriculum_courses rc ON c.id = rc.course_id
+		LEFT JOIN course_type ct ON c.course_type = ct.id
 		WHERE rc.curriculum_id = ? AND rc.semester_id = ? AND c.status = 1
 		ORDER BY c.course_code
 	`
@@ -418,8 +439,7 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var course models.Course
-	err = json.NewDecoder(r.Body).Decode(&course)
+	course, err := decodeCourseRequest(r)
 	if err != nil {
 		log.Println("Error decoding request body:", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -499,82 +519,118 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 	activityTotal := course.ActivityTotalHrs
 
 	// First check: prevent duplicate course codes in the same curriculum (active courses only)
-	var duplicateCheck int
-	duplicateQuery := `SELECT c.id FROM courses c 
-	                   INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
-	                   WHERE c.course_code = ? AND cc.curriculum_id = ? AND c.status = 1`
-	duplicateErr := db.DB.QueryRow(duplicateQuery, course.CourseCode, curriculumID).Scan(&duplicateCheck)
-	if duplicateErr == nil {
-		// Course with this code already exists in curriculum (active)
-		w.WriteHeader(http.StatusConflict)
-		json.NewEncoder(w).Encode(map[string]string{"error": "A course with code " + course.CourseCode + " already exists in this curriculum"})
-		return
-	} else if duplicateErr != sql.ErrNoRows {
-		log.Println("Error checking duplicate course code:", duplicateErr)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate course"})
-		return
+	// Skip this check if course_code is "NA"
+	if course.CourseCode != "NA" {
+		var duplicateCheck int
+		duplicateQuery := `SELECT c.id FROM courses c 
+		                   INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
+		                   WHERE c.course_code = ? AND cc.curriculum_id = ? AND c.status = 1`
+		duplicateErr := db.DB.QueryRow(duplicateQuery, course.CourseCode, curriculumID).Scan(&duplicateCheck)
+		if duplicateErr == nil {
+			// Course with this code already exists in curriculum (active)
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "A course with code " + course.CourseCode + " already exists in this curriculum"})
+			return
+		} else if duplicateErr != sql.ErrNoRows {
+			log.Println("Error checking duplicate course code:", duplicateErr)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to validate course"})
+			return
+		}
 	}
 
 	// Check if course code already exists in this curriculum
+	// Skip this check if course_code is "NA" to allow multiple NA courses
 	var existingCourseID int
-	checkQuery := `SELECT c.id FROM courses c 
-	               INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
-	               WHERE c.course_code = ? AND cc.curriculum_id = ?`
-	err = db.DB.QueryRow(checkQuery, course.CourseCode, curriculumID).Scan(&existingCourseID)
-
 	var courseID int
 	var wasReused bool
-	if err == sql.ErrNoRows {
-		// Course code doesn't exist in this curriculum, check if it exists globally
-		var globalCourseID int
-		globalCheckQuery := "SELECT id FROM courses WHERE course_code = ?"
-		globalErr := db.DB.QueryRow(globalCheckQuery, course.CourseCode).Scan(&globalCourseID)
 
-		if globalErr == sql.ErrNoRows {
-			// Course doesn't exist globally - create new course
-			insertCourseQuery := `INSERT INTO courses (course_code, course_name, course_type, category, credit, 
-			                      lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, ` + "`tw/sl`" + `,
-			                      theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs,
-		                      cia_marks, see_marks, status) 
-		                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
-			result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, course.CourseType, course.Category, course.Credit,
-				course.LectureHrs, course.TutorialHrs, course.PracticalHrs, course.ActivityHrs, course.TwSlHrs,
-				theoryTotal, tutorialTotal, practicalTotal, activityTotal,
-				course.CIAMarks, course.SEEMarks)
-			if err != nil {
-				log.Println("Error inserting course:", err)
+	courseTypeID, err := resolveCourseTypeID(course.CourseType)
+	if err != nil {
+		log.Println("Error resolving course_type:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid course type"})
+		return
+	}
+
+	if course.CourseCode == "NA" {
+		// For NA courses, always create a new course entry
+		insertCourseQuery := `INSERT INTO courses (course_code, course_name, course_type, category, credit, 
+		                      lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, ` + "`tw/sl`" + `,
+		                      theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs,
+	                      cia_marks, see_marks, status) 
+	                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+		result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, courseTypeID, course.Category, course.Credit,
+			course.LectureHrs, course.TutorialHrs, course.PracticalHrs, course.ActivityHrs, course.TwSlHrs,
+			theoryTotal, tutorialTotal, practicalTotal, activityTotal,
+			course.CIAMarks, course.SEEMarks)
+		if err != nil {
+			log.Println("Error inserting NA course:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create course"})
+			return
+		}
+		id, _ := result.LastInsertId()
+		courseID = int(id)
+		wasReused = false
+	} else {
+		// For non-NA courses, check for existing courses (only active ones)
+		checkQuery := `SELECT c.id FROM courses c 
+		               INNER JOIN curriculum_courses cc ON c.id = cc.course_id 
+		               WHERE c.course_code = ? AND cc.curriculum_id = ? AND c.status = 1`
+		err = db.DB.QueryRow(checkQuery, course.CourseCode, curriculumID).Scan(&existingCourseID)
+
+		if err == sql.ErrNoRows {
+			// Course code doesn't exist in this curriculum, check if it exists globally (only active ones)
+			var globalCourseID int
+			globalCheckQuery := "SELECT id FROM courses WHERE course_code = ? AND status = 1"
+			globalErr := db.DB.QueryRow(globalCheckQuery, course.CourseCode).Scan(&globalCourseID)
+
+			if globalErr == sql.ErrNoRows {
+				// Course doesn't exist globally - create new course
+				insertCourseQuery := `INSERT INTO courses (course_code, course_name, course_type, category, credit, 
+				                      lecture_hrs, tutorial_hrs, practical_hrs, activity_hrs, ` + "`tw/sl`" + `,
+				                      theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs,
+			                      cia_marks, see_marks, status) 
+			                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+				result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, courseTypeID, course.Category, course.Credit,
+					course.LectureHrs, course.TutorialHrs, course.PracticalHrs, course.ActivityHrs, course.TwSlHrs,
+					theoryTotal, tutorialTotal, practicalTotal, activityTotal,
+					course.CIAMarks, course.SEEMarks)
+				if err != nil {
+					log.Println("Error inserting course:", err)
+					w.WriteHeader(http.StatusInternalServerError)
+					json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create course"})
+					return
+				}
+				id, _ := result.LastInsertId()
+				courseID = int(id)
+				wasReused = false
+			} else if globalErr != nil {
+				log.Println("Error checking global course:", globalErr)
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create course"})
 				return
+			} else {
+				// Course exists globally but not in this curriculum - reuse the existing course
+				courseID = globalCourseID
+				// Reactivate the course if it was soft-deleted
+				db.DB.Exec("UPDATE courses SET status = 1 WHERE id = ?", globalCourseID)
+				wasReused = true
+				log.Printf("Reusing existing course %s (ID: %d) for curriculum %d", course.CourseCode, globalCourseID, curriculumID)
 			}
-			id, _ := result.LastInsertId()
-			courseID = int(id)
-			wasReused = false
-		} else if globalErr != nil {
-			log.Println("Error checking global course:", globalErr)
+		} else if err != nil {
+			log.Println("Error checking existing course in curriculum:", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create course"})
 			return
 		} else {
-			// Course exists globally but not in this curriculum - reuse the existing course
-			courseID = globalCourseID
-			// Reactivate the course if it was soft-deleted
-			db.DB.Exec("UPDATE courses SET status = 1 WHERE id = ?", globalCourseID)
-			wasReused = true
-			log.Printf("Reusing existing course %s (ID: %d) for curriculum %d", course.CourseCode, globalCourseID, curriculumID)
+			// Course code already exists in this curriculum - return error
+			log.Printf("Course with code %s already exists in curriculum %d (ID: %d)", course.CourseCode, curriculumID, existingCourseID)
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "A course with this course code already exists in this curriculum. Please use a different course code."})
+			return
 		}
-	} else if err != nil {
-		log.Println("Error checking existing course in curriculum:", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create course"})
-		return
-	} else {
-		// Course code already exists in this curriculum - return error
-		log.Printf("Course with code %s already exists in curriculum %d (ID: %d)", course.CourseCode, curriculumID, existingCourseID)
-		w.WriteHeader(http.StatusConflict)
-		json.NewEncoder(w).Encode(map[string]string{"error": "A course with this course code already exists in this curriculum. Please use a different course code."})
-		return
 	}
 
 	// Link course to curriculum and semester (countTowardsLimit already set above)
