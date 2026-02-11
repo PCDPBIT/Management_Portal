@@ -272,7 +272,7 @@ function TeacherStudentMappingPage() {
                       <div className="flex items-center gap-3">
                         {teacher.profile_img && (
                           <img
-                            src={`http://localhost:5000${teacher.profile_img}`}
+                            src={`${API_BASE_URL.replace('/api', '')}${teacher.profile_img}`}
                             alt={teacher.teacher_name}
                             className="w-12 h-12 rounded-full object-cover"
                           />

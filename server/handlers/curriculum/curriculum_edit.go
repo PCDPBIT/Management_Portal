@@ -225,8 +225,7 @@ func UpdateCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var course models.Course
-	err = json.NewDecoder(r.Body).Decode(&course)
+	course, err := decodeCourseRequest(r)
 	if err != nil {
 		log.Println("Error decoding request body:", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -276,17 +275,17 @@ func UpdateCourse(w http.ResponseWriter, r *http.Request) {
 	var theoryTotal, tutorialTotal, practicalTotal, activityTotal int
 	if curriculumTemplate == "2026" {
 		switch course.CourseType {
-		case "Theory":
+		case "Theory": // Theory
 			theoryTotal = course.LectureHrs * 15
 			tutorialTotal = course.TutorialHrs * 15
 			activityTotal = course.ActivityHrs * 15
 			practicalTotal = 0
-		case "Lab":
+		case "Lab": // Lab
 			theoryTotal = 0
 			tutorialTotal = 0
 			activityTotal = 0
 			practicalTotal = course.PracticalHrs * 15
-		case "Theory&Lab":
+		case "Theory with Lab": // Theory with Lab
 			theoryTotal = course.LectureHrs * 15
 			tutorialTotal = course.TutorialHrs * 15
 			practicalTotal = course.PracticalHrs * 15
@@ -308,12 +307,19 @@ func UpdateCourse(w http.ResponseWriter, r *http.Request) {
 
 	// Update course - calculate total hours (total_hrs and total_marks are GENERATED columns)
 	course.TotalMarks = course.CIAMarks + course.SEEMarks
+	courseTypeID, err := resolveCourseTypeID(course.CourseType)
+	if err != nil {
+		log.Println("Error resolving course_type:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid course type"})
+		return
+	}
 	query := `UPDATE courses SET course_code = ?, course_name = ?, course_type = ?, category = ?, 
 		credit = ?, lecture_hrs = ?, tutorial_hrs = ?, practical_hrs = ?, activity_hrs = ?, ` + "`tw/sl`" + ` = ?,
 		theory_total_hrs = ?, tutorial_total_hrs = ?, practical_total_hrs = ?, activity_total_hrs = ?,
 		cia_marks = ?, see_marks = ? WHERE id = ?`
 
-	_, err = db.DB.Exec(query, course.CourseCode, course.CourseName, course.CourseType, course.Category,
+	_, err = db.DB.Exec(query, course.CourseCode, course.CourseName, courseTypeID, course.Category,
 		course.Credit, course.LectureHrs, course.TutorialHrs, course.PracticalHrs, course.ActivityHrs, course.TwSlHrs,
 		theoryTotal, tutorialTotal, practicalTotal, activityTotal,
 		course.CIAMarks, course.SEEMarks, courseID)

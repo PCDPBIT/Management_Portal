@@ -31,6 +31,9 @@ func SetupRoutes() *mux.Router {
 	// Department routes
 	router.HandleFunc("/api/departments", curriculum.GetDepartments).Methods("GET", "OPTIONS")
 
+	// Course Type routes
+	router.HandleFunc("/api/course-types", curriculum.GetCourseTypes).Methods("GET", "OPTIONS")
+
 	// Curriculum routes
 	router.HandleFunc("/api/curriculum", curriculum.GetRegulations).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/curriculum/create", curriculum.CreateRegulation).Methods("POST", "OPTIONS")
@@ -135,7 +138,9 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/allocations/unassigned", curriculum.GetUnassignedCourses).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/allocations/summary", curriculum.GetAllocationSummary).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/teachers/{id}/courses", curriculum.GetTeacherCourses).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/courses/{id}", curriculum.GetCourse).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/courses/{id}/teachers", curriculum.GetCourseTeachers).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/department/{departmentId}/semester/{semester}/courses", curriculum.GetDepartmentSemesterCourses).Methods("GET", "OPTIONS")
 
 	// Cluster Management routes
 	router.HandleFunc("/api/clusters", curriculum.GetClusters).Methods("GET", "OPTIONS")
@@ -152,8 +157,28 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/sharing/{item_type}/{item_id}/departments", curriculum.GetItemSharedDepartments).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/cluster/{id}/shared-content", curriculum.GetClusterSharedContent).Methods("GET", "OPTIONS")
 
+	// Mark Entry routes
+	router.HandleFunc("/api/mark-entry-window", curriculum.GetMarkEntryWindow).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/mark-entry-window", curriculum.SaveMarkEntryWindow).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/mark-entry-windows", curriculum.GetAllMarkEntryWindows).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/mark-entry-windows/stats", curriculum.GetMarkEntryStats).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/mark-entry-windows/{id}", curriculum.UpdateMarkEntryWindow).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/api/mark-entry-windows/{id}", curriculum.DeleteMarkEntryWindow).Methods("DELETE", "OPTIONS")
+	router.HandleFunc("/api/course/{courseId}/mark-categories", curriculum.GetMarkCategoriesForCourse).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/mark-categories-by-type/{courseTypeId}", curriculum.GetMarkCategoriesByType).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/course/{courseId}/student-marks", curriculum.GetStudentMarks).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/student-marks/save", curriculum.SaveStudentMarks).Methods("POST", "OPTIONS")
+
 	// Authentication routes
 	router.HandleFunc("/api/auth/login", curriculum.Login).Methods("POST", "OPTIONS")
+
+	// Elective Management routes
+	router.HandleFunc("/api/hod/profile", curriculum.GetHODProfile).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/hod/electives/available", curriculum.GetAvailableElectives).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/hod/electives/save", curriculum.SaveHODSelections).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/hod/batches", curriculum.GetHODBatches).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/hod/elective-slots", curriculum.GetElectiveSemesterSlots).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/academic-calendar/current", curriculum.GetCurrentAcademicCalendar).Methods("GET", "OPTIONS")
 
 	// User Management routes
 	router.HandleFunc("/api/users", curriculum.GetUsers).Methods("GET", "OPTIONS")

@@ -23,27 +23,58 @@ func GetPEOPOMapping(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch existing PEO-PO mappings
-	matrix := make(map[string]int)
-	rows, err := db.DB.Query("SELECT peo_index, po_index, mapping_value FROM peo_po_mapping WHERE curriculum_id = ?", curriculumID)
+	// Fetch PEO-PO mappings from existing table
+	poMatrix := make(map[string]int)
+	poRows, err := db.DB.Query(`
+		SELECT peo_index, po_index, mapping_value
+		FROM peo_po_mapping
+		WHERE curriculum_id = ?
+	`, curriculumID)
 	if err != nil {
 		log.Println("Error fetching PEO-PO mappings:", err)
 		http.Error(w, "Failed to fetch mappings", http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
+	defer poRows.Close()
 
-	for rows.Next() {
-		var peoIndex, poIndex, value int
-		if err := rows.Scan(&peoIndex, &poIndex, &value); err == nil {
-			// Convert from 1-based (database) to 0-based (frontend)
-			key := fmt.Sprintf("%d-%d", peoIndex-1, poIndex-1)
-			matrix[key] = value
+	for poRows.Next() {
+		var peoIndex, poIndex, mappingValue int
+		if err := poRows.Scan(&peoIndex, &poIndex, &mappingValue); err != nil {
+			log.Println("Error scanning PEO-PO mapping:", err)
+			continue
+		}
+		// Convert to 0-based indexing for frontend
+		key := fmt.Sprintf("%d-%d", peoIndex-1, poIndex-1)
+		poMatrix[key] = mappingValue
+	}
+
+	// Fetch PSO-PO mappings from pso_po_mapping table
+	psoPoMatrix := make(map[string]int)
+	psoPoRows, err := db.DB.Query(`
+		SELECT pso_index, po_index, mapping_value
+		FROM pso_po_mapping
+		WHERE curriculum_id = ?
+	`, curriculumID)
+	if err != nil {
+		log.Println("Error fetching PSO-PO mappings (table may not exist yet):", err)
+		// Don't return error, table might not exist yet
+	} else {
+		defer psoPoRows.Close()
+		for psoPoRows.Next() {
+			var psoIndex, poIndex, mappingValue int
+			if err := psoPoRows.Scan(&psoIndex, &poIndex, &mappingValue); err != nil {
+				log.Println("Error scanning PSO-PO mapping:", err)
+				continue
+			}
+			// Convert to 0-based indexing for frontend
+			key := fmt.Sprintf("%d-%d", psoIndex-1, poIndex-1)
+			psoPoMatrix[key] = mappingValue
 		}
 	}
 
 	response := models.PEOPOMappingResponse{
-		Matrix: matrix,
+		POMatrix:    poMatrix,
+		PSOPOMatrix: psoPoMatrix,
 	}
 
 	json.NewEncoder(w).Encode(response)
@@ -76,15 +107,22 @@ func SavePEOPOMapping(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Delete existing mappings for this curriculum
+	// Delete existing PO mappings from existing table
 	_, err = tx.Exec("DELETE FROM peo_po_mapping WHERE curriculum_id = ?", curriculumID)
 	if err != nil {
-		log.Println("Error deleting existing mappings:", err)
+		log.Println("Error deleting existing PO mappings:", err)
 		http.Error(w, "Failed to save mappings", http.StatusInternalServerError)
 		return
 	}
 
-	// Insert new mappings
+	// Delete existing PSO-PO mappings
+	_, err = tx.Exec("DELETE FROM pso_po_mapping WHERE curriculum_id = ?", curriculumID)
+	if err != nil {
+		log.Println("Error deleting existing PSO-PO mappings (table may not exist yet):", err)
+		// Don't fail if table doesn't exist yet
+	}
+
+	// Insert new PEO-PO mappings
 	for _, mapping := range request.Mappings {
 		_, err = tx.Exec(`
 			INSERT INTO peo_po_mapping (curriculum_id, peo_index, po_index, mapping_value)
@@ -92,7 +130,20 @@ func SavePEOPOMapping(w http.ResponseWriter, r *http.Request) {
 		`, curriculumID, mapping.PEOIndex, mapping.POIndex, mapping.MappingValue)
 		if err != nil {
 			log.Println("Error inserting PEO-PO mapping:", err)
-			http.Error(w, "Failed to save mappings", http.StatusInternalServerError)
+			http.Error(w, "Failed to save PEO-PO mappings", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Insert PSO-PO mappings
+	for _, mapping := range request.PSOPOMappings {
+		_, err = tx.Exec(`
+			INSERT INTO pso_po_mapping (curriculum_id, pso_index, po_index, mapping_value)
+			VALUES (?, ?, ?, ?)
+		`, curriculumID, mapping.PSOIndex, mapping.POIndex, mapping.MappingValue)
+		if err != nil {
+			log.Println("Error inserting PSO-PO mapping:", err)
+			http.Error(w, "Failed to save PSO-PO mappings", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -105,8 +156,8 @@ func SavePEOPOMapping(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log the activity
-	LogCurriculumActivity(curriculumID, "PEO-PO Mapping Saved",
-		"Updated PEO-PO mappings for the curriculum", "System")
+	LogCurriculumActivity(curriculumID, "PEO-PO & PSO-PO Mapping Saved",
+		"Updated PEO-PO and PSO-PO mappings for the curriculum", "System")
 
-	json.NewEncoder(w).Encode(map[string]string{"message": "PEO-PO mappings saved successfully"})
+	json.NewEncoder(w).Encode(map[string]string{"message": "Mappings saved successfully"})
 }

@@ -20,11 +20,12 @@ import (
 // Teacher represents the teacher model
 type Teacher struct {
 	ID         int64     `json:"id"`
+	FacultyID  string    `json:"faculty_id"`
 	Name       string    `json:"name"`
 	Email      string    `json:"email"`
 	Phone      *string   `json:"phone"`
 	ProfileImg *string   `json:"profile_img"`
-	Dept       *int      `json:"dept"`
+	Dept       *string   `json:"dept"` // VARCHAR in database
 	Department *string   `json:"department"` // For display purposes
 	Desg       *string   `json:"designation"`
 	LastLogin  time.Time `json:"last_login"`
@@ -48,7 +49,7 @@ func GetTeachers(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT 
-			t.id, t.name, t.email, t.phone, t.profile_img, 
+			t.id, t.faculty_id, t.name, t.email, t.phone, t.profile_img, 
 			t.dept, d.department_name as department, t.desg, 
 			t.last_login, t.status
 		FROM teachers t
@@ -69,7 +70,7 @@ func GetTeachers(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var teacher Teacher
 		err := rows.Scan(
-			&teacher.ID, &teacher.Name, &teacher.Email, &teacher.Phone,
+			&teacher.ID, &teacher.FacultyID, &teacher.Name, &teacher.Email, &teacher.Phone,
 			&teacher.ProfileImg, &teacher.Dept, &teacher.Department, &teacher.Desg,
 			&teacher.LastLogin, &teacher.Status,
 		)
@@ -103,7 +104,7 @@ func GetTeacherByID(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT 
-			t.id, t.name, t.email, t.phone, t.profile_img, 
+			t.id, t.faculty_id, t.name, t.email, t.phone, t.profile_img, 
 			t.dept, d.department_name as department, t.desg, 
 			t.last_login, t.status
 		FROM teachers t
@@ -113,7 +114,7 @@ func GetTeacherByID(w http.ResponseWriter, r *http.Request) {
 
 	var teacher Teacher
 	err = db.DB.QueryRow(query, id).Scan(
-		&teacher.ID, &teacher.Name, &teacher.Email, &teacher.Phone,
+		&teacher.ID, &teacher.FacultyID, &teacher.Name, &teacher.Email, &teacher.Phone,
 		&teacher.ProfileImg, &teacher.Dept, &teacher.Department, &teacher.Desg,
 		&teacher.LastLogin, &teacher.Status,
 	)
@@ -210,31 +211,11 @@ func CreateTeacher(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get department ID (frontend now sends department ID)
-	var deptID *int
+	var deptID *string
 	if department != "" {
-		// Try to parse department as ID first
-		tempDeptID, parseErr := strconv.Atoi(department)
-		if parseErr == nil {
-			// Verify department exists
-			var exists int
-			err := db.DB.QueryRow("SELECT id FROM departments WHERE id = ? AND status = 1", tempDeptID).Scan(&exists)
-			if err == nil {
-				deptID = &tempDeptID
-				log.Printf("Using department ID %d", tempDeptID)
-			} else {
-				log.Printf("Warning: Department ID %d not found: %v", tempDeptID, err)
-			}
-		} else {
-			// Fallback: treat as department name (for backwards compatibility)
-			var tempDeptIDFromName int
-			err := db.DB.QueryRow("SELECT id FROM departments WHERE department_name = ?", department).Scan(&tempDeptIDFromName)
-			if err == nil {
-				deptID = &tempDeptIDFromName
-				log.Printf("Found department by name '%s' with ID %d", department, tempDeptIDFromName)
-			} else {
-				log.Printf("Warning: Department '%s' not found: %v", department, err)
-			}
-		}
+		// Store as string since dept column is VARCHAR
+		deptID = &department
+		log.Printf("Using department value: %s", department)
 	}
 
 	// Prepare optional fields
@@ -280,19 +261,8 @@ func CreateTeacher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Insert into department_teachers junction table if department is provided
-	if deptID != nil {
-		_, err = db.DB.Exec(
-			"INSERT INTO department_teachers (teacher_id, department_id, status) VALUES (?, ?, 1)",
-			teacherID,
-			*deptID,
-		)
-		if err != nil {
-			log.Printf("Warning: Failed to link teacher to department: %v", err)
-		} else {
-			log.Printf("Linked teacher ID %d to department ID %d", teacherID, *deptID)
-		}
-	}
+	// Note: dept is stored as VARCHAR directly in teachers table
+	// department_teachers junction table is managed separately
 
 	// Fetch and return the created teacher
 	createdTeacher := Teacher{
@@ -356,7 +326,8 @@ func UpdateTeacher(w http.ResponseWriter, r *http.Request) {
 	var existingProfileImg *string
 	err = db.DB.QueryRow("SELECT profile_img FROM teachers WHERE id = ? AND status = 1", id).Scan(&existingProfileImg)
 	if err == sql.ErrNoRows {
-		http.Error(w, "Teacher not found", http.StatusNotFound)
+		log.Printf("Teacher with ID %d not found or inactive", id)
+		http.Error(w, fmt.Sprintf("Teacher with ID %d not found or has been deleted", id), http.StatusNotFound)
 		return
 	} else if err != nil {
 		log.Printf("Error fetching existing teacher: %v", err)
@@ -418,31 +389,11 @@ func UpdateTeacher(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get department ID (frontend now sends department ID)
-	var deptID *int
+	var deptID *string
 	if department != "" {
-		// Try to parse department as ID first
-		tempDeptID, parseErr := strconv.Atoi(department)
-		if parseErr == nil {
-			// Verify department exists
-			var exists int
-			err := db.DB.QueryRow("SELECT id FROM departments WHERE id = ? AND status = 1", tempDeptID).Scan(&exists)
-			if err == nil {
-				deptID = &tempDeptID
-				log.Printf("Using department ID %d", tempDeptID)
-			} else {
-				log.Printf("Warning: Department ID %d not found: %v", tempDeptID, err)
-			}
-		} else {
-			// Fallback: treat as department name (for backwards compatibility)
-			var tempDeptIDFromName int
-			err := db.DB.QueryRow("SELECT id FROM departments WHERE department_name = ?", department).Scan(&tempDeptIDFromName)
-			if err == nil {
-				deptID = &tempDeptIDFromName
-				log.Printf("Found department by name '%s' with ID %d", department, tempDeptIDFromName)
-			} else {
-				log.Printf("Warning: Department '%s' not found: %v", department, err)
-			}
-		}
+		// Store as string since dept column is VARCHAR
+		deptID = &department
+		log.Printf("Using department value: %s", department)
 	}
 
 	// Prepare optional fields
@@ -491,26 +442,8 @@ func UpdateTeacher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update department_teachers junction table if department is provided
-	if deptID != nil {
-		// First, remove old department associations
-		_, err = db.DB.Exec("DELETE FROM department_teachers WHERE teacher_id = ?", id)
-		if err != nil {
-			log.Printf("Warning: Failed to remove old department associations: %v", err)
-		}
-
-		// Then add the new department association
-		_, err = db.DB.Exec(
-			"INSERT INTO department_teachers (teacher_id, department_id, status) VALUES (?, ?, 1)",
-			id,
-			*deptID,
-		)
-		if err != nil {
-			log.Printf("Warning: Failed to link teacher to department: %v", err)
-		} else {
-			log.Printf("Updated department link for teacher ID %d to department ID %d", id, *deptID)
-		}
-	}
+	// Note: dept is stored as VARCHAR directly in teachers table
+	// department_teachers junction table is managed separately
 
 	// Fetch and return the updated teacher
 	updatedTeacher := Teacher{

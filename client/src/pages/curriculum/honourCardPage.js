@@ -457,7 +457,7 @@ function HonourCardPage() {
                   type="text"
                   value={newVerticalName}
                   onChange={(e) => setNewVerticalName(e.target.value)}
-                  placeholder="e.g., Data Science Track, AI & ML Specialization"
+                  placeholder="e.g., HONOUR VERTICAL"
                   required
                   className="input-custom"
                 />
@@ -623,6 +623,7 @@ function HonourCardPage() {
                           <option value="HSS - Humanities and Social Sciences">HSS - Humanities and Social Sciences</option>
                           <option value="PC - Professional Core">PC - Professional Core</option>
                           <option value="PE - Professional Elective">PE - Professional Elective</option>
+                          <option value="OE - Open Elective">OE - Open Elective</option>
                           <option value="EEC - Employability Enhancement Course">EEC - Employability Enhancement Course</option>
                         </select>
                       </div>
@@ -1071,6 +1072,345 @@ function HonourCardPage() {
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Edit Course Modal */}
+        {showEditModal && editingCourse && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-5 flex items-center justify-between sticky top-0 rounded-t-2xl">
+                <div>
+                  <h3 className="text-xl font-bold">Edit Course</h3>
+                  <p className="text-sm text-green-100">Update course details</p>
+                </div>
+                <button 
+                  onClick={() => setShowEditModal(false)}
+                  className="text-white hover:bg-white/20 rounded-lg p-2 transition-all"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <form onSubmit={handleUpdateCourse} className="p-8 space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Course Code</label>
+                    <input
+                      type="text"
+                      value={editCourseData.course_code}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, course_code: e.target.value })}
+                      placeholder="e.g., CS101"
+                      required
+                      className="input-custom"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Course Title</label>
+                    <input
+                      type="text"
+                      value={editCourseData.course_name}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, course_name: e.target.value })}
+                      placeholder="e.g., Programming Fundamentals"
+                      required
+                      className="input-custom"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Course Type</label>
+                    <select
+                      value={editCourseData.course_type}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, course_type: e.target.value })}
+                      required
+                      className="input-custom"
+                    >
+                      <option value="">Select Type</option>
+                      <option value="Theory">Theory</option>
+                      <option value="Lab">Lab</option>
+                      <option value="Theory&Lab">Theory&Lab</option>
+                      <option value="NA">NA</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
+                    <select
+                      value={editCourseData.category}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, category: e.target.value })}
+                      required
+                      className="input-custom"
+                    >
+                      <option value="">Select Category</option>
+                      <option value="BS - Basic Sciences">BS - Basic Sciences</option>
+                      <option value="ES - Engineering Sciences">ES - Engineering Sciences</option>
+                      <option value="HSS - Humanities and Social Sciences">HSS - Humanities and Social Sciences</option>
+                      <option value="PC - Professional Core">PC - Professional Core</option>
+                      <option value="PE - Professional Elective">PE - Professional Elective</option>
+                      <option value="OE - Open Elective">OE - Open Elective</option>
+                      <option value="EEC - Employability Enhancement Course">EEC - Employability Enhancement Course</option>
+                      <option value="NA">NA</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Hours per week section */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Credits</label>
+                    <input
+                      type="number"
+                      value={editCourseData.credit}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, credit: e.target.value })}
+                      placeholder="4"
+                      required
+                      min="0"
+                      className="input-custom"
+                    />
+                  </div>
+
+                  {!(curriculumTemplate === '2022' && editCourseData.course_type === 'Lab') && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Lecture (hrs per week)</label>
+                    <input
+                      type="number"
+                      value={editCourseData.lecture_hrs}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, lecture_hrs: e.target.value })}
+                      placeholder="3"
+                      min="0"
+                      className="input-custom"
+                    />
+                  </div>
+                  )}
+
+                  {!(curriculumTemplate === '2022' && editCourseData.course_type === 'Lab') && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Tutorial (hrs per week)</label>
+                    <input
+                      type="number"
+                      value={editCourseData.tutorial_hrs}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, tutorial_hrs: e.target.value })}
+                      placeholder="0"
+                      min="0"
+                      className="input-custom"
+                    />
+                  </div>
+                  )}
+
+                  {editCourseData.course_type !== 'Theory' && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Practical (hrs per week)</label>
+                    <input
+                      type="number"
+                      value={editCourseData.practical_hrs}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, practical_hrs: e.target.value })}
+                      placeholder="2"
+                      min="0"
+                      className="input-custom"
+                    />
+                  </div>
+                  )}
+                </div>
+
+                {/* Marks section */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">CIA Marks</label>
+                    <input
+                      type="number"
+                      value={editCourseData.cia_marks}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, cia_marks: e.target.value })}
+                      placeholder="40"
+                      min="0"
+                      max="100"
+                      className="input-custom"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">SEE Marks</label>
+                    <input
+                      type="number"
+                      value={editCourseData.see_marks}
+                      onChange={(e) => setEditCourseData({ ...editCourseData, see_marks: e.target.value })}
+                      placeholder="60"
+                      min="0"
+                      max="100"
+                      className="input-custom"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Total Score (Auto)</label>
+                    <input
+                      type="number"
+                      value={(parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0)}
+                      readOnly
+                      className={`input-custom bg-gray-100 cursor-not-allowed ${(parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0) > 100 ? 'border-red-500 border-2' : ''}`}
+                    />
+                    {(parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0) > 100 && (
+                      <p className="text-red-600 text-xs mt-1 font-medium">⚠ Total marks cannot exceed 100</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Total Hours for whole semester - Theory */}
+                {editCourseData.course_type === 'Theory' && (
+                  <>
+                    <div className="border-t pt-4 mt-4">
+                      <h3 className="text-sm font-bold text-gray-900 mb-3">Total Hours (for whole semester)</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">THEORY HRS (Auto)</label>
+                        <input
+                          type="number"
+                          value={(parseInt(editCourseData.lecture_hrs) || 0) * 15}
+                          readOnly
+                          className="input-custom bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">TUTORIAL HOURS (Auto)</label>
+                        <input
+                          type="number"
+                          value={(parseInt(editCourseData.tutorial_hrs) || 0) * 15}
+                          readOnly
+                          className="input-custom bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">TOTAL HRS (Auto)</label>
+                        <input
+                          type="number"
+                          value={((parseInt(editCourseData.lecture_hrs) || 0) * 15) + ((parseInt(editCourseData.tutorial_hrs) || 0) * 15)}
+                          readOnly
+                          className="input-custom bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Total Hours for whole semester - Theory&Lab */}
+                {(editCourseData.course_type === 'Theory&Lab' || editCourseData.course_type === 'NA') && (
+                  <>
+                    <div className="border-t pt-4 mt-4">
+                      <h3 className="text-sm font-bold text-gray-900 mb-3">Total Hours (for whole semester)</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">THEORY HRS (Auto)</label>
+                        <input
+                          type="number"
+                          value={(parseInt(editCourseData.lecture_hrs) || 0) * 15}
+                          readOnly
+                          className="input-custom bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">TUTORIAL HRS (Auto)</label>
+                        <input
+                          type="number"
+                          value={(parseInt(editCourseData.tutorial_hrs) || 0) * 15}
+                          readOnly
+                          className="input-custom bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">PRACTICAL HRS (Auto)</label>
+                        <input
+                          type="number"
+                          value={(parseInt(editCourseData.practical_hrs) || 0) * 15}
+                          readOnly
+                          className="input-custom bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">TOTAL HRS (Auto)</label>
+                        <input
+                          type="number"
+                          value={((parseInt(editCourseData.lecture_hrs) || 0) * 15) + ((parseInt(editCourseData.tutorial_hrs) || 0) * 15) + ((parseInt(editCourseData.practical_hrs) || 0) * 15)}
+                          readOnly
+                          className="input-custom bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Total Hours for whole semester - Lab */}
+                {editCourseData.course_type === 'Lab' && (
+                  <>
+                    <div className="border-t pt-4 mt-4">
+                      <h3 className="text-sm font-bold text-gray-900 mb-3">Total Hours (for whole semester)</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">PRACTICAL HRS (Auto)</label>
+                        <input
+                          type="number"
+                          value={(parseInt(editCourseData.practical_hrs) || 0) * 15}
+                          readOnly
+                          className="input-custom bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">TW/SL HRS</label>
+                        <input
+                          type="number"
+                          value={editCourseData.tw_sl_hrs}
+                          onChange={(e) => setEditCourseData({ ...editCourseData, tw_sl_hrs: e.target.value })}
+                          placeholder="0"
+                          min="0"
+                          className="input-custom"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">TOTAL HRS (Auto)</label>
+                        <input
+                          type="number"
+                          value={((parseInt(editCourseData.practical_hrs) || 0) * 15) + (parseInt(editCourseData.tw_sl_hrs) || 0)}
+                          readOnly
+                          className="input-custom bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="flex gap-3 justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="btn-secondary-custom"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2.5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
+                  >
+                    Update Course
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </div>
