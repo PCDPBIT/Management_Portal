@@ -25,14 +25,44 @@ function LoginPage() {
       const data = await response.json()
 
       if (data.success) {
+        // Determine the best name to display
+        const displayName = data.teacher_data?.name || data.user.username;
+        
         // Store user info in localStorage
         localStorage.setItem('userRole', data.user.role)
-        localStorage.setItem('userName', data.user.full_name)
+        localStorage.setItem('userName', displayName)
         localStorage.setItem('userId', data.user.id)
+        localStorage.setItem('userEmail', data.user.email) // Store email from users table
+        
+        // If teacher data is available, store it
+        if (data.teacher_data) {
+          localStorage.setItem('teacher_id', data.teacher_data.teacher_id)
+          localStorage.setItem('faculty_id', data.teacher_data.faculty_id)
+          localStorage.setItem('teacher_name', data.teacher_data.name)
+          localStorage.setItem('teacher_email', data.teacher_data.email)
+          localStorage.setItem('teacher_dept', data.teacher_data.dept || '')
+          localStorage.setItem('teacher_designation', data.teacher_data.designation || '')
+          localStorage.setItem('theory_subject_count', data.teacher_data.theory_subject_count || 0)
+          localStorage.setItem('theory_with_lab_subject_count', data.teacher_data.theory_with_lab_subject_count || 0)
+          console.log('Teacher data stored:', data.teacher_data);
+        }
+        
+        console.log('Login successful, stored email:', data.user.email);
         
         setUsername('')
         setPassword('')
-        navigate('/dashboard')
+        
+        // Navigate to first available page for the user's role
+        const role = data.user.role;
+        const roleRoutes = {
+          'admin': '/dashboard',
+          'hod': '/curriculum',
+          'hr': '/hr/faculty',
+          'teacher': '/teacher/course-selection',
+          'student': '/student/elective-selection'
+        };
+        
+        navigate(roleRoutes[role] || '/dashboard')
       } else {
         setError(data.message || 'Invalid username or password')
         setIsLoading(false)

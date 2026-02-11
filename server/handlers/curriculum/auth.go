@@ -87,12 +87,86 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	// Update last login time
 	_, _ = db.DB.Exec("UPDATE users SET last_login = ? WHERE id = ?", time.Now(), user.ID)
 
+	// If user is a teacher or hod, fetch teacher details from teachers table
+	var teacherData map[string]interface{}
+	if user.Role == "teacher" || user.Role == "hod" {
+		log.Printf("Fetching teacher details for role %s, email: %s", user.Role, user.Email)
+		
+		var teacherID int64
+		var facultyID, name, email, phone, dept, desg sql.NullString
+		var profileImg sql.NullString
+		var status sql.NullInt32
+		var theoryCount, theoryLabCount sql.NullInt32
+		
+		teacherQuery := `SELECT id, faculty_id, name, email, phone, profile_img, dept, desg, status, 
+		                 theory_subject_count, theory_with_lab_subject_count 
+		                 FROM teachers WHERE email = ? AND status = 1`
+		
+		err := db.DB.QueryRow(teacherQuery, user.Email).Scan(
+			&teacherID, &facultyID, &name, &email, &phone, &profileImg, 
+			&dept, &desg, &status, &theoryCount, &theoryLabCount,
+		)
+		
+		if err == nil {
+			// Teacher found, add teacher data to response
+			teacherData = map[string]interface{}{
+				"teacher_id":                     teacherID,
+				"faculty_id":                     nullStringToString(facultyID),
+				"name":                           nullStringToString(name),
+				"email":                          nullStringToString(email),
+				"phone":                          nullStringToString(phone),
+				"profile_img":                    nullStringToString(profileImg),
+				"dept":                           nullStringToString(dept),
+				"designation":                    nullStringToString(desg),
+				"status":                         nullIntToInt(status),
+				"theory_subject_count":           nullIntToInt(theoryCount),
+				"theory_with_lab_subject_count":  nullIntToInt(theoryLabCount),
+			}
+			log.Printf("Teacher data found: ID=%d, Name=%s", teacherID, nullStringToString(name))
+		} else if err == sql.ErrNoRows {
+			log.Printf("Warning: User is teacher role but not found in teachers table: %s", user.Email)
+		} else {
+			log.Printf("Error fetching teacher data: %v", err)
+		}
+	}
+
 	// Return success response
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(models.LoginResponse{
+	response := models.LoginResponse{
 		Success: true,
 		Message: "Login successful",
 		User:    &user,
 		Token:   "dummy-token", // In production, generate a proper JWT token
-	})
+	}
+	
+	// Add teacher data if available
+	if teacherData != nil {
+		responseMap := map[string]interface{}{
+			"success":      response.Success,
+			"message":      response.Message,
+			"user":         response.User,
+			"token":        response.Token,
+			"teacher_data": teacherData,
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(responseMap)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// Helper functions to handle NULL values
+func nullStringToString(ns sql.NullString) string {
+	if ns.Valid {
+		return ns.String
+	}
+	return ""
+}
+
+func nullIntToInt(ni sql.NullInt32) int {
+	if ni.Valid {
+		return int(ni.Int32)
+	}
+	return 0
 }

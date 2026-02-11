@@ -95,7 +95,58 @@ func InitDB() error {
 		return err
 	}
 
+	// Run migrations
+	if err := runMigrations(); err != nil {
+		log.Printf("Warning: Migrations failed: %v", err)
+	}
+
 	return nil
+}
+
+func runMigrations() error {
+	// Skip course_type table migrations - use existing table structure
+	// The course_type table already exists with column 'course_type', not 'name'
+	log.Println("Skipping course_type migrations - using existing table structure")
+	
+	// Just ensure the table exists with basic structure
+	var tableExists int
+	err := DB.QueryRow("SELECT count(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'course_type'").Scan(&tableExists)
+	if err == nil && tableExists == 0 {
+		// Create course_type table only if it doesn't exist
+		_, err = DB.Exec(`
+			CREATE TABLE IF NOT EXISTS course_type (
+				id INT PRIMARY KEY AUTO_INCREMENT,
+				course_type VARCHAR(50) NOT NULL UNIQUE
+			)
+		`)
+		if err != nil {
+			return err
+		}
+		
+		// Insert initial values
+		_, err = DB.Exec(`
+			INSERT IGNORE INTO course_type (id, course_type) VALUES 
+			(1, 'theory'), 
+			(2, 'lab'), 
+			(3, 'theory with lab')
+		`)
+	}
+	if err != nil {
+		log.Printf("Initial values insert warning: %v", err)
+	}
+
+	// Create teacher_course_limits table
+	_, err = DB.Exec(`
+		CREATE TABLE IF NOT EXISTS teacher_course_limits (
+			id INT PRIMARY KEY AUTO_INCREMENT,
+			teacher_id BIGINT UNSIGNED NOT NULL,
+			course_type_id INT NOT NULL,
+			max_count INT DEFAULT 0,
+			UNIQUE KEY (teacher_id, course_type_id),
+			FOREIGN KEY (course_type_id) REFERENCES course_type(id)
+		)
+	`)
+	return err
 }
 
 // CreateCurriculumTable creates the curriculum table if it doesn't exist

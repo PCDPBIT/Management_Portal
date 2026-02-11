@@ -13,6 +13,17 @@ function Dashboard() {
   })
 
   useEffect(() => {
+    const userRole = localStorage.getItem('userRole');
+    if (userRole === 'teacher') {
+      navigate('/teacher/course-selection');
+    } else if (userRole === 'student') {
+      navigate('/student/elective-selection');
+    } else if (userRole === 'hr') {
+      navigate('/hr/faculty');
+    }
+  }, [navigate]);
+
+  useEffect(() => {
     // Fetch dashboard stats
     fetchDashboardStats()
   }, [])

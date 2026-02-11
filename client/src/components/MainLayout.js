@@ -9,6 +9,18 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
     return saved === "true";
   });
 
+  // Get user info from localStorage
+  const userRole = localStorage.getItem("userRole") || "";
+  const userName = localStorage.getItem("userName");
+  
+  // Handle cases where localStorage might contain the string "undefined" or be null
+  const safeUserName = (userName && userName !== "undefined") ? userName : "User";
+  const safeUserRole = (userRole && userRole !== "undefined") ? userRole : "";
+
+  // Debug log
+  console.log("MainLayout - userRole from localStorage:", userRole);
+  console.log("MainLayout - safeUserRole:", safeUserRole);
+
   useEffect(() => {
     localStorage.setItem("sidebarCollapsed", sidebarCollapsed);
   }, [sidebarCollapsed]);
@@ -17,6 +29,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
     {
       name: "Dashboard",
       path: "/dashboard",
+      roles: ["admin", "hr", "hod"],
       icon: (
         <svg
           className="w-5 h-5"
@@ -36,6 +49,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
     {
       name: "Curriculum",
       path: "/curriculum",
+      roles: ["admin", "hod"], // Admin and HOD
       icon: (
         <svg
           className="w-5 h-5"
@@ -55,6 +69,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
     {
       name: "Student & Teacher",
       path: "/student-teacher-dashboard",
+      roles: ["admin", "hod"], // Admin and HOD
       icon: (
         <svg
           className="w-5 h-5"
@@ -74,6 +89,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
     {
       name: "Course Allocation",
       path: "/course-allocation",
+      roles: ["admin", "hod"], // Admin and HOD only
       icon: (
         <svg
           className="w-5 h-5"
@@ -90,7 +106,72 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
         </svg>
       ),
     },
+    {
+      name: "Subject Limits (HR)",
+      path: "/hr/faculty",
+      roles: ["admin", "hr"], // Admin and HR only
+      icon: (
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+          />
+        </svg>
+      ),
+    },
+    {
+      name: "Course Selection",
+      path: "/teacher/course-selection",
+      roles: ["admin", "teacher", "hod"], // Admin, Teacher, and HOD
+      icon: (
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+          />
+        </svg>
+      ),
+    },
+    {
+      name: "Elective Selection",
+      path: "/student/elective-selection",
+      roles: ["admin", "student"], // Admin and Student
+      icon: (
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+          />
+        </svg>
+      ),
+    },
   ];
+
+  // Filter menu items based on user role
+  const filteredMenuItems = menuItems.filter((item) =>
+    safeUserRole && item.roles.some(r => r.toLowerCase() === safeUserRole.toLowerCase())
+  );
 
   const isActive = (path) => {
     return (
@@ -214,7 +295,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
 
         {/* Navigation */}
         <nav className="p-4 space-y-1">
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
@@ -244,14 +325,16 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
             className={`flex items-center ${sidebarCollapsed ? "justify-center" : "space-x-3"}`}
           >
             <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-              A
+              {safeUserName.charAt(0).toUpperCase()}
             </div>
             {!sidebarCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  Admin
+                  {safeUserName}
                 </p>
-                <p className="text-xs text-gray-500 truncate">admin@cms.edu</p>
+                <p className="text-xs text-gray-500 truncate">
+                  {safeUserRole === "hod" ? "HOD" : safeUserRole.charAt(0).toUpperCase() + safeUserRole.slice(1).toLowerCase()}
+                </p>
               </div>
             )}
           </div>

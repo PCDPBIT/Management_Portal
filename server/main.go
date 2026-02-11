@@ -8,6 +8,7 @@ import (
 	"server/db"
 	"server/middleware"
 	"server/routes"
+	"server/scheduler"
 
 	"github.com/joho/godotenv"
 )
@@ -91,6 +92,9 @@ func main() {
 	if err := db.RemoveNameColumnFromNormalCards(); err != nil {
 		log.Fatal("Failed to remove name column from normal_cards:", err)
 	}
+
+	// Start allocation scheduler (checks every hour for closed windows)
+	scheduler.StartAllocationScheduler()
 
 	// Setup routes
 	router := routes.SetupRoutes()
