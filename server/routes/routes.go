@@ -197,6 +197,7 @@ func SetupRoutes() *mux.Router {
 
 	// Teacher routes
 	router.HandleFunc("/api/teachers", studentteacher.GetTeachers).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/teachers/by-email", studentteacher.GetTeacherByEmail).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/teachers/{id}", studentteacher.GetTeacherByID).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/teachers", studentteacher.CreateTeacher).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/teachers/{id}", studentteacher.UpdateTeacher).Methods("PUT", "OPTIONS")

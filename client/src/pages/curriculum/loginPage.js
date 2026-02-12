@@ -42,9 +42,16 @@ function LoginPage() {
           localStorage.setItem('teacher_email', data.teacher_data.email)
           localStorage.setItem('teacher_dept', data.teacher_data.dept || '')
           localStorage.setItem('teacher_designation', data.teacher_data.designation || '')
-          localStorage.setItem('theory_subject_count', data.teacher_data.theory_subject_count || 0)
-          localStorage.setItem('theory_with_lab_subject_count', data.teacher_data.theory_with_lab_subject_count || 0)
           console.log('Teacher data stored:', data.teacher_data);
+        } else {
+          // Clear any stale teacher data from previous sessions
+          localStorage.removeItem('teacher_id');
+          localStorage.removeItem('faculty_id');
+          localStorage.removeItem('teacher_name');
+          localStorage.removeItem('teacher_email');
+          localStorage.removeItem('teacher_dept');
+          localStorage.removeItem('teacher_designation');
+          console.log('No teacher data - cleared stale teacher localStorage');
         }
         
         console.log('Login successful, stored email:', data.user.email);

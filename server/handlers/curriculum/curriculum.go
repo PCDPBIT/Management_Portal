@@ -14,26 +14,6 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// decodeCourseRequest decodes the course request from JSON
-func decodeCourseRequest(r *http.Request) (*models.Course, error) {
-	var course models.Course
-	if err := json.NewDecoder(r.Body).Decode(&course); err != nil {
-		return nil, err
-	}
-	return &course, nil
-}
-
-// resolveCourseTypeID converts course type name to ID
-func resolveCourseTypeID(courseTypeName string) (int, error) {
-	var courseTypeID int
-	query := `SELECT id FROM course_type WHERE course_type = ? AND status = 1 LIMIT 1`
-	err := db.DB.QueryRow(query, courseTypeName).Scan(&courseTypeID)
-	if err != nil {
-		return 0, fmt.Errorf("course type '%s' not found: %w", courseTypeName, err)
-	}
-	return courseTypeID, nil
-}
-
 // cascadeSoftDeleteCourse sets status=0 for all child records of a course
 // If tx is provided, uses transaction; otherwise uses direct DB connection
 func cascadeSoftDeleteCourse(courseID int, tx *sql.Tx) error {
@@ -777,38 +757,4 @@ func RemoveCourseFromSemester(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Course removed successfully"})
-}
-
-// GetCourseTypes retrieves all course types from the database
-func GetCourseTypes(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	query := `SELECT id, course_type FROM course_type WHERE status = 1 ORDER BY id`
-	rows, err := db.DB.Query(query)
-	if err != nil {
-		log.Printf("Error fetching course types: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch course types"})
-		return
-	}
-	defer rows.Close()
-
-	var courseTypes []models.CourseType
-	for rows.Next() {
-		var ct models.CourseType
-		if err := rows.Scan(&ct.ID, &ct.Name); err != nil {
-			log.Printf("Error scanning course type: %v", err)
-			continue
-		}
-		courseTypes = append(courseTypes, ct)
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(courseTypes)
 }

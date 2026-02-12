@@ -377,7 +377,7 @@ func SaveElectiveSelections(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Insert new selections
-	// ONLY insert if course is in hod_elective_selections for this department, semester, and batch
+	// ONLY insert if course is in hod_elective_selections for this department, semester, and batch (or NULL batch)
 	// Also validate that the slot is active
 	stmt, err := tx.Prepare(`
 		INSERT INTO student_elective_choices 
@@ -388,7 +388,7 @@ func SaveElectiveSelections(w http.ResponseWriter, r *http.Request) {
 		WHERE hes.department_id = ? 
 		AND hes.course_id = ?
 		AND hes.semester = ?
-		AND hes.batch = ?
+		AND (hes.batch = ? OR hes.batch IS NULL)
 		AND hes.status = 'ACTIVE'
 		AND (hes.slot_id IS NULL OR ess.is_active = 1)
 		LIMIT 1
@@ -546,24 +546,56 @@ func GetStudentElectiveSelections(w http.ResponseWriter, r *http.Request) {
 
 // Helper function to determine slot type based on slot name and category
 func determineSlotType(slotName, category string) string {
-	slotNameLower := strings.ToLower(slotName)
+	slotNameLower := strings.ToLower(strings.TrimSpace(slotName))
+	
+	log.Printf("Determining slot type for: '%s' (lowercase: '%s')", slotName, slotNameLower)
 	
 	// Determine slot type ONLY by slot name from elective_semester_slots table
 	// NOT by course category - this ensures correct typing even with mixed courses
+	
+	// Check for honour/minor/addon first (most specific)
+	// Check if the slot name starts with these keywords
+	if strings.HasPrefix(slotNameLower, "honour") || 
+	   strings.HasPrefix(slotNameLower, "honor") ||
+	   strings.Contains(slotNameLower, "honour slot") ||
+	   strings.Contains(slotNameLower, "honor slot") {
+		log.Printf("  -> Detected as HONOR")
+		return "HONOR"
+	}
+	
+	if strings.HasPrefix(slotNameLower, "minor") || strings.Contains(slotNameLower, "minor slot") {
+		log.Printf("  -> Detected as MINOR")
+		return "MINOR"
+	}
+	
+	if strings.HasPrefix(slotNameLower, "addon") || 
+	   strings.HasPrefix(slotNameLower, "add-on") ||
+	   strings.Contains(slotNameLower, "addon slot") ||
+	   strings.Contains(slotNameLower, "add-on slot") {
+		log.Printf("  -> Detected as ADDON")
+		return "ADDON"
+	}
+	
+	// Then check for open electives
 	if strings.Contains(slotNameLower, "open") {
+		log.Printf("  -> Detected as OPEN")
 		return "OPEN"
 	}
 	
+	// Then check for professional electives
 	if strings.Contains(slotNameLower, "professional") {
+		log.Printf("  -> Detected as PROFESSIONAL")
 		return "PROFESSIONAL"
 	}
 	
 	// Default to professional if it contains "elective" but not "open"
 	if strings.Contains(slotNameLower, "elective") {
+		log.Printf("  -> Detected as PROFESSIONAL (contains 'elective')")
 		return "PROFESSIONAL"
 	}
 	
 	// Default to professional if unclear
+	log.Printf("  -> Defaulting to PROFESSIONAL")
 	return "PROFESSIONAL"
 }
 

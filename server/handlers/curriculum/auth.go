@@ -96,33 +96,30 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		var facultyID, name, email, phone, dept, desg sql.NullString
 		var profileImg sql.NullString
 		var status sql.NullInt32
-		var theoryCount, theoryLabCount sql.NullInt32
 		
-		teacherQuery := `SELECT id, faculty_id, name, email, phone, profile_img, dept, desg, status, 
-		                 theory_subject_count, theory_with_lab_subject_count 
+		// Query without theory_subject_count columns (they may not exist in all schemas)
+		teacherQuery := `SELECT id, faculty_id, name, email, phone, profile_img, dept, desg, status
 		                 FROM teachers WHERE email = ? AND status = 1`
 		
 		err := db.DB.QueryRow(teacherQuery, user.Email).Scan(
 			&teacherID, &facultyID, &name, &email, &phone, &profileImg, 
-			&dept, &desg, &status, &theoryCount, &theoryLabCount,
+			&dept, &desg, &status,
 		)
 		
 		if err == nil {
 			// Teacher found, add teacher data to response
 			teacherData = map[string]interface{}{
-				"teacher_id":                     teacherID,
-				"faculty_id":                     nullStringToString(facultyID),
-				"name":                           nullStringToString(name),
-				"email":                          nullStringToString(email),
-				"phone":                          nullStringToString(phone),
-				"profile_img":                    nullStringToString(profileImg),
-				"dept":                           nullStringToString(dept),
-				"designation":                    nullStringToString(desg),
-				"status":                         nullIntToInt(status),
-				"theory_subject_count":           nullIntToInt(theoryCount),
-				"theory_with_lab_subject_count":  nullIntToInt(theoryLabCount),
+				"teacher_id":  teacherID,
+				"faculty_id":  nullStringToString(facultyID),
+				"name":        nullStringToString(name),
+				"email":       nullStringToString(email),
+				"phone":       nullStringToString(phone),
+				"profile_img": nullStringToString(profileImg),
+				"dept":        nullStringToString(dept),
+				"designation": nullStringToString(desg),
+				"status":      nullIntToInt(status),
 			}
-			log.Printf("Teacher data found: ID=%d, Name=%s", teacherID, nullStringToString(name))
+			log.Printf("Teacher data found: ID=%d, Name=%s, FacultyID=%s", teacherID, nullStringToString(name), nullStringToString(facultyID))
 		} else if err == sql.ErrNoRows {
 			log.Printf("Warning: User is teacher role but not found in teachers table: %s", user.Email)
 		} else {

@@ -173,9 +173,79 @@ const TeacherCourseSelectionPage = () => {
   };
 
   useEffect(() => {
-    // Get teacher ID from localStorage or context
-    const storedTeacherId = localStorage.getItem('teacher_id') || localStorage.getItem('userId') || '1';
-    setTeacherId(storedTeacherId);
+    // Get teacher data by email (preferred) or fallback to stored teacher_id
+    const fetchTeacherByEmail = async () => {
+      const userEmail = localStorage.getItem('userEmail') || localStorage.getItem('teacher_email');
+      
+      if (!userEmail) {
+        // Fallback to stored teacher_id
+        const storedTeacherId = localStorage.getItem('teacher_id');
+        if (storedTeacherId) {
+          console.log('Using stored teacher ID:', storedTeacherId);
+          setTeacherId(storedTeacherId);
+        } else {
+          setError('No teacher email or ID found. Please log in as a teacher.');
+          setLoading(false);
+        }
+        return;
+      }
+      
+      try {
+        // Fetch teacher data from backend using email
+        console.log('Fetching teacher by email:', userEmail);
+        const response = await fetch(`${API_BASE_URL}/teachers/by-email?email=${encodeURIComponent(userEmail)}`);
+        
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Response data:', data);
+          if (data.teacher && data.teacher.id) {
+            console.log('Teacher found by email:', data.teacher);
+            setTeacherId(data.teacher.id.toString());
+            
+            // Update localStorage with fresh teacher data
+            localStorage.setItem('teacher_id', data.teacher.id);
+            localStorage.setItem('faculty_id', data.teacher.faculty_id || '');
+            localStorage.setItem('teacher_name', data.teacher.name || '');
+            localStorage.setItem('teacher_dept', data.teacher.dept || '');
+          } else {
+            console.error('No teacher in response data');
+            setError(`No teacher record found for email: ${userEmail}\nPlease contact your administrator to add you to the teachers database.`);
+            setLoading(false);
+          }
+        } else if (response.status === 404) {
+          console.error('404 - Teacher not found');
+          setError(`No teacher record found for email: ${userEmail}\nPlease contact your administrator to add you to the teachers database.`);
+          setLoading(false);
+        } else {
+          console.error('API call failed with status:', response.status);
+          // Fallback to stored teacher_id if API fails
+          const storedTeacherId = localStorage.getItem('teacher_id');
+          if (storedTeacherId) {
+            console.log('API failed, using stored teacher ID:', storedTeacherId);
+            setTeacherId(storedTeacherId);
+          } else {
+            setError('Unable to fetch teacher data. Please try logging in again.');
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching teacher by email:', err);
+        // Fallback to stored teacher_id
+        const storedTeacherId = localStorage.getItem('teacher_id');
+        if (storedTeacherId) {
+          console.log('Error occurred, using stored teacher ID:', storedTeacherId);
+          setTeacherId(storedTeacherId);
+        } else {
+          setError('Unable to fetch teacher data. Please try logging in again.');
+          setLoading(false);
+        }
+      }
+    };
+    
+    fetchTeacherByEmail();
   }, []);
 
   useEffect(() => {
@@ -213,8 +283,11 @@ const TeacherCourseSelectionPage = () => {
             setActiveTab(data.summary.type_summaries[0].type_name);
           }
         }
+      } else if (response.status === 404) {
+        setError(`Teacher ID ${tid} not found in the system. Please contact admin.`);
+        setLoading(false);
       } else {
-        // Fallback or error handled elsewhere
+        console.warn('Allocation summary not available, continuing without it');
       }
     } catch (err) {
       console.error('Allocation summary error:', err);
@@ -290,12 +363,25 @@ const TeacherCourseSelectionPage = () => {
       // Fetch courses for each semester in parallel
       const promises = semesters.map(semester => 
         fetch(`${API_BASE_URL}/teachers/${teacherId}/semester/${semester}/courses`)
-          .then(res => res.ok ? res.json() : { courses: [] })
+          .then(res => {
+            if (res.status === 404) {
+              console.warn(`Teacher ${teacherId} not found or no curriculum mapping`);
+              return { courses: [] };
+            }
+            if (res.status === 500) {
+              console.error(`Server error fetching courses for semester ${semester}`);
+              return { courses: [] };
+            }
+            return res.ok ? res.json() : { courses: [] };
+          })
           .then(data => ({
             semester,
             courses: Array.isArray(data.courses) ? data.courses.map(c => ({...c, semester})) : []
           }))
-          .catch(() => ({ semester, courses: [] }))
+          .catch(err => {
+            console.error(`Error fetching semester ${semester}:`, err);
+            return { semester, courses: [] };
+          })
       );
       
       const results = await Promise.all(promises);
@@ -304,6 +390,11 @@ const TeacherCourseSelectionPage = () => {
       results.forEach(result => {
         allCourses = [...allCourses, ...result.courses];
       });
+      
+      // Check if all results are empty
+      if (allCourses.length === 0) {
+        setError(`No courses found for teacher ID ${teacherId}. This may be because:\n• Teacher record doesn't exist in the database\n• Teacher's department is not mapped to a curriculum\n• No courses are configured for the upcoming ${nextSemesterType} semesters\n\nPlease contact your department administrator.`);
+      }
       
       // Filter out elective courses:
       // - Open Elective
@@ -626,8 +717,17 @@ const TeacherCourseSelectionPage = () => {
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
-              <div className="ml-3">
+              <div className="ml-3 flex-1">
                 <p className="text-sm text-red-800 whitespace-pre-line">{error}</p>
+                {error.includes('Teacher ID') && teacherId && (
+                  <div className="mt-3 text-xs text-gray-600 bg-white p-3 rounded border border-gray-200">
+                    <p className="font-semibold mb-1">Debug Info:</p>
+                    <p>Teacher ID from localStorage: {teacherId}</p>
+                    <p>User ID: {localStorage.getItem('userId') || 'Not set'}</p>
+                    <p>User Role: {localStorage.getItem('userRole') || 'Not set'}</p>
+                    <p>Faculty ID: {localStorage.getItem('faculty_id') || 'Not set'}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

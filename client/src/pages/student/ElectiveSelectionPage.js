@@ -46,6 +46,7 @@ const ElectiveSelectionPage = () => {
               is_active: slot.is_active,
               courses: slot.courses || []
             };
+            console.log(`Slot: ${slot.slot_name}, Type: ${slot.slot_type}`);
           });
         }
         setGroupedElectives(grouped);
@@ -57,10 +58,16 @@ const ElectiveSelectionPage = () => {
           setSelections(data.existing_selections);
           calculateTotalCredits(data.existing_selections);
           
-          // Check if already submitted (has selections for all slots)
-          const totalSlots = data.slots.length;
-          const selectedSlots = Object.keys(data.existing_selections).length;
-          if (selectedSlots === totalSlots) {
+          // Check if already submitted (has selections for all REQUIRED slots only)
+          const requiredSlots = data.slots.filter(slot => 
+            ['PROFESSIONAL', 'OPEN', 'MIXED'].includes(slot.slot_type)
+          );
+          const selectedRequiredSlots = Object.keys(data.existing_selections).filter(slotName => {
+            const slot = data.slots.find(s => s.slot_name === slotName);
+            return slot && ['PROFESSIONAL', 'OPEN', 'MIXED'].includes(slot.slot_type);
+          });
+          
+          if (selectedRequiredSlots.length === requiredSlots.length && requiredSlots.length > 0) {
             setIsSubmitted(true);
           } else {
             setIsSubmitted(false);
@@ -109,46 +116,48 @@ const ElectiveSelectionPage = () => {
     if (!electiveData || !electiveData.slots) return;
     
     let total = 0;
+    console.log('Calculating credits for selections:', currentSelections);
     Object.entries(currentSelections).forEach(([slotName, courseId]) => {
-      // Find the course in any slot
-      for (const slot of electiveData.slots) {
-        const elective = slot.courses.find(e => 
-          e.course_id === courseId && ['honour', 'minor', 'addon'].includes(e.category)
-        );
-        if (elective) {
-          total += elective.credits;
-          break;
+      // Check if this slot is HONOR/MINOR/ADDON by slot type
+      const slot = electiveData.slots.find(s => s.slot_name === slotName);
+      console.log(`Slot: ${slotName}, Type: ${slot?.slot_type}, Course ID: ${courseId}`);
+      if (slot && ['HONOR', 'MINOR', 'ADDON'].includes(slot.slot_type)) {
+        // Find the course in this slot and add its credits
+        const course = slot.courses.find(c => c.course_id === courseId);
+        if (course) {
+          console.log(`  Adding ${course.credits} credits from ${course.course_name}`);
+          total += course.credits;
         }
       }
     });
+    console.log(`Total credits calculated: ${total}`);
     setTotalCreditUsed(total);
   };
 
-  const handleSelection = (category, courseId, credits) => {
+  const handleSelection = (slotName, courseId, credits) => {
     if (isSubmitted) return;
 
+    // Find the slot to check its type
+    const slot = electiveData.slots.find(s => s.slot_name === slotName);
+    
     // Check COMMON credit limit for honour/minor/addon (total 6 credits shared)
-    if (['honour', 'minor', 'addon'].includes(category)) {
+    if (slot && ['HONOR', 'MINOR', 'ADDON'].includes(slot.slot_type)) {
       let adjustedCredit = totalCreditUsed;
       
       // If changing selection, subtract old credits first
-      if (selections[category]) {
-        // Find the old course in any slot
-        let oldElective = null;
-        for (const slot of electiveData.slots) {
-          oldElective = slot.courses.find(e => e.course_id === selections[category]);
-          if (oldElective) break;
-        }
-        if (oldElective) {
-          adjustedCredit -= oldElective.credits;
+      if (selections[slotName]) {
+        // Find the old course in this slot
+        const oldCourse = slot.courses.find(c => c.course_id === selections[slotName]);
+        if (oldCourse) {
+          adjustedCredit -= oldCourse.credits;
         }
       }
       
-      // Check if new selection exceeds total 6 credit limit
-      if (adjustedCredit + credits > 6) {
+      // Check if new selection exceeds total 8 credit limit
+      if (adjustedCredit + credits > 8) {
         setMessage({ 
           type: 'error', 
-          text: `Cannot select. Total credit limit exceeded. Maximum 6 credits allowed for Honour/Minor/Add-On combined.` 
+          text: `Cannot select. Total credit limit exceeded. Maximum 8 credits allowed for Honour/Minor/Add-On combined.` 
         });
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         return;
@@ -157,7 +166,7 @@ const ElectiveSelectionPage = () => {
 
     const newSelections = {
       ...selections,
-      [category]: courseId
+      [slotName]: courseId
     };
     
     setSelections(newSelections);
@@ -171,18 +180,31 @@ const ElectiveSelectionPage = () => {
   };
 
   const handleSubmit = async () => {
-    // Validate: Check if ALL slots have a selection
-    const totalSlots = Object.keys(groupedElectives).length;
-    const selectedSlots = Object.keys(selections).length;
+    // Validate: Check if all REQUIRED slots have a selection
+    // Only PROFESSIONAL, MIXED, and OPEN slots are required
+    // HONOR, MINOR, and ADDON slots are optional
+    const requiredSlots = Object.keys(groupedElectives).filter(slotName => {
+      const slotType = groupedElectives[slotName].slot_type;
+      return slotType === 'PROFESSIONAL' || slotType === 'MIXED' || slotType === 'OPEN';
+    });
     
-    if (selectedSlots < totalSlots) {
+    const requiredSelections = Object.keys(selections).filter(slotName => {
+      const slotType = groupedElectives[slotName]?.slot_type;
+      return slotType === 'PROFESSIONAL' || slotType === 'MIXED' || slotType === 'OPEN';
+    });
+    
+    if (requiredSelections.length < requiredSlots.length) {
       setMessage({ 
         type: 'error', 
-        text: `Please select one course from each slot. Selected: ${selectedSlots}/${totalSlots}` 
+        text: `Please select one course from each required slot. Selected: ${requiredSelections.length}/${requiredSlots.length} (Honors/Minor/Add-ons are optional)` 
       });
       setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       return;
     }
+
+    console.log('Submitting selections:', selections);
+    console.log('Email:', userEmail);
+    console.log('Semester:', electiveData.next_semester);
 
     try {
       const response = await fetch(
@@ -196,6 +218,10 @@ const ElectiveSelectionPage = () => {
           })
         }
       );
+
+      console.log('Submit response status:', response.status);
+      const responseText = await response.text();
+      console.log('Submit response body:', responseText);
 
       if (response.ok) {
         // Mark as submitted
@@ -220,12 +246,20 @@ const ElectiveSelectionPage = () => {
         setMessage({ type: 'success', text: 'Selections submitted successfully!' });
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       } else {
-        const error = await response.json();
-        setMessage({ type: 'error', text: error.error || 'Failed to save selections' });
+        let errorMsg = 'Failed to save selections';
+        try {
+          const error = JSON.parse(responseText);
+          errorMsg = error.error || error.message || errorMsg;
+        } catch (e) {
+          errorMsg = responseText || errorMsg;
+        }
+        setMessage({ type: 'error', text: errorMsg });
+        setTimeout(() => setMessage({ type: '', text: '' }), 5000);
       }
     } catch (error) {
       console.error('Error saving selections:', error);
       setMessage({ type: 'error', text: 'Network error. Please try again.' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000);
     }
   };
 
@@ -277,8 +311,8 @@ const ElectiveSelectionPage = () => {
           <p className="text-lg text-gray-600">Semester {electiveData.next_semester}</p>
           <div className="mt-3 p-3 bg-gray-100 border border-gray-300 rounded">
             <p className="text-base text-gray-800">
-              <span className="font-semibold">Total Credits (Honour/Minor/Add-On):</span> {totalCreditUsed}/6
-              <span className="ml-3 text-gray-600">(Remaining: {6 - totalCreditUsed})</span>
+              <span className="font-semibold">Total Credits (Honour/Minor/Add-On):</span> {totalCreditUsed}/8
+              <span className="ml-3 text-gray-600">(Remaining: {8 - totalCreditUsed})</span>
             </p>
           </div>
         </div>
@@ -312,15 +346,39 @@ const ElectiveSelectionPage = () => {
                 isSubmitted ? 'opacity-60 pointer-events-none' : ''
               }`}
             >
-              <div className="mb-3">
-                <h2 className="text-xl font-bold text-gray-900">
-                  {slotData.slot_name}
-                </h2>
-                <span className="text-sm text-gray-600 font-medium">
-                  {slotData.slot_type === 'PROFESSIONAL' && '📚 Professional Elective'}
-                  {slotData.slot_type === 'OPEN' && '🌐 Open Elective'}
-                  {slotData.slot_type === 'MIXED' && '📚🌐 Professional + Open Elective'}
-                </span>
+              <div className="mb-3 flex justify-between items-start">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {slotName}
+                  </h2>
+                  <span className="text-sm text-gray-600 font-medium">
+                    {slotData.slot_type === 'PROFESSIONAL' && '📚 Professional Elective'}
+                    {slotData.slot_type === 'OPEN' && '🌐 Open Elective'}
+                    {slotData.slot_type === 'MIXED' && '📚🌐 Professional + Open Elective'}
+                    {slotData.slot_type === 'HONOR' && '🏆 Honour Course (Optional)'}
+                    {slotData.slot_type === 'MINOR' && '📖 Minor Course (Optional)'}
+                    {slotData.slot_type === 'ADDON' && '➕ Add-On Course (Optional)'}
+                  </span>
+                </div>
+                
+                {/* Clear button for optional slots */}
+                {['HONOR', 'MINOR', 'ADDON'].includes(slotData.slot_type) && selections[slotName] && !isSubmitted && (
+                  <button
+                    onClick={() => {
+                      const newSelections = { ...selections };
+                      delete newSelections[slotName];
+                      setSelections(newSelections);
+                      calculateTotalCredits(newSelections);
+                      
+                      // Update localStorage
+                      const storageKey = `elective_selections_${userEmail}_sem${electiveData.next_semester}`;
+                      localStorage.setItem(storageKey, JSON.stringify(newSelections));
+                    }}
+                    className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition"
+                  >
+                    Clear Selection
+                  </button>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -382,7 +440,18 @@ const ElectiveSelectionPage = () => {
               Submit Selections
             </button>
             <p className="text-sm text-gray-600">
-              Selected: {Object.keys(selections).length} / {Object.keys(groupedElectives).length} slots
+              {(() => {
+                const requiredSlots = Object.keys(groupedElectives).filter(slotName => {
+                  const slotType = groupedElectives[slotName].slot_type;
+                  return slotType === 'PROFESSIONAL' || slotType === 'MIXED' || slotType === 'OPEN';
+                });
+                const requiredSelections = Object.keys(selections).filter(slotName => {
+                  const slotType = groupedElectives[slotName]?.slot_type;
+                  return slotType === 'PROFESSIONAL' || slotType === 'MIXED' || slotType === 'OPEN';
+                });
+                const optionalSelections = Object.keys(selections).length - requiredSelections.length;
+                return `Selected: ${requiredSelections.length} / ${requiredSlots.length} required slots${optionalSelections > 0 ? ` (${optionalSelections} optional)` : ''}`;
+              })()}
             </p>
           </div>
         )}
