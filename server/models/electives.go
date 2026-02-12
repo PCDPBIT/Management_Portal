@@ -88,6 +88,9 @@ type ElectiveCourse struct {
 	Category         string  `json:"category"`
 	Credit           int     `json:"credit"`
 	CardID           int     `json:"card_id"`
+	VerticalID       int     `json:"vertical_id"`
+	VerticalName     string  `json:"vertical_name"`
+	VerticalSemester *int    `json:"vertical_semester,omitempty"`
 	CardType         string  `json:"card_type"`
 	IsSelected       bool    `json:"is_selected"`
 	AssignedSemester *int    `json:"assigned_semester,omitempty"`

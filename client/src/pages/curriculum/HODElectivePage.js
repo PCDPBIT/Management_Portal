@@ -583,6 +583,62 @@ const HODElectivePage = () => {
     handleAddCourseToSlot(courseId, slotId);
   };
 
+  const getVerticalName = (course) => {
+    if (course.vertical_name) {
+      return course.vertical_name;
+    }
+    if (course.vertical && course.vertical.name) {
+      return course.vertical.name;
+    }
+    if (course.verticalName) {
+      return course.verticalName;
+    }
+    return "Uncategorized";
+  };
+
+  const groupedElectives = useMemo(() => {
+    const filtered = availableElectives.filter((course) =>
+      courseSearch === ""
+        ? true
+        : course.course_code
+            .toLowerCase()
+            .includes(courseSearch.toLowerCase()) ||
+          course.course_name
+            .toLowerCase()
+            .includes(courseSearch.toLowerCase()),
+    );
+
+    const grouped = new Map();
+    filtered.forEach((course) => {
+      const name = getVerticalName(course);
+      if (!grouped.has(name)) {
+        grouped.set(name, []);
+      }
+      grouped.get(name).push(course);
+    });
+
+    const toNum = (value) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    return Array.from(grouped.entries()).sort(([a, coursesA], [b, coursesB]) => {
+      const semA = toNum(coursesA[0]?.vertical_semester);
+      const semB = toNum(coursesB[0]?.vertical_semester);
+
+      if (semA !== null && semB !== null && semA !== semB) {
+        return semA - semB;
+      }
+      if (semA !== null && semB === null) {
+        return -1;
+      }
+      if (semA === null && semB !== null) {
+        return 1;
+      }
+      return a.localeCompare(b);
+    });
+  }, [availableElectives, courseSearch]);
+
   return (
     <MainLayout
       title="Elective Course Selection"
@@ -767,58 +823,56 @@ const HODElectivePage = () => {
                     No available elective courses found.
                   </div>
                 ) : (
-                  availableElectives
-                    .filter(
-                      (course) =>
-                        courseSearch === "" ||
-                        course.course_code
-                          .toLowerCase()
-                          .includes(courseSearch.toLowerCase()) ||
-                        course.course_name
-                          .toLowerCase()
-                          .includes(courseSearch.toLowerCase())
-                    )
-                    .map((course) => {
-                    const assignedSlotIds =
-                      currentAssignments[course.id]?.slot_ids || [];
-                    const assignedSlots = assignedSlotIds
-                      .map((slotId) => slotById.get(slotId))
-                      .filter(Boolean);
-                    const assignedSlotLabel = assignedSlots
-                      .map((slot) => slot.slot_name)
-                      .join(", ");
+                  groupedElectives.map(([verticalName, courses]) => (
+                    <div key={verticalName} className="space-y-2">
+                      <div className="sticky top-0 bg-white z-10 pb-1">
+                        <h4 className="text-sm font-semibold text-gray-700">
+                          {verticalName} ({courses.length})
+                        </h4>
+                      </div>
+                      {courses.map((course) => {
+                        const assignedSlotIds =
+                          currentAssignments[course.id]?.slot_ids || [];
+                        const assignedSlots = assignedSlotIds
+                          .map((slotId) => slotById.get(slotId))
+                          .filter(Boolean);
+                        const assignedSlotLabel = assignedSlots
+                          .map((slot) => slot.slot_name)
+                          .join(", ");
 
-                    return (
-                      <div
-                        key={course.id}
-                        draggable
-                        onDragStart={(event) =>
-                          handleDragStart(event, course.id)
-                        }
-                        className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition cursor-move"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-semibold text-gray-900">
-                              {course.course_code} - {course.course_name}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {course.credit} credits
+                        return (
+                          <div
+                            key={course.id}
+                            draggable
+                            onDragStart={(event) =>
+                              handleDragStart(event, course.id)
+                            }
+                            className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition cursor-move"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-semibold text-gray-900">
+                                  {course.course_code} - {course.course_name}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {course.credit} credits
+                                </div>
+                              </div>
+                              {assignedSlots.length > 0 ? (
+                                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">
+                                  Assigned ({assignedSlots.length}): {assignedSlotLabel}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                                  Unassigned
+                                </span>
+                              )}
                             </div>
                           </div>
-                          {assignedSlots.length > 0 ? (
-                            <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">
-                              Assigned ({assignedSlots.length}): {assignedSlotLabel}
-                            </span>
-                          ) : (
-                            <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                              Unassigned
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
+                        );
+                      })}
+                    </div>
+                  ))
                 )}
               </div>
             </div>

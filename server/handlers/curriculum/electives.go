@@ -182,6 +182,9 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			COALESCE(c.category, '') as category,
 			COALESCE(c.credit, 0) as credit,
 			nc.id as card_id,
+			nc.id as vertical_id,
+			COALESCE(nc.vertical_name, '') as vertical_name,
+			nc.semester_number as vertical_semester,
 			nc.card_type,
 			CASE WHEN hes.id IS NOT NULL THEN 1 ELSE 0 END as is_selected,
 			hes.semester as assigned_semester,
@@ -202,7 +205,7 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			AND nc.card_type = 'vertical'
 			AND c.status = 1
 			AND nc.status = 1
-		ORDER BY c.course_type, c.course_code
+		ORDER BY nc.semester_number IS NULL, nc.semester_number, c.course_type, c.course_code
 	`
 
 	rows, err := db.DB.Query(query, departmentID, academicYear, batch, batch, curriculumID)
@@ -232,6 +235,9 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			&course.Category,
 			&course.Credit,
 			&course.CardID,
+			&course.VerticalID,
+			&course.VerticalName,
+			&course.VerticalSemester,
 			&course.CardType,
 			&isSelected,
 			&assignedSemester,
@@ -982,17 +988,14 @@ func GetMinorVerticals(w http.ResponseWriter, r *http.Request) {
 	// Get vertical cards from normal_cards with course counts
 	query := `
 		SELECT nc.id, 0 as honour_card_id, 
-		       CASE 
-		           WHEN nc.semester_number IS NOT NULL THEN CONCAT('Semester ', nc.semester_number, ' - Vertical')
-		           ELSE 'Vertical Card'
-		       END as name,
+		       COALESCE(nc.vertical_name, '') as name,
 		       COUNT(DISTINCT cc.course_id) as course_count
 		FROM normal_cards nc
 		LEFT JOIN curriculum_courses cc ON nc.id = cc.semester_id
 		WHERE nc.curriculum_id = ? AND nc.card_type = 'vertical' AND nc.status = 1
-		GROUP BY nc.id, nc.semester_number
+		GROUP BY nc.id, nc.semester_number, nc.vertical_name
 		HAVING COUNT(DISTINCT cc.course_id) >= 6
-		ORDER BY nc.semester_number
+		ORDER BY nc.semester_number IS NULL, nc.semester_number, nc.vertical_name
 	`
 
 	rows, err := db.DB.Query(query, curriculumID)
