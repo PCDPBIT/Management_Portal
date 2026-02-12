@@ -1,6 +1,212 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import MainLayout from "../../components/MainLayout";
 import { API_BASE_URL } from "../../config";
+
+// Searchable Dropdown Component
+const SearchableSelect = ({
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
+  const dropdownRef = useRef(null);
+  const portalRef = useRef(null);
+
+  // Calculate dropdown position
+  const updatePosition = () => {
+    if (dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  };
+
+  // Update position when opening
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+    }
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        portalRef.current &&
+        !portalRef.current.contains(event.target)
+      ) {
+        setIsOpen(false);
+        setSearchTerm("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Get selected course details
+  const selectedCourse = useMemo(() => {
+    for (const [, courses] of options) {
+      const found = courses.find((c) => c.id === parseInt(value));
+      if (found) return found;
+    }
+    return null;
+  }, [value, options]);
+
+  // Filter courses based on search term
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm) return options;
+
+    const filtered = [];
+    options.forEach(([verticalName, courses]) => {
+      const matchingCourses = courses.filter(
+        (course) =>
+          course.course_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          course.course_name.toLowerCase().includes(searchTerm.toLowerCase()),
+      );
+      if (matchingCourses.length > 0) {
+        filtered.push([verticalName, matchingCourses]);
+      }
+    });
+    return filtered;
+  }, [options, searchTerm]);
+
+  const handleSelect = (courseId) => {
+    onChange(courseId);
+    setIsOpen(false);
+    setSearchTerm("");
+  };
+
+  if (disabled) {
+    return (
+      <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 text-sm">
+        {placeholder}
+      </div>
+    );
+  }
+
+  const dropdownContent =
+    isOpen &&
+    createPortal(
+      <div
+        ref={portalRef}
+        className="absolute z-[9999] bg-white border border-gray-300 rounded-lg shadow-2xl overflow-hidden"
+        style={{
+          top: `${dropdownPosition.top}px`,
+          left: `${dropdownPosition.left}px`,
+          width: `${dropdownPosition.width}px`,
+          maxHeight: "450px",
+        }}
+      >
+        {/* Search Input */}
+        <div className="p-4 border-b bg-gray-50 sticky top-0 z-10">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search courses..."
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            autoFocus
+          />
+        </div>
+
+        {/* Options List */}
+        <div className="overflow-y-auto max-h-[350px]">
+          {/* Empty Option */}
+          <div
+            onClick={() => handleSelect("")}
+            className="px-4 py-3 hover:bg-gray-100 cursor-pointer text-sm text-gray-500 border-b font-medium"
+          >
+            {placeholder}
+          </div>
+
+          {filteredOptions.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-gray-500">
+              No courses found
+            </div>
+          ) : (
+            filteredOptions.map(([verticalName, courses]) => (
+              <div key={verticalName}>
+                <div className="px-4 py-2 bg-blue-50 text-xs font-bold text-blue-800 uppercase tracking-wide sticky top-0">
+                  {verticalName}
+                </div>
+                {courses.map((course) => (
+                  <div
+                    key={course.id}
+                    onClick={() => handleSelect(course.id)}
+                    className={`px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 transition-colors ${
+                      parseInt(value) === course.id
+                        ? "bg-blue-100 border-l-4 border-l-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <div className="font-semibold text-gray-900 mb-1">
+                      {course.course_code} - {course.course_name}
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {course.credit} Credits
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      </div>,
+      document.body,
+    );
+
+  return (
+    <div ref={dropdownRef} className="relative w-full">
+      {/* Input Display */}
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer bg-white flex items-center justify-between hover:border-blue-400"
+      >
+        <span className={selectedCourse ? "text-gray-900" : "text-gray-500"}>
+          {selectedCourse
+            ? `${selectedCourse.course_code} - ${selectedCourse.course_name}`
+            : placeholder}
+        </span>
+        <svg
+          className={`w-5 h-5 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </div>
+
+      {/* Dropdown rendered via portal */}
+      {dropdownContent}
+    </div>
+  );
+};
 
 const HODElectivePage = () => {
   const [batches, setBatches] = useState([]);
@@ -13,7 +219,7 @@ const HODElectivePage = () => {
   const [saving, setSaving] = useState(false);
   const [hodProfile, setHodProfile] = useState(null);
   const [saveMessage, setSaveMessage] = useState("");
-  const [courseSearch, setCourseSearch] = useState("");
+  const [expandedSemesters, setExpandedSemesters] = useState(new Set([4]));
 
   // Get user email from localStorage (set during login)
   const userEmail = localStorage.getItem("userEmail");
@@ -21,12 +227,11 @@ const HODElectivePage = () => {
   // Available elective courses (vertical courses from API)
   const [availableElectives, setAvailableElectives] = useState([]);
   // Course assignments per semester: { [semester]: { [courseId]: { slot_ids: [] } } }
-  const [courseAssignmentsBySemester, setCourseAssignmentsBySemester] = useState({});
+  const [courseAssignmentsBySemester, setCourseAssignmentsBySemester] =
+    useState({});
   // Elective slots per semester
   const [semesterSlots, setSemesterSlots] = useState([]);
   const electivesRequestIdRef = useRef(0);
-
-
 
   // Minor program state
   const [minorVerticals, setMinorVerticals] = useState([]);
@@ -201,7 +406,7 @@ const HODElectivePage = () => {
   const fetchMinorVerticals = async () => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/hod/minor-verticals?email=${encodeURIComponent(userEmail)}`
+        `${API_BASE_URL}/hod/minor-verticals?email=${encodeURIComponent(userEmail)}`,
       );
       const data = await response.json();
       if (data.success && data.verticals) {
@@ -227,7 +432,7 @@ const HODElectivePage = () => {
   const fetchVerticalCourses = async (verticalId) => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/hod/vertical-courses?vertical_id=${verticalId}`
+        `${API_BASE_URL}/hod/vertical-courses?vertical_id=${verticalId}`,
       );
       const data = await response.json();
       if (data.success && data.courses) {
@@ -297,14 +502,16 @@ const HODElectivePage = () => {
             semester_assignments: semesterAssignments,
             status: "ACTIVE",
           }),
-        }
+        },
       );
 
       const result = await response.json();
       if (result.success) {
         setMinorSaveMessage(`✓ ${result.message}`);
       } else {
-        setMinorSaveMessage(`⚠️ ${result.message || "Failed to save minor program"}`);
+        setMinorSaveMessage(
+          `⚠️ ${result.message || "Failed to save minor program"}`,
+        );
       }
     } catch (error) {
       console.error("Error saving minor:", error);
@@ -338,6 +545,13 @@ const HODElectivePage = () => {
     }
   }, [availableSemesters, targetSemester]);
 
+  // Auto-expand first semester when available semesters change
+  useEffect(() => {
+    if (availableSemesters.length > 0 && expandedSemesters.size === 0) {
+      setExpandedSemesters(new Set([availableSemesters[0]]));
+    }
+  }, [availableSemesters]);
+
   const handleSave = async () => {
     setSaving(true);
     setSaveMessage("");
@@ -354,12 +568,11 @@ const HODElectivePage = () => {
         );
       });
 
-
-
       const missingSlots = availableSemesters.some((semester) => {
         const assignments = courseAssignmentsBySemester[semester] || {};
         return Object.values(assignments).some(
-          (assignment) => !assignment.slot_ids || assignment.slot_ids.length === 0,
+          (assignment) =>
+            !assignment.slot_ids || assignment.slot_ids.length === 0,
         );
       });
       if (missingSlots) {
@@ -436,11 +649,14 @@ const HODElectivePage = () => {
       return;
     }
 
-    const isHonourSlot = selectedSlot.slot_name.toLowerCase().includes("honour slot");
+    const isHonourSlot = selectedSlot.slot_name
+      .toLowerCase()
+      .includes("honour slot");
 
     // Check 1: If it's a specific honour slot (Honour Slot 1 or 2), allow max 1 course
     if (isHonourSlot) {
-      const semesterAssignments = courseAssignmentsBySemester[targetSemester] || {};
+      const semesterAssignments =
+        courseAssignmentsBySemester[targetSemester] || {};
       const currentCourseCount = Object.entries(semesterAssignments).filter(
         ([, assignment]) =>
           assignment.slot_ids &&
@@ -463,13 +679,18 @@ const HODElectivePage = () => {
       }
 
       // Check if this course is already in professional electives
-      const courseInProfessionalElective = Object.entries(semesterAssignments).some(
+      const courseInProfessionalElective = Object.entries(
+        semesterAssignments,
+      ).some(
         ([cid, assignment]) =>
           parseInt(cid, 10) === courseId &&
           assignment.slot_ids &&
           assignment.slot_ids.some((sid) => {
             const slot = semesterSlots.find((s) => s.id === sid);
-            return slot && slot.slot_name.toLowerCase().includes("professional elective");
+            return (
+              slot &&
+              slot.slot_name.toLowerCase().includes("professional elective")
+            );
           }),
       );
 
@@ -482,7 +703,9 @@ const HODElectivePage = () => {
       }
 
       // Check 2: Max 2 honour courses per semester
-      const totalHonourCoursesInSem = Object.entries(semesterAssignments).filter(
+      const totalHonourCoursesInSem = Object.entries(
+        semesterAssignments,
+      ).filter(
         ([, assignment]) =>
           assignment.slot_ids &&
           assignment.slot_ids.some((sid) => {
@@ -518,13 +741,14 @@ const HODElectivePage = () => {
     });
   };
 
-  const handleRemoveCourseFromSlot = (courseId, slotId) => {
+  const handleRemoveCourseFromSlot = (courseId, slotId, semester = null) => {
     const normalizedSlotId = parseInt(slotId, 10) || 0;
-    if (!targetSemester) {
+    const semesterToUse = semester || targetSemester;
+    if (!semesterToUse) {
       return;
     }
     setCourseAssignmentsBySemester((prev) => {
-      const semesterAssignments = prev[targetSemester] || {};
+      const semesterAssignments = prev[semesterToUse] || {};
       const existing = semesterAssignments[courseId]?.slot_ids || [];
       const nextSlots = existing.filter((id) => id !== normalizedSlotId);
       if (nextSlots.length === 0) {
@@ -532,12 +756,12 @@ const HODElectivePage = () => {
         delete nextSemesterAssignments[courseId];
         return {
           ...prev,
-          [targetSemester]: nextSemesterAssignments,
+          [semesterToUse]: nextSemesterAssignments,
         };
       }
       return {
         ...prev,
-        [targetSemester]: {
+        [semesterToUse]: {
           ...semesterAssignments,
           [courseId]: {
             slot_ids: nextSlots,
@@ -583,6 +807,85 @@ const HODElectivePage = () => {
     handleAddCourseToSlot(courseId, slotId);
   };
 
+  // New handler for dropdown-based course assignment
+  const handleAssignCourseToSlot = (courseId, slotId, semester) => {
+    const parsedCourseId = courseId ? parseInt(courseId, 10) : null;
+    const parsedSlotId = parseInt(slotId, 10);
+
+    if (!parsedCourseId || !parsedSlotId || !semester) {
+      return;
+    }
+
+    // Remove course from any previous slot assignments in same semester
+    setCourseAssignmentsBySemester((prev) => {
+      const semesterAssignments = prev[semester] || {};
+
+      // Clear this course from other slots in same semester
+      const clearedAssignments = {};
+      Object.entries(semesterAssignments).forEach(([cid, assignment]) => {
+        if (parseInt(cid, 10) !== parsedCourseId) {
+          clearedAssignments[cid] = assignment;
+        }
+      });
+
+      // Add new assignment
+      clearedAssignments[parsedCourseId] = { slot_ids: [parsedSlotId] };
+
+      return {
+        ...prev,
+        [semester]: clearedAssignments,
+      };
+    });
+  };
+
+  // Toggle semester expansion
+  const toggleSemester = (semester) => {
+    setExpandedSemesters((prev) => {
+      const next = new Set(prev);
+      if (next.has(semester)) {
+        next.delete(semester);
+      } else {
+        next.add(semester);
+      }
+      return next;
+    });
+  };
+
+  // Get slot type badge info
+  const getSlotTypeBadge = (slotName) => {
+    const name = slotName.toLowerCase();
+    if (name.includes("professional")) {
+      return {
+        label: "Professional Elective",
+        color: "bg-purple-100 text-purple-800",
+      };
+    }
+    if (name.includes("honour") || name.includes("honor")) {
+      return { label: "Honors", color: "bg-amber-100 text-amber-800" };
+    }
+    if (name.includes("open")) {
+      return { label: "Open Elective", color: "bg-blue-100 text-blue-800" };
+    }
+    return { label: "Elective", color: "bg-gray-100 text-gray-800" };
+  };
+
+  // Calculate semester assignment status
+  const calculateSemesterStatus = (semester) => {
+    const slots = semesterSlots.filter((s) => s.semester === semester);
+    const assignments = courseAssignmentsBySemester[semester] || {};
+
+    const assignedSlotIds = new Set();
+    Object.values(assignments).forEach((assignment) => {
+      assignment.slot_ids?.forEach((slotId) => assignedSlotIds.add(slotId));
+    });
+
+    const assignedCount = assignedSlotIds.size;
+    const totalCount = slots.length;
+    const emptyCount = totalCount - assignedCount;
+
+    return { assignedCount, emptyCount, totalCount };
+  };
+
   const getVerticalName = (course) => {
     if (course.vertical_name) {
       return course.vertical_name;
@@ -597,19 +900,8 @@ const HODElectivePage = () => {
   };
 
   const groupedElectives = useMemo(() => {
-    const filtered = availableElectives.filter((course) =>
-      courseSearch === ""
-        ? true
-        : course.course_code
-            .toLowerCase()
-            .includes(courseSearch.toLowerCase()) ||
-          course.course_name
-            .toLowerCase()
-            .includes(courseSearch.toLowerCase()),
-    );
-
     const grouped = new Map();
-    filtered.forEach((course) => {
+    availableElectives.forEach((course) => {
       const name = getVerticalName(course);
       if (!grouped.has(name)) {
         grouped.set(name, []);
@@ -622,22 +914,24 @@ const HODElectivePage = () => {
       return Number.isFinite(parsed) ? parsed : null;
     };
 
-    return Array.from(grouped.entries()).sort(([a, coursesA], [b, coursesB]) => {
-      const semA = toNum(coursesA[0]?.vertical_semester);
-      const semB = toNum(coursesB[0]?.vertical_semester);
+    return Array.from(grouped.entries()).sort(
+      ([a, coursesA], [b, coursesB]) => {
+        const semA = toNum(coursesA[0]?.vertical_semester);
+        const semB = toNum(coursesB[0]?.vertical_semester);
 
-      if (semA !== null && semB !== null && semA !== semB) {
-        return semA - semB;
-      }
-      if (semA !== null && semB === null) {
-        return -1;
-      }
-      if (semA === null && semB !== null) {
-        return 1;
-      }
-      return a.localeCompare(b);
-    });
-  }, [availableElectives, courseSearch]);
+        if (semA !== null && semB !== null && semA !== semB) {
+          return semA - semB;
+        }
+        if (semA !== null && semB === null) {
+          return -1;
+        }
+        if (semA === null && semB !== null) {
+          return 1;
+        }
+        return a.localeCompare(b);
+      },
+    );
+  }, [availableElectives]);
 
   return (
     <MainLayout
@@ -669,124 +963,78 @@ const HODElectivePage = () => {
                 Open Electives Auto-Allocation
               </h4>
               <p className="text-sm text-blue-700">
-                Open elective courses are automatically assigned when you save. They will be placed in the "Open Elective" slot if available, otherwise in the last "Professional Elective" slot for each semester. Semesters with only one professional elective slot will not receive open electives.
+                Open elective courses are automatically assigned when you save.
+                They will be placed in the "Open Elective" slot if available,
+                otherwise in the last "Professional Elective" slot for each
+                semester. Semesters with only one professional elective slot
+                will not receive open electives.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Header with Batch Selector */}
-        <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
-                Vertical Course Assignment
-              </h2>
-              <p className="text-gray-600">
-                Assign vertical courses for Semester {targetSemester || "-"}
-              </p>
-              {academicYear && (
-                <p className="text-sm text-blue-600 mt-1">
-                  Academic Year: {academicYear}
-                </p>
-              )}
-              {currentSemester && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Current Semesters: {currentSemesters.join(", ")}
-                </p>
-              )}
-              {nextSemesters.length > 0 && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Next Semesters: {nextSemesters.join(", ")}
-                </p>
-              )}
-              {hodProfile?.curriculum && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Curriculum: {hodProfile.curriculum.name} (
-                  {hodProfile.curriculum.academic_year})
-                </p>
-              )}
-            </div>
+        {/* Header Bar with Controls */}
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Academic Year Badge */}
+            {academicYear && (
+              <div className="px-3 py-1.5 bg-blue-100 text-blue-800 rounded-md text-sm font-semibold">
+                {academicYear}
+              </div>
+            )}
+
+            {/* Curriculum Info */}
+            {hodProfile?.curriculum && (
+              <div className="text-sm text-gray-700">
+                <span className="font-medium">
+                  {hodProfile.curriculum.name}
+                </span>
+              </div>
+            )}
 
             {/* Batch Selector */}
-            <div className="flex items-center gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Student Batch
-                </label>
-                <select
-                  value={selectedBatch}
-                  onChange={(e) => setSelectedBatch(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {batches.map((batch) => (
-                    <option key={batch} value={batch}>
-                      {batch}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Semester Selector */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Target Semester
-                </label>
-                <select
-                  value={targetSemester || ""}
-                  onChange={(e) =>
-                    setTargetSemester(parseInt(e.target.value, 10))
-                  }
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={availableSemesters.length === 0}
-                >
-                  <option value="" disabled>
-                    {availableSemesters.length === 0
-                      ? "No slots available"
-                      : "Select semester"}
-                  </option>
-                  {availableSemesters.map((semester) => (
-                    <option key={semester} value={semester}>
-                      Semester {semester}
-                      {semestersWithSlots.has(semester) ? "" : " (no slots)"}
-                    </option>
-                  ))}
-                </select>
-                {!hasSlotsForTarget && targetSemester && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    No elective slots configured for Semester {targetSemester}
-                  </p>
-                )}
-              </div>
-
-              {/* Save Button */}
-              <div className="pt-6">
-                <button
-                  onClick={handleSave}
-                  disabled={saving || !selectedBatch}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                    saving || !selectedBatch
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg"
-                  }`}
-                >
-                  {saving
-                    ? "Saving..."
-                    : `Save Assignments (${totalAssignedCourses})`}
-                </button>
-              </div>
-            </div>
+            <select
+              value={selectedBatch}
+              onChange={(e) => setSelectedBatch(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            >
+              {batches.map((batch) => (
+                <option key={batch} value={batch}>
+                  Batch {batch}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Save Message */}
-          {saveMessage && (
-            <div
-              className={`mt-3 p-3 rounded-lg ${saveMessage.includes("✅") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}
+          {/* Save Button with Status */}
+          <div className="flex items-center gap-3">
+            {totalAssignedCourses > 0 && (
+              <span className="text-sm px-3 py-1 bg-orange-100 text-orange-800 rounded-md font-medium">
+                🟠 Unsaved changes
+              </span>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving || !selectedBatch}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all text-sm ${
+                saving || !selectedBatch
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg"
+              }`}
             >
-              {saveMessage}
-            </div>
-          )}
+              {saving ? "Saving..." : "Save All Changes"}
+            </button>
+          </div>
         </div>
+
+        {/* Save Message */}
+        {saveMessage && (
+          <div
+            className={`mb-6 p-3 rounded-lg ${saveMessage.includes("✅") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}
+          >
+            {saveMessage}
+          </div>
+        )}
 
         {/* Loading State */}
         {loading && (
@@ -796,166 +1044,211 @@ const HODElectivePage = () => {
           </div>
         )}
 
-        {/* Split Selection Panels */}
+        {/* Main Layout */}
         {!loading && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl shadow-md overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 text-white">
-                <h3 className="text-xl font-bold">Available Courses</h3>
-                <p className="text-sm opacity-90 mt-1">
-                  Drag a course card into a semester slot
-                </p>
-              </div>
+          <div className="space-y-4">
+            {availableSemesters.map((semester) => {
+              const slots = semesterSlots.filter(
+                (s) => s.semester === semester,
+              );
+              const status = calculateSemesterStatus(semester);
+              const isExpanded = expandedSemesters.has(semester);
 
-              <div className="p-6 space-y-3 max-h-[680px] overflow-y-auto">
-                {/* Search Input */}
-                <div className="mb-4">
-                  <input
-                    type="text"
-                    placeholder="Search by course code or name..."
-                    value={courseSearch}
-                    onChange={(e) => setCourseSearch(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                {availableElectives.length === 0 ? (
-                  <div className="text-center text-gray-500">
-                    No available elective courses found.
-                  </div>
-                ) : (
-                  groupedElectives.map(([verticalName, courses]) => (
-                    <div key={verticalName} className="space-y-2">
-                      <div className="sticky top-0 bg-white z-10 pb-1">
-                        <h4 className="text-sm font-semibold text-gray-700">
-                          {verticalName} ({courses.length})
-                        </h4>
-                      </div>
-                      {courses.map((course) => {
-                        const assignedSlotIds =
-                          currentAssignments[course.id]?.slot_ids || [];
-                        const assignedSlots = assignedSlotIds
-                          .map((slotId) => slotById.get(slotId))
-                          .filter(Boolean);
-                        const assignedSlotLabel = assignedSlots
-                          .map((slot) => slot.slot_name)
-                          .join(", ");
-
-                        return (
-                          <div
-                            key={course.id}
-                            draggable
-                            onDragStart={(event) =>
-                              handleDragStart(event, course.id)
-                            }
-                            className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition cursor-move"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="font-semibold text-gray-900">
-                                  {course.course_code} - {course.course_name}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {course.credit} credits
-                                </div>
-                              </div>
-                              {assignedSlots.length > 0 ? (
-                                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">
-                                  Assigned ({assignedSlots.length}): {assignedSlotLabel}
-                                </span>
-                              ) : (
-                                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                                  Unassigned
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-md overflow-hidden">
-              <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 text-white">
-                <h3 className="text-xl font-bold">
-                  Semester {targetSemester} Slots
-                </h3>
-                <p className="text-sm opacity-90 mt-1">
-                  Drop courses into a slot to assign
-                </p>
-              </div>
-              <div className="p-6 space-y-6">
-                {targetSlots.length === 0 ? (
-                  <div className="text-center text-gray-500">
-                    No slots configured for Semester {targetSemester}
-                  </div>
-                ) : (
-                  targetSlots.map((slot) => {
-                    const selectedForSlot = availableElectives.filter(
-                      (course) =>
-                        currentAssignments[course.id]?.slot_ids?.includes(slot.id),
-                    );
-
-                    return (
-                      <div
-                        key={`selected-${slot.id}`}
-                        className="border rounded-lg p-4"
-                        onDragOver={handleDragOver}
-                        onDrop={(event) => handleDropOnSlot(event, slot.id)}
+              return (
+                <div
+                  key={semester}
+                  className="bg-white rounded-lg shadow-md overflow-hidden"
+                >
+                  {/* Accordion Header */}
+                  <button
+                    onClick={() => toggleSemester(semester)}
+                    className="w-full px-6 py-4 flex items-center justify-between bg-white hover:bg-gray-50 border-b transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg
+                        className="w-5 h-5 transition-transform duration-200"
+                        style={{
+                          transform: isExpanded
+                            ? "rotate(90deg)"
+                            : "rotate(0deg)",
+                        }}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-gray-900">
-                            {slot.slot_name}
-                          </h4>
-                          <span className="text-xs text-gray-500">
-                            {selectedForSlot.length} assigned
-                          </span>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                      <h3 className="text-lg font-bold text-gray-900">
+                        Semester {semester}
+                      </h3>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div>
+                      {status.emptyCount === 0 && status.totalCount > 0 ? (
+                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                          All Assigned
+                        </span>
+                      ) : status.assignedCount > 0 ? (
+                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                          {status.assignedCount} Assigned / {status.emptyCount}{" "}
+                          Empty
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                          {status.totalCount} Pending
+                        </span>
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Accordion Content */}
+                  {isExpanded && (
+                    <div className="p-6">
+                      {slots.length === 0 ? (
+                        <div className="text-center text-gray-500 py-8">
+                          No slots configured for Semester {semester}
                         </div>
-                        {selectedForSlot.length === 0 ? (
-                          <div className="border border-dashed border-gray-300 rounded-lg px-4 py-6 text-center text-gray-500 text-sm">
-                            Drop a course here
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {selectedForSlot.map((course) => (
-                              <div
-                                key={course.id}
-                                className="flex items-center justify-between px-3 py-2 rounded-lg border"
-                              >
-                                <div>
-                                  <div className="font-medium text-gray-900">
-                                    {course.course_code} - {course.course_name}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {course.credit} credits
-                                  </div>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleRemoveCourseFromSlot(course.id, slot.id)
-                                  }
-                                  className="text-red-600 text-sm font-semibold hover:underline"
+                      ) : (
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                                Slot Type
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                                Slot Name
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                                Assigned Course
+                              </th>
+                              <th className="w-20"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {slots.map((slot) => {
+                              const badgeInfo = getSlotTypeBadge(
+                                slot.slot_name,
+                              );
+
+                              // Find assigned course for this slot
+                              const assignedCourseId = Object.entries(
+                                courseAssignmentsBySemester[semester] || {},
+                              ).find(([, assignment]) =>
+                                assignment.slot_ids?.includes(slot.id),
+                              )?.[0];
+
+                              return (
+                                <tr
+                                  key={slot.id}
+                                  className="border-b even:bg-gray-50 hover:bg-gray-100"
                                 >
-                                  Remove
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+                                  {/* Slot Type Badge */}
+                                  <td className="py-3 px-4">
+                                    <span
+                                      className={`px-2 py-1 rounded-md text-xs font-semibold ${badgeInfo.color}`}
+                                    >
+                                      {badgeInfo.label}
+                                    </span>
+                                  </td>
+
+                                  {/* Slot Name */}
+                                  <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                                    {slot.slot_name}
+                                  </td>
+
+                                  {/* Course Dropdown */}
+                                  <td className="py-3 px-4">
+                                    <SearchableSelect
+                                      value={assignedCourseId || ""}
+                                      onChange={(courseId) =>
+                                        handleAssignCourseToSlot(
+                                          courseId,
+                                          slot.id,
+                                          semester,
+                                        )
+                                      }
+                                      options={groupedElectives}
+                                      placeholder={
+                                        slot.slot_name
+                                          .toLowerCase()
+                                          .includes("open elective")
+                                          ? "Auto-allocated"
+                                          : "Select Course..."
+                                      }
+                                      disabled={slot.slot_name
+                                        .toLowerCase()
+                                        .includes("open elective")}
+                                    />
+                                  </td>
+
+                                  {/* Actions */}
+                                  <td className="py-3 px-4 text-center">
+                                    {assignedCourseId ? (
+                                      <button
+                                        onClick={() =>
+                                          handleRemoveCourseFromSlot(
+                                            parseInt(assignedCourseId),
+                                            slot.id,
+                                            semester,
+                                          )
+                                        }
+                                        className="text-red-600 hover:text-red-800 font-bold text-lg"
+                                        title="Remove course"
+                                      >
+                                        ×
+                                      </button>
+                                    ) : (
+                                      <span className="text-xs text-gray-400">
+                                        Required
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {availableSemesters.length === 0 && (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <div className="text-gray-500">
+                  <svg
+                    className="w-16 h-16 mx-auto mb-4 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  <p className="text-lg font-medium">
+                    No semesters available for assignment
+                  </p>
+                  <p className="text-sm mt-2">
+                    Please check academic calendar configuration
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
-
-
 
       {/* Minor Program Section */}
       <div className="mt-8">
@@ -965,8 +1258,10 @@ const HODElectivePage = () => {
           </h2>
           <div className="bg-purple-50 border-l-4 border-purple-500 p-4 mb-6">
             <p className="text-sm text-purple-800">
-              <strong>Minor programs</strong> allow other departments to study courses from your verticals.
-              Select a vertical, distribute 6 courses across semesters 5, 6, 7 (2 each), and choose which departments can access them.
+              <strong>Minor programs</strong> allow other departments to study
+              courses from your verticals. Select a vertical, distribute 6
+              courses across semesters 5, 6, 7 (2 each), and choose which
+              departments can access them.
             </p>
           </div>
 
@@ -1031,7 +1326,10 @@ const HODElectivePage = () => {
                             Course {pos + 1}
                           </td>
                           {[5, 6, 7].map((sem) => (
-                            <td key={sem} className="border border-gray-300 px-4 py-2">
+                            <td
+                              key={sem}
+                              className="border border-gray-300 px-4 py-2"
+                            >
                               <select
                                 value={minorAssignments[sem]?.[pos] || ""}
                                 onChange={(e) => {
@@ -1040,7 +1338,9 @@ const HODElectivePage = () => {
                                     : null;
                                   setMinorAssignments((prev) => {
                                     const newAssignments = { ...prev };
-                                    newAssignments[sem] = [...(prev[sem] || [])];
+                                    newAssignments[sem] = [
+                                      ...(prev[sem] || []),
+                                    ];
                                     newAssignments[sem][pos] = courseId;
                                     return newAssignments;
                                   });
@@ -1081,16 +1381,23 @@ const HODElectivePage = () => {
                           checked={allowedDepartments.includes(dept.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setAllowedDepartments([...allowedDepartments, dept.id]);
+                              setAllowedDepartments([
+                                ...allowedDepartments,
+                                dept.id,
+                              ]);
                             } else {
                               setAllowedDepartments(
-                                allowedDepartments.filter((id) => id !== dept.id)
+                                allowedDepartments.filter(
+                                  (id) => id !== dept.id,
+                                ),
                               );
                             }
                           }}
                           className="w-4 h-4 text-purple-600 focus:ring-purple-500"
                         />
-                        <span className="text-sm text-gray-700">{dept.name}</span>
+                        <span className="text-sm text-gray-700">
+                          {dept.name}
+                        </span>
                       </label>
                     ))}
                 </div>
