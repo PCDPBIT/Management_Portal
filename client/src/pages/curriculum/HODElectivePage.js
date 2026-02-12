@@ -4,10 +4,20 @@ import MainLayout from "../../components/MainLayout";
 import { API_BASE_URL } from "../../config";
 
 // Searchable Dropdown Component
-const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) => {
+const SearchableSelect = ({
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
   const dropdownRef = useRef(null);
   const portalRef = useRef(null);
 
@@ -18,7 +28,7 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) =
       setDropdownPosition({
         top: rect.bottom + window.scrollY + 8,
         left: rect.left + window.scrollX,
-        width: rect.width
+        width: rect.width,
       });
     }
   };
@@ -27,12 +37,12 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) =
   useEffect(() => {
     if (isOpen) {
       updatePosition();
-      window.addEventListener('scroll', updatePosition, true);
-      window.addEventListener('resize', updatePosition);
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
     }
     return () => {
-      window.removeEventListener('scroll', updatePosition, true);
-      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
     };
   }, [isOpen]);
 
@@ -40,8 +50,10 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) =
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        dropdownRef.current && !dropdownRef.current.contains(event.target) &&
-        portalRef.current && !portalRef.current.contains(event.target)
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        portalRef.current &&
+        !portalRef.current.contains(event.target)
       ) {
         setIsOpen(false);
         setSearchTerm("");
@@ -63,12 +75,13 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) =
   // Filter courses based on search term
   const filteredOptions = useMemo(() => {
     if (!searchTerm) return options;
-    
+
     const filtered = [];
     options.forEach(([verticalName, courses]) => {
-      const matchingCourses = courses.filter((course) =>
-        course.course_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.course_name.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchingCourses = courses.filter(
+        (course) =>
+          course.course_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          course.course_name.toLowerCase().includes(searchTerm.toLowerCase()),
       );
       if (matchingCourses.length > 0) {
         filtered.push([verticalName, matchingCourses]);
@@ -91,72 +104,76 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) =
     );
   }
 
-  const dropdownContent = isOpen && createPortal(
-    <div 
-      ref={portalRef}
-      className="absolute z-[9999] bg-white border border-gray-300 rounded-lg shadow-2xl overflow-hidden"
-      style={{
-        top: `${dropdownPosition.top}px`,
-        left: `${dropdownPosition.left}px`,
-        width: `${dropdownPosition.width}px`,
-        maxHeight: '450px'
-      }}
-    >
-      {/* Search Input */}
-      <div className="p-4 border-b bg-gray-50 sticky top-0 z-10">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search courses..."
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          autoFocus
-        />
-      </div>
-
-      {/* Options List */}
-      <div className="overflow-y-auto max-h-[350px]">
-        {/* Empty Option */}
-        <div
-          onClick={() => handleSelect("")}
-          className="px-4 py-3 hover:bg-gray-100 cursor-pointer text-sm text-gray-500 border-b font-medium"
-        >
-          {placeholder}
+  const dropdownContent =
+    isOpen &&
+    createPortal(
+      <div
+        ref={portalRef}
+        className="absolute z-[9999] bg-white border border-gray-300 rounded-lg shadow-2xl overflow-hidden"
+        style={{
+          top: `${dropdownPosition.top}px`,
+          left: `${dropdownPosition.left}px`,
+          width: `${dropdownPosition.width}px`,
+          maxHeight: "450px",
+        }}
+      >
+        {/* Search Input */}
+        <div className="p-4 border-b bg-gray-50 sticky top-0 z-10">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search courses..."
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            autoFocus
+          />
         </div>
 
-        {filteredOptions.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-gray-500">
-            No courses found
+        {/* Options List */}
+        <div className="overflow-y-auto max-h-[350px]">
+          {/* Empty Option */}
+          <div
+            onClick={() => handleSelect("")}
+            className="px-4 py-3 hover:bg-gray-100 cursor-pointer text-sm text-gray-500 border-b font-medium"
+          >
+            {placeholder}
           </div>
-        ) : (
-          filteredOptions.map(([verticalName, courses]) => (
-            <div key={verticalName}>
-              <div className="px-4 py-2 bg-blue-50 text-xs font-bold text-blue-800 uppercase tracking-wide sticky top-0">
-                {verticalName}
-              </div>
-              {courses.map((course) => (
-                <div
-                  key={course.id}
-                  onClick={() => handleSelect(course.id)}
-                  className={`px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 transition-colors ${
-                    parseInt(value) === course.id ? "bg-blue-100 border-l-4 border-l-blue-600" : ""
-                  }`}
-                >
-                  <div className="font-semibold text-gray-900 mb-1">
-                    {course.course_code} - {course.course_name}
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    {course.credit} Credits
-                  </div>
-                </div>
-              ))}
+
+          {filteredOptions.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-gray-500">
+              No courses found
             </div>
-          ))
-        )}
-      </div>
-    </div>,
-    document.body
-  );
+          ) : (
+            filteredOptions.map(([verticalName, courses]) => (
+              <div key={verticalName}>
+                <div className="px-4 py-2 bg-blue-50 text-xs font-bold text-blue-800 uppercase tracking-wide sticky top-0">
+                  {verticalName}
+                </div>
+                {courses.map((course) => (
+                  <div
+                    key={course.id}
+                    onClick={() => handleSelect(course.id)}
+                    className={`px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 transition-colors ${
+                      parseInt(value) === course.id
+                        ? "bg-blue-100 border-l-4 border-l-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <div className="font-semibold text-gray-900 mb-1">
+                      {course.course_code} - {course.course_name}
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {course.credit} Credits
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      </div>,
+      document.body,
+    );
 
   return (
     <div ref={dropdownRef} className="relative w-full">
@@ -176,7 +193,12 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) =
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </div>
 
@@ -1025,206 +1047,206 @@ const HODElectivePage = () => {
         {/* Main Layout */}
         {!loading && (
           <div className="space-y-4">
-              {availableSemesters.map((semester) => {
-                const slots = semesterSlots.filter(
-                  (s) => s.semester === semester,
-                );
-                const status = calculateSemesterStatus(semester);
-                const isExpanded = expandedSemesters.has(semester);
+            {availableSemesters.map((semester) => {
+              const slots = semesterSlots.filter(
+                (s) => s.semester === semester,
+              );
+              const status = calculateSemesterStatus(semester);
+              const isExpanded = expandedSemesters.has(semester);
 
-                return (
-                  <div
-                    key={semester}
-                    className="bg-white rounded-lg shadow-md overflow-hidden"
+              return (
+                <div
+                  key={semester}
+                  className="bg-white rounded-lg shadow-md overflow-hidden"
+                >
+                  {/* Accordion Header */}
+                  <button
+                    onClick={() => toggleSemester(semester)}
+                    className="w-full px-6 py-4 flex items-center justify-between bg-white hover:bg-gray-50 border-b transition-colors"
                   >
-                    {/* Accordion Header */}
-                    <button
-                      onClick={() => toggleSemester(semester)}
-                      className="w-full px-6 py-4 flex items-center justify-between bg-white hover:bg-gray-50 border-b transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <svg
-                          className="w-5 h-5 transition-transform duration-200"
-                          style={{
-                            transform: isExpanded
-                              ? "rotate(90deg)"
-                              : "rotate(0deg)",
-                          }}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
-                        <h3 className="text-lg font-bold text-gray-900">
-                          Semester {semester}
-                        </h3>
-                      </div>
+                    <div className="flex items-center gap-3">
+                      <svg
+                        className="w-5 h-5 transition-transform duration-200"
+                        style={{
+                          transform: isExpanded
+                            ? "rotate(90deg)"
+                            : "rotate(0deg)",
+                        }}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                      <h3 className="text-lg font-bold text-gray-900">
+                        Semester {semester}
+                      </h3>
+                    </div>
 
-                      {/* Status Badge */}
-                      <div>
-                        {status.emptyCount === 0 && status.totalCount > 0 ? (
-                          <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                            All Assigned
-                          </span>
-                        ) : status.assignedCount > 0 ? (
-                          <span className="px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
-                            {status.assignedCount} Assigned /{" "}
-                            {status.emptyCount} Empty
-                          </span>
-                        ) : (
-                          <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-                            {status.totalCount} Pending
-                          </span>
-                        )}
-                      </div>
-                    </button>
+                    {/* Status Badge */}
+                    <div>
+                      {status.emptyCount === 0 && status.totalCount > 0 ? (
+                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                          All Assigned
+                        </span>
+                      ) : status.assignedCount > 0 ? (
+                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                          {status.assignedCount} Assigned / {status.emptyCount}{" "}
+                          Empty
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                          {status.totalCount} Pending
+                        </span>
+                      )}
+                    </div>
+                  </button>
 
-                    {/* Accordion Content */}
-                    {isExpanded && (
-                      <div className="p-6">
-                        {slots.length === 0 ? (
-                          <div className="text-center text-gray-500 py-8">
-                            No slots configured for Semester {semester}
-                          </div>
-                        ) : (
-                          <table className="w-full">
-                            <thead>
-                              <tr className="border-b">
-                                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                                  Slot Type
-                                </th>
-                                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                                  Slot Name
-                                </th>
-                                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                                  Assigned Course
-                                </th>
-                                <th className="w-20"></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {slots.map((slot) => {
-                                const badgeInfo = getSlotTypeBadge(
-                                  slot.slot_name,
-                                );
+                  {/* Accordion Content */}
+                  {isExpanded && (
+                    <div className="p-6">
+                      {slots.length === 0 ? (
+                        <div className="text-center text-gray-500 py-8">
+                          No slots configured for Semester {semester}
+                        </div>
+                      ) : (
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                                Slot Type
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                                Slot Name
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                                Assigned Course
+                              </th>
+                              <th className="w-20"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {slots.map((slot) => {
+                              const badgeInfo = getSlotTypeBadge(
+                                slot.slot_name,
+                              );
 
-                                // Find assigned course for this slot
-                                const assignedCourseId = Object.entries(
-                                  courseAssignmentsBySemester[semester] || {},
-                                ).find(([, assignment]) =>
-                                  assignment.slot_ids?.includes(slot.id),
-                                )?.[0];
+                              // Find assigned course for this slot
+                              const assignedCourseId = Object.entries(
+                                courseAssignmentsBySemester[semester] || {},
+                              ).find(([, assignment]) =>
+                                assignment.slot_ids?.includes(slot.id),
+                              )?.[0];
 
-                                return (
-                                  <tr
-                                    key={slot.id}
-                                    className="border-b even:bg-gray-50 hover:bg-gray-100"
-                                  >
-                                    {/* Slot Type Badge */}
-                                    <td className="py-3 px-4">
-                                      <span
-                                        className={`px-2 py-1 rounded-md text-xs font-semibold ${badgeInfo.color}`}
-                                      >
-                                        {badgeInfo.label}
-                                      </span>
-                                    </td>
+                              return (
+                                <tr
+                                  key={slot.id}
+                                  className="border-b even:bg-gray-50 hover:bg-gray-100"
+                                >
+                                  {/* Slot Type Badge */}
+                                  <td className="py-3 px-4">
+                                    <span
+                                      className={`px-2 py-1 rounded-md text-xs font-semibold ${badgeInfo.color}`}
+                                    >
+                                      {badgeInfo.label}
+                                    </span>
+                                  </td>
 
-                                    {/* Slot Name */}
-                                    <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                                      {slot.slot_name}
-                                    </td>
+                                  {/* Slot Name */}
+                                  <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                                    {slot.slot_name}
+                                  </td>
 
-                                    {/* Course Dropdown */}
-                                    <td className="py-3 px-4">
-                                      <SearchableSelect
-                                        value={assignedCourseId || ""}
-                                        onChange={(courseId) =>
-                                          handleAssignCourseToSlot(
-                                            courseId,
+                                  {/* Course Dropdown */}
+                                  <td className="py-3 px-4">
+                                    <SearchableSelect
+                                      value={assignedCourseId || ""}
+                                      onChange={(courseId) =>
+                                        handleAssignCourseToSlot(
+                                          courseId,
+                                          slot.id,
+                                          semester,
+                                        )
+                                      }
+                                      options={groupedElectives}
+                                      placeholder={
+                                        slot.slot_name
+                                          .toLowerCase()
+                                          .includes("open elective")
+                                          ? "Auto-allocated"
+                                          : "Select Course..."
+                                      }
+                                      disabled={slot.slot_name
+                                        .toLowerCase()
+                                        .includes("open elective")}
+                                    />
+                                  </td>
+
+                                  {/* Actions */}
+                                  <td className="py-3 px-4 text-center">
+                                    {assignedCourseId ? (
+                                      <button
+                                        onClick={() =>
+                                          handleRemoveCourseFromSlot(
+                                            parseInt(assignedCourseId),
                                             slot.id,
                                             semester,
                                           )
                                         }
-                                        options={groupedElectives}
-                                        placeholder={
-                                          slot.slot_name
-                                            .toLowerCase()
-                                            .includes("open elective")
-                                            ? "Auto-allocated"
-                                            : "Select Course..."
-                                        }
-                                        disabled={slot.slot_name
-                                          .toLowerCase()
-                                          .includes("open elective")}
-                                      />
-                                    </td>
-
-                                    {/* Actions */}
-                                    <td className="py-3 px-4 text-center">
-                                      {assignedCourseId ? (
-                                        <button
-                                          onClick={() =>
-                                            handleRemoveCourseFromSlot(
-                                              parseInt(assignedCourseId),
-                                              slot.id,
-                                              semester,
-                                            )
-                                          }
-                                          className="text-red-600 hover:text-red-800 font-bold text-lg"
-                                          title="Remove course"
-                                        >
-                                          ×
-                                        </button>
-                                      ) : (
-                                        <span className="text-xs text-gray-400">
-                                          Required
-                                        </span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {availableSemesters.length === 0 && (
-                <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                  <div className="text-gray-500">
-                    <svg
-                      className="w-16 h-16 mx-auto mb-4 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                    <p className="text-lg font-medium">
-                      No semesters available for assignment
-                    </p>
-                    <p className="text-sm mt-2">
-                      Please check academic calendar configuration
-                    </p>
-                  </div>
+                                        className="text-red-600 hover:text-red-800 font-bold text-lg"
+                                        title="Remove course"
+                                      >
+                                        ×
+                                      </button>
+                                    ) : (
+                                      <span className="text-xs text-gray-400">
+                                        Required
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })}
+
+            {availableSemesters.length === 0 && (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <div className="text-gray-500">
+                  <svg
+                    className="w-16 h-16 mx-auto mb-4 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  <p className="text-lg font-medium">
+                    No semesters available for assignment
+                  </p>
+                  <p className="text-sm mt-2">
+                    Please check academic calendar configuration
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
