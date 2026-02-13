@@ -39,10 +39,26 @@ function MarkEntryPermissionsPage() {
   const [selectedUALComponents, setSelectedUALComponents] = useState([])
   const [existingWindows, setExistingWindows] = useState([])
   const [editingWindow, setEditingWindow] = useState(null)
-  const [showWindowList, setShowWindowList] = useState(false)
   const [teacherSearch, setTeacherSearch] = useState('')
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false)
   const [learningMode, setLearningMode] = useState('PBL') // 'PBL' or 'UAL'
+  
+  // Student Assignment States
+  const [activeTab, setActiveTab] = useState('windows') // 'windows' or 'student-assignment'
+  const [availableUsers, setAvailableUsers] = useState([])
+  const [selectedUserId, setSelectedUserId] = useState('')
+  const [userSearchTerm, setUserSearchTerm] = useState('')
+  const [showUserDropdown, setShowUserDropdown] = useState(false)
+  const [students, setStudents] = useState([])
+  const [selectedStudents, setSelectedStudents] = useState([])
+  const [studentFilters, setStudentFilters] = useState({
+    department: '',
+    year: '',
+    semester: '',
+    search: ''
+  })
+  const [assignmentLoading, setAssignmentLoading] = useState(false)
+  const [userAssignedWindows, setUserAssignedWindows] = useState([])
 
   // Check if user has COE role
   useEffect(() => {
@@ -56,6 +72,42 @@ function MarkEntryPermissionsPage() {
     fetchDepartments()
     fetchExistingWindows()
   }, [])
+
+  // Load all students when student-assignment tab is opened
+  useEffect(() => {
+    if (activeTab === 'student-assignment') {
+      fetchStudentsForAssignment()
+      fetchUserAssignedWindows()
+    }
+  }, [activeTab])
+
+  // Reload students when Window Scope department changes
+  useEffect(() => {
+    if (activeTab === 'student-assignment') {
+      fetchStudentsForAssignment()
+    }
+  }, [windowDepartmentId])
+
+  // Fetch courses when department and semester change in student-assignment tab
+  useEffect(() => {
+    if (activeTab === 'student-assignment' && windowSemester) {
+      // Fetch courses (all departments if windowDepartmentId is empty)
+      fetchDepartmentCurriculumCourses(windowDepartmentId, windowSemester)
+    } else if (activeTab === 'student-assignment') {
+      setWindowCourses([])
+      setWindowCourseId('')
+    }
+  }, [activeTab, windowDepartmentId, windowSemester])
+
+  // Load components when course changes in student-assignment tab
+  useEffect(() => {
+    if (activeTab === 'student-assignment' && windowCourseId && windowCourseId !== 'all') {
+      fetchMarkCategoriesForCourseType(windowCourseId)
+    } else if (activeTab === 'student-assignment') {
+      // Show all categories if no specific course selected or if "All Courses" is selected
+      fetchAllMarkCategories()
+    }
+  }, [activeTab, windowCourseId, learningMode])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -71,7 +123,7 @@ function MarkEntryPermissionsPage() {
     // Load window components when course context changes
     if (windowScope === 'teacher_course' && selectedCourseId) {
       fetchMarkCategoriesForCourseType(selectedCourseId)
-    } else if (windowScope === 'department_semester_course' && windowCourseId) {
+    } else if (windowScope === 'department_semester_course' && windowCourseId && windowCourseId !== 'all') {
       fetchMarkCategoriesForCourseType(windowCourseId)
     } else if (windowScope === 'department_semester') {
       // For dept+semester, show all categories since it applies to all courses
@@ -209,6 +261,26 @@ function MarkEntryPermissionsPage() {
     }
   }
 
+  const fetchDepartmentCurriculumCourses = async (departmentId, semester) => {
+    if (!semester) {
+      setWindowCourses([])
+      return
+    }
+    try {
+      // If departmentId is empty, fetch courses from all departments
+      const url = departmentId 
+        ? `${API_BASE_URL}/departments/${departmentId}/curriculum/semester/${semester}/courses`
+        : `${API_BASE_URL}/all-departments/semester/${semester}/courses`
+      const res = await fetch(url)
+      const data = await res.json()
+      setWindowCourses(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error fetching department curriculum courses:', error)
+      setWindowCourses([])
+      setMessage({ type: 'error', text: 'Failed to load courses for department and semester.' })
+    }
+  }
+
   const fetchTeacherCourses = async (teacherId) => {
     setMessage({ type: '', text: '' })
     try {
@@ -271,7 +343,7 @@ function MarkEntryPermissionsPage() {
     }
 
     if (windowScope === 'department_semester_course') {
-      if (windowDepartmentId === '' || !windowSemester || !windowCourseId) return ''
+      if (windowDepartmentId === '' || !windowSemester || !windowCourseId || windowCourseId === 'all') return ''
       if (windowDepartmentId !== '0') {
         params.append('department_id', windowDepartmentId)
       }
@@ -430,6 +502,17 @@ function MarkEntryPermissionsPage() {
     }
   }
 
+  const fetchUserAssignedWindows = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/mark-entry-windows?user_only=true`)
+      if (!res.ok) throw new Error('Failed to fetch user-assigned windows')
+      const data = await res.json()
+      setUserAssignedWindows(data || [])
+    } catch (error) {
+      console.error('Error fetching user-assigned windows:', error)
+    }
+  }
+
   const deleteWindow = async (windowId) => {
     if (!window.confirm('Are you sure you want to delete this window?')) return
 
@@ -440,9 +523,70 @@ function MarkEntryPermissionsPage() {
       if (!res.ok) throw new Error('Failed to delete window')
       setMessage({ type: 'success', text: 'Window deleted successfully.' })
       fetchExistingWindows()
+      if (activeTab === 'student-assignment') {
+        fetchUserAssignedWindows()
+      }
     } catch (error) {
       console.error('Error deleting window:', error)
       setMessage({ type: 'error', text: 'Failed to delete window.' })
+    }
+  }
+
+  const editUserWindow = async (win) => {
+    // Switch to student-assignment tab
+    setActiveTab('student-assignment')
+    
+    // Set editing mode
+    setEditingWindow(win)
+    setWindowStartAt(formatDateTimeLocal(win.start_at))
+    setWindowEndAt(formatDateTimeLocal(win.end_at))
+    setWindowEnabled(win.enabled)
+    
+    // Set user
+    if (win.user_id) {
+      const userRes = await fetch(`${API_BASE_URL}/users/${win.user_id}`)
+      if (userRes.ok) {
+        const userData = await userRes.json()
+        setSelectedUserId(userData.username)
+      }
+    }
+    
+    // Set scope fields
+    setWindowDepartmentId(win.department_id || '')
+    setWindowSemester(win.semester || '')
+    setWindowCourseId(win.course_id || '')
+    
+    // Load components if course is set
+    if (win.course_id && win.component_ids) {
+      const allPBL = []
+      const allUAL = []
+      
+      for (const compId of win.component_ids) {
+        const comp = windowComponents.find(c => c.id === compId)
+        if (comp) {
+          if (comp.learning_mode_id === 2) {
+            allPBL.push(compId)
+          } else if (comp.learning_mode_id === 1) {
+            allUAL.push(compId)
+          }
+        }
+      }
+      
+      setSelectedPBLComponents(allPBL)
+      setSelectedUALComponents(allUAL)
+    }
+    
+    // Load assigned students for this window
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/mark-entry/user-assigned-students?user_id=${win.user_id}&window_id=${win.id}`
+      )
+      if (res.ok) {
+        const assignedStudents = await res.json()
+        setSelectedStudents(assignedStudents.map(s => s.student_id))
+      }
+    } catch (error) {
+      console.error('Error loading assigned students:', error)
     }
   }
 
@@ -472,7 +616,6 @@ function MarkEntryPermissionsPage() {
       setWindowSemester(win.semester.toString())
     }
 
-    setShowWindowList(false)
     setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100)
   }
 
@@ -551,6 +694,121 @@ function MarkEntryPermissionsPage() {
     }
   }
 
+  // Student Assignment Functions
+  const fetchAvailableUsers = async (search = '') => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/mark-entry/available-users?search=${search}`)
+      const data = await res.json()
+      setAvailableUsers(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      setMessage({ type: 'error', text: 'Failed to load users.' })
+    }
+  }
+
+  const fetchStudentsForAssignment = async () => {
+    setAssignmentLoading(true)
+    try {
+      const params = new URLSearchParams()
+      // Filter by Window Scope department if selected
+      if (windowDepartmentId) {
+        params.append('department_id', windowDepartmentId)
+      }
+      // Additional filters from student filter section
+      if (studentFilters.department) params.append('department', studentFilters.department)
+      if (studentFilters.year) params.append('year', studentFilters.year)
+      if (studentFilters.semester) params.append('semester', studentFilters.semester)
+      if (studentFilters.search) params.append('search', studentFilters.search)
+
+      const res = await fetch(`${API_BASE_URL}/mark-entry/available-students?${params}`)
+      const data = await res.json()
+      setStudents(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error fetching students:', error)
+      setMessage({ type: 'error', text: 'Failed to load students.' })
+    } finally {
+      setAssignmentLoading(false)
+    }
+  }
+
+  const assignStudentsToUser = async () => {
+    if (!selectedUserId || selectedStudents.length === 0 || !windowStartAt || !windowEndAt) {
+      setMessage({ type: 'error', text: 'Please fill all required fields: user, time period, and at least one student.' })
+      return
+    }
+
+    setAssignmentLoading(true)
+    try {
+      // Combine PBL and UAL components
+      const allComponents = [...selectedPBLComponents, ...selectedUALComponents]
+
+      const res = await fetch(`${API_BASE_URL}/mark-entry/create-user-window`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: selectedUserId,
+          department_id: windowDepartmentId ? parseInt(windowDepartmentId) : null,
+          semester: windowSemester ? parseInt(windowSemester) : null,
+          course_id: windowCourseId && windowCourseId !== 'all' ? parseInt(windowCourseId) : null,
+          student_ids: selectedStudents,
+          start_at: windowStartAt,
+          end_at: windowEndAt,
+          component_ids: allComponents.length > 0 ? allComponents : [],
+          created_by: localStorage.getItem('username') || 'coe_admin'
+        })
+      })
+
+      if (!res.ok) {
+        const error = await res.text()
+        throw new Error(error || 'Failed to create window')
+      }
+
+      const result = await res.json()
+      setMessage({ 
+        type: 'success', 
+        text: `Successfully created window #${result.window_id} and assigned ${result.assignments_created} students! User can now enter marks (will overwrite existing marks).` 
+      })
+      
+      // Refresh windows lists to show the newly created window
+      fetchExistingWindows()
+      fetchUserAssignedWindows()
+      
+      // Reset form
+      setSelectedStudents([])
+      setSelectedUserId('')
+      setStudents([])
+      setWindowStartAt('')
+      setWindowEndAt('')
+      setWindowDepartmentId('')
+      setWindowSemester('')
+      setWindowCourseId('')
+      setSelectedPBLComponents([])
+      setSelectedUALComponents([])
+      setEditingWindow(null)
+    } catch (error) {
+      console.error('Error creating window:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to create window.' })
+    } finally {
+      setAssignmentLoading(false)
+    }
+  }
+
+  const toggleStudentSelection = (studentId) => {
+    if (selectedStudents.includes(studentId)) {
+      setSelectedStudents(selectedStudents.filter(id => id !== studentId))
+    } else {
+      setSelectedStudents([...selectedStudents, studentId])
+    }
+  }
+
+  const selectAllStudents = () => {
+    setSelectedStudents(students.map(s => s.student_id))
+  }
+
+  const clearStudentSelection = () => {
+    setSelectedStudents([])
+  }
+
   return (
     <MainLayout title="Mark Permissions" subtitle="Manage mark entry windows and permissions">
       <div className="space-y-6">
@@ -570,6 +828,35 @@ function MarkEntryPermissionsPage() {
           </div>
         )}
 
+        {/* Tab Navigation */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('windows')}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'windows'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Mark Entry Windows
+            </button>
+            <button
+              onClick={() => setActiveTab('student-assignment')}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'student-assignment'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Student-User Assignment
+            </button>
+          </div>
+        </div>
+
+        {/* Windows Tab Content */}
+        {activeTab === 'windows' && (
+          <>
         {/* Teacher & Course Selection Card */}
         {windowScope === 'teacher_course' && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100">
@@ -1005,6 +1292,460 @@ function MarkEntryPermissionsPage() {
             )}
           </div>
         </div>
+          </>
+        )}
+
+        {/* Student Assignment Tab Content */}
+        {activeTab === 'student-assignment' && (
+          <>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="border-b border-gray-200 px-6 py-4">
+                <h3 className="text-lg font-semibold text-gray-800">Create User-Student Mark Entry Window</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Create a dedicated mark entry window for a user to enter marks for specific students. Configure time period, scope, and components just like regular windows. User's marks will overwrite any existing marks.
+                </p>
+              </div>
+
+              {/* User Selection */}
+              <div className="p-6 border-b border-gray-100">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Select User</h4>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search users by name, email, or role..."
+                    value={userSearchTerm}
+                    onChange={(e) => {
+                      setUserSearchTerm(e.target.value)
+                      setShowUserDropdown(true)
+                      fetchAvailableUsers(e.target.value)
+                    }}
+                    onFocus={() => {
+                      setShowUserDropdown(true)
+                      fetchAvailableUsers(userSearchTerm)
+                    }}
+                    onBlur={() => {
+                      // Delay to allow click on dropdown item
+                      setTimeout(() => setShowUserDropdown(false), 200)
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  {showUserDropdown && availableUsers.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                      {availableUsers.map(user => (
+                        <div
+                          key={user.id}
+                          onClick={() => {
+                            setSelectedUserId(user.username)
+                            setUserSearchTerm(`${user.username} (${user.email}) - ${user.role}`)
+                            setShowUserDropdown(false)
+                          }}
+                          className={`px-4 py-3 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors ${
+                            selectedUserId === user.username ? 'bg-blue-50' : ''
+                          }`}
+                        >
+                          <div className="font-medium text-gray-900">{user.username}</div>
+                          <div className="text-sm text-gray-600">{user.email}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Role: <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-700">{user.role}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {selectedUserId && (
+                    <button
+                      onClick={() => {
+                        setSelectedUserId('')
+                        setUserSearchTerm('')
+                        setShowUserDropdown(false)
+                      }}
+                      className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
+                      title="Clear selection"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                {selectedUserId && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-800">
+                    ✓ Selected: <span className="font-semibold">{selectedUserId}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Window Time Period */}
+              <div className="p-6 border-b border-gray-100">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Time Period</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Start Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      value={windowStartAt}
+                      onChange={(e) => setWindowStartAt(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">End Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      value={windowEndAt}
+                      onChange={(e) => setWindowEndAt(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Scope Selection */}
+              <div className="p-6 border-b border-gray-100">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Window Scope (Optional)</h4>
+                <p className="text-xs text-gray-600 mb-3">
+                  Optionally specify department/semester or course. Leave blank for student-specific only.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Department (Optional)</label>
+                    <select
+                      value={windowDepartmentId}
+                      onChange={(e) => setWindowDepartmentId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="">All Departments</option>
+                      {departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.department_code ? `${dept.department_code} - ` : ''}{dept.department_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Semester (Optional)</label>
+                    <select
+                      value={windowSemester}
+                      onChange={(e) => setWindowSemester(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="">-- None --</option>
+                      {[1,2,3,4,5,6,7,8].map(sem => (
+                        <option key={sem} value={sem}>{sem}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Course (Optional)</label>
+                    <select
+                      value={windowCourseId}
+                      onChange={(e) => setWindowCourseId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      disabled={!windowSemester}
+                    >
+                      <option value="">-- None --</option>
+                      <option value="all">All Courses</option>
+                      {windowCourses.map((course) => (
+                        <option key={course.course_id} value={course.course_id}>
+                          {course.course_code} - {course.course_name}
+                        </option>
+                      ))}
+                    </select>
+                    {!windowSemester ? (
+                      <p className="text-xs text-gray-500 mt-1">Select semester first</p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              {/* Component Selection */}
+              <div className="p-6 border-b border-gray-100">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Allowed Mark Components</h4>
+                <div className="flex items-center justify-center gap-6 mb-3 bg-gray-50 rounded-lg p-3">
+                  <span className={`text-sm font-semibold transition-colors ${learningMode === 'PBL' ? 'text-blue-700' : 'text-gray-400'}`}>
+                    PBL
+                  </span>
+                  <button
+                    onClick={() => setLearningMode(learningMode === 'PBL' ? 'UAL' : 'PBL')}
+                    className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                      learningMode === 'PBL' ? 'bg-blue-600' : 'bg-orange-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform ${
+                        learningMode === 'PBL' ? 'translate-x-1' : 'translate-x-9'
+                      }`}
+                    />
+                  </button>
+                  <span className={`text-sm font-semibold transition-colors ${learningMode === 'UAL' ? 'text-orange-700' : 'text-gray-400'}`}>
+                    UAL
+                  </span>
+                </div>
+                {windowComponents.length > 0 && (
+                  <div className="space-y-3">
+                    {Object.entries(
+                      windowComponents.reduce((groups, component) => {
+                        const courseTypeName = component.course_type_name || 'Other'
+                        if (!groups[courseTypeName]) groups[courseTypeName] = []
+                        groups[courseTypeName].push(component)
+                        return groups
+                      }, {})
+                    ).map(([courseTypeName, components]) => (
+                      <div key={courseTypeName} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">
+                          {courseTypeName}
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {components.map((component) => {
+                            const selectedComponents = learningMode === 'PBL' ? selectedPBLComponents : selectedUALComponents
+                            const setSelectedComponents = learningMode === 'PBL' ? setSelectedPBLComponents : setSelectedUALComponents
+                            
+                            return (
+                              <label
+                                key={component.id}
+                                className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:text-blue-600"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedComponents.includes(component.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedComponents([...selectedComponents, component.id])
+                                    } else {
+                                      setSelectedComponents(
+                                        selectedComponents.filter((id) => id !== component.id)
+                                      )
+                                    }
+                                  }}
+                                  className="h-4 w-4 accent-blue-600 cursor-pointer"
+                                />
+                                <span className="font-medium">{component.name}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-2">
+                  Leave all unchecked to allow all components.
+                </p>
+              </div>
+
+              {/* Student Selection */}
+              <div className="p-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Select Students</h4>
+                
+                {/* Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search by name/enrollment..."
+                    value={studentFilters.search}
+                    onChange={(e) => setStudentFilters({...studentFilters, search: e.target.value})}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                  <select
+                    value={studentFilters.department}
+                    onChange={(e) => setStudentFilters({...studentFilters, department: e.target.value})}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white"
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map(dept => (
+                      <option key={dept.id} value={dept.department_name}>{dept.department_name}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    placeholder="Year (optional)"
+                    value={studentFilters.year}
+                    onChange={(e) => setStudentFilters({...studentFilters, year: e.target.value})}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Semester (optional)"
+                    value={studentFilters.semester}
+                    onChange={(e) => setStudentFilters({...studentFilters, semester: e.target.value})}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={fetchStudentsForAssignment}
+                    disabled={assignmentLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                  >
+                    {assignmentLoading ? 'Loading...' : 'Apply Filters'}
+                  </button>
+                  {students.length > 0 && (
+                    <>
+                      <button
+                        onClick={selectAllStudents}
+                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        Select All ({students.length})
+                      </button>
+                      <button
+                        onClick={clearStudentSelection}
+                        className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors"
+                      >
+                        Clear Selection
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Student List */}
+                {students.length > 0 && (
+                  <div className="border border-gray-300 rounded-lg overflow-hidden mb-4">
+                    <div className="max-h-96 overflow-y-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-100 sticky top-0">
+                          <tr>
+                            <th className="p-3 text-left text-xs font-semibold text-gray-700">Select</th>
+                            <th className="p-3 text-left text-xs font-semibold text-gray-700">Enrollment No</th>
+                            <th className="p-3 text-left text-xs font-semibold text-gray-700">Name</th>
+                            <th className="p-3 text-left text-xs font-semibold text-gray-700">Department</th>
+                            <th className="p-3 text-left text-xs font-semibold text-gray-700">Year</th>
+                            <th className="p-3 text-left text-xs font-semibold text-gray-700">Semester</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {students.map(student => (
+                            <tr 
+                              key={student.student_id} 
+                              className={`border-t hover:bg-blue-50 cursor-pointer transition-colors ${
+                                selectedStudents.includes(student.student_id) ? 'bg-blue-50' : ''
+                              }`}
+                              onClick={() => toggleStudentSelection(student.student_id)}
+                            >
+                              <td className="p-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedStudents.includes(student.student_id)}
+                                  onChange={() => toggleStudentSelection(student.student_id)}
+                                  className="h-4 w-4 accent-blue-600 cursor-pointer"
+                                />
+                              </td>
+                              <td className="p-3 text-sm">{student.enrollment_no}</td>
+                              <td className="p-3 text-sm font-medium">{student.student_name}</td>
+                              <td className="p-3 text-sm">{student.department}</td>
+                              <td className="p-3 text-sm">{student.year}</td>
+                              <td className="p-3 text-sm">{student.semester}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+                      <p className="text-sm text-gray-600">
+                        {selectedStudents.length} of {students.length} student(s) selected
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {students.length === 0 && !assignmentLoading && (
+                  <div className="text-center py-12 text-gray-400 border border-gray-200 rounded-lg mb-4">
+                    <p className="text-sm">Use filters above to search for students</p>
+                  </div>
+                )}
+
+                {/* Create Window Button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={assignStudentsToUser}
+                    disabled={!selectedUserId || selectedStudents.length === 0 || !windowStartAt || !windowEndAt || assignmentLoading}
+                    className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {assignmentLoading ? 'Creating Window...' : editingWindow ? 'Update Window & Assignments' : 'Create Window & Assign Students'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Existing User-Assigned Windows */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-700">Existing User-Assigned Windows</h3>
+                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                  {userAssignedWindows.length} {userAssignedWindows.length === 1 ? 'window' : 'windows'}
+                </span>
+              </div>
+              <div className="p-6">
+                {userAssignedWindows.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400">
+                    <p className="text-sm">No user-assigned windows configured yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {userAssignedWindows.map((win) => {
+                      const { status, color } = getWindowStatus(win)
+                      return (
+                        <div
+                          key={win.id}
+                          className="bg-purple-50 rounded-lg p-4 border border-purple-200 hover:border-purple-300 hover:shadow-sm transition-all"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-800 text-sm mb-2">
+                                <span className="text-purple-700">User:</span> {win.user_username || `ID: ${win.user_id}`}
+                                {win.course_name && <span className="text-gray-600"> • {win.course_name}</span>}
+                                {win.department_name && <span className="text-gray-600"> • {win.department_name}</span>}
+                                {win.semester && <span className="text-gray-600"> • Sem {win.semester}</span>}
+                              </p>
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${color}`}>
+                                {status}
+                              </span>
+                              {win.student_count > 0 && (
+                                <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                                  {win.student_count} student{win.student_count !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex gap-2 ml-4">
+                              <button
+                                onClick={() => editUserWindow(win)}
+                                className="px-3 py-1.5 text-xs text-purple-600 hover:bg-purple-100 rounded-lg font-medium transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => deleteWindow(win.id)}
+                                className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-gray-600">
+                            <div className="bg-white rounded p-2 border border-purple-100">
+                              <div className="text-gray-500 mb-1">Start</div>
+                              <div className="font-medium">{new Date(win.start_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                            </div>
+                            <div className="bg-white rounded p-2 border border-purple-100">
+                              <div className="text-gray-500 mb-1">End</div>
+                              <div className="font-medium">{new Date(win.end_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                            </div>
+                            <div className="bg-white rounded p-2 border border-purple-100">
+                              <div className="text-gray-500 mb-1">Components</div>
+                              <div className="font-medium">
+                                {win.component_ids && win.component_ids.length > 0
+                                  ? `${win.component_ids.length} selected`
+                                  : 'All allowed'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </MainLayout>
   )

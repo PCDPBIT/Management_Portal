@@ -14,7 +14,7 @@ function ManageCurriculumPage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [cardType, setCardType] = useState('normal') // 'normal' or 'honour'
   const [showDropdown, setShowDropdown] = useState(false)
-  const [newSemester, setNewSemester] = useState({ semester_number: null, name: '', card_type: 'semester' })
+  const [newSemester, setNewSemester] = useState({ semester_number: null, name: '', card_type: 'semester', vertical_name: '' })
   const [newHonourCard, setNewHonourCard] = useState({ title: '' })
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingSemester, setEditingSemester] = useState(null)
@@ -108,7 +108,8 @@ function ManageCurriculumPage() {
         body: JSON.stringify({
           semester_number: newSemester.semester_number,
           name: generatedName,
-          card_type: newSemester.card_type
+          card_type: newSemester.card_type,
+          vertical_name: newSemester.card_type === 'vertical' ? newSemester.vertical_name : ''
         }),
       })
 
@@ -116,7 +117,7 @@ function ManageCurriculumPage() {
         throw new Error('Failed to create semester')
       }
 
-      setNewSemester({ semester_number: null, name: '', card_type: 'semester' })
+      setNewSemester({ semester_number: null, name: '', card_type: 'semester', vertical_name: '' })
       setShowCreateForm(false)
       setShowDropdown(false)
       fetchSemesters()
@@ -391,7 +392,7 @@ function ManageCurriculumPage() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Card Type</label>
                   <select
                     value={newSemester.card_type}
-                    onChange={(e) => setNewSemester({ ...newSemester, card_type: e.target.value, semester_number: null })}
+                    onChange={(e) => setNewSemester({ ...newSemester, card_type: e.target.value, semester_number: null, vertical_name: '' })}
                     className="input-custom"
                   >
                     <option value="semester">Semester</option>
@@ -410,6 +411,19 @@ function ManageCurriculumPage() {
                       onChange={(e) => setNewSemester({ ...newSemester, semester_number: e.target.value ? parseInt(e.target.value) : null })}
                       placeholder="e.g., 1"
                       min="1"
+                      required
+                      className="input-custom"
+                    />
+                  </div>
+                )}
+                {newSemester.card_type === 'vertical' && (
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Vertical Name</label>
+                    <input
+                      type="text"
+                      value={newSemester.vertical_name || ''}
+                      onChange={(e) => setNewSemester({ ...newSemester, vertical_name: e.target.value })}
+                      placeholder="e.g., AI & ML"
                       required
                       className="input-custom"
                     />
@@ -469,6 +483,7 @@ function ManageCurriculumPage() {
             {/* Normal Cards (All Types) */}
             {semesters.map(sem => {
               const style = getCardStyle(sem.card_type || 'semester')
+              const displayLabel = sem.card_type === 'vertical' && sem.vertical_name ? sem.vertical_name : style.label
               return (
                 <div
                   key={`sem-${sem.id}`}
@@ -527,12 +542,12 @@ function ManageCurriculumPage() {
                     
                     {/* Card Name */}
                     <h3 className="text-lg font-bold text-gray-900 mb-2 min-h-[3rem] flex items-center justify-center">
-                      {style.label}
+                      {displayLabel}
                     </h3>
                     
                     {/* Card Type Badge */}
                     <span className={`inline-block mb-2 px-3 py-1 ${style.badge} text-xs font-semibold rounded-full`}>
-                      {style.label}
+                      {displayLabel}
                     </span>
                     
                     <p className="text-sm text-gray-600">Manage courses →</p>

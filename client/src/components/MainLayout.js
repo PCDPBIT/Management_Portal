@@ -158,7 +158,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
           />
         </svg>
       ),
-      roles: ["teacher"], // Only teacher
+      roles: ["teacher", "user", "faculty", "staff", "coe", "curriculum_entry_user"], // Available to teachers and all users who can be assigned mark entry
     },
     {
       name: "Mark Entry Permissions",

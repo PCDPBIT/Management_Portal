@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../../config";
-import { getDashboardPathForRole } from "../../config/menuConfig";
 
 function LoginPage() {
   const [username, setUsername] = useState("");
@@ -28,17 +27,17 @@ function LoginPage() {
 
       if (data.success) {
         // Store user info in localStorage
-        localStorage.setItem("userRole", data.user.role);
-        localStorage.setItem(
-          "userName",
-          data.teacher_name || data.user.username,
-        );
-        localStorage.setItem("userEmail", data.user.email);
-        localStorage.setItem("userId", data.user.id);
-
-        // Store teacher ID if user is a teacher
-        if (data.teacher_id) {
-          localStorage.setItem("teacherId", data.teacher_id);
+        localStorage.setItem('userRole', data.user.role)
+        localStorage.setItem('userName', data.user.full_name || data.teacher_name || data.user.username)
+        localStorage.setItem('userEmail', data.user.email)
+        localStorage.setItem('userId', data.user.id)
+        localStorage.setItem('user_id', data.user.id) // Store with underscore for consistency
+        localStorage.setItem('username', data.user.username) // Store username for API calls
+        
+        // Store teacher ID if teacher role
+        if (data.user.role === 'teacher' && data.teacher_id) {
+          localStorage.setItem('teacherId', data.teacher_id)
+          localStorage.setItem('teacher_id', data.teacher_id) // Store with underscore for consistency
         }
 
         setUsername("");

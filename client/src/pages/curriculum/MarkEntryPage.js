@@ -13,17 +13,25 @@ function MarkEntryPage() {
   const [savingMarks, setSavingMarks] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [learningMode, setLearningMode] = useState('PBL') // 'PBL' or 'UAL'
+  const [hasActiveWindow, setHasActiveWindow] = useState(true)
 
   const teacherId = localStorage.getItem('teacher_id') || localStorage.getItem('teacherId')
+  const username = localStorage.getItem('username') // Username is needed for users with mark entry permissions
+  const userRole = localStorage.getItem('userRole') || localStorage.getItem('role')
+  const isTeacher = userRole === 'teacher' && !!teacherId
+  const facultyIdentifier = isTeacher ? teacherId : username
 
-  // Fetch teacher's courses on component mount
+  // Fetch courses on component mount (teacher or user)
   useEffect(() => {
-    if (!teacherId) {
-      setMessage({ type: 'error', text: 'Teacher ID not found. Please login again.' })
-      return
+    if (isTeacher) {
+      fetchTeacherCourses()
+    } else if (username) {
+      // For users with mark entry permissions, use username
+      fetchUserCourses()
+    } else {
+      setMessage({ type: 'error', text: 'User credentials not found. Please login again.' })
     }
-    fetchTeacherCourses()
-  }, [teacherId])
+  }, [isTeacher, teacherId, username, userRole])
 
   const fetchTeacherCourses = async () => {
     try {
@@ -49,24 +57,58 @@ function MarkEntryPage() {
     }
   }
 
+  const fetchUserCourses = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`${API_BASE_URL}/users/${username}/courses`)
+      if (!response.ok) throw new Error('Failed to fetch courses')
+      const data = await response.json()
+      
+      // Transform user courses to match teacher courses format
+      const formattedCourses = data.map(course => ({
+        course_id: course.course_id,
+        course_code: course.course_code,
+        course_name: course.course_name,
+        category: course.category,
+        semester: course.semester,
+        window_id: course.window_id,
+        enrollments: [] // Will be populated when fetching students
+      }))
+      
+      setCourses(formattedCourses)
+      
+      // Select first course if available
+      if (formattedCourses.length > 0) {
+        setSelectedCourse(formattedCourses[0])
+      }
+      setMessage({ type: '', text: '' })
+    } catch (error) {
+      console.error('Error fetching courses:', error)
+      setMessage({ type: 'error', text: 'Failed to load courses. Please try again.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Fetch mark categories when course is selected or learning mode changes
   useEffect(() => {
     if (!selectedCourse) return
+    if (userRole !== 'teacher' && !hasActiveWindow) return
     fetchMarkCategories()
     loadExistingMarks()
-  }, [selectedCourse, learningMode])
+  }, [selectedCourse, learningMode, hasActiveWindow, userRole])
 
   const fetchMarkCategories = async () => {
     try {
-      if (!teacherId) {
-        setMessage({ type: 'error', text: 'Teacher ID not found. Please login again.' })
+      if (!facultyIdentifier) {
+        setMessage({ type: 'error', text: 'User identifier not found. Please login again.' })
         return
       }
 
       // Convert learning mode to ID (UAL=1, PBL=2) and add as query parameter
       const learningModeId = learningMode === 'UAL' ? 1 : 2
       const response = await fetch(
-        `${API_BASE_URL}/course/${selectedCourse.course_id}/mark-categories?teacher_id=${teacherId}&learning_modes=${learningModeId}`
+        `${API_BASE_URL}/course/${selectedCourse.course_id}/mark-categories?teacher_id=${facultyIdentifier}&learning_modes=${learningModeId}`
       )
       if (response.status === 403) {
         setMarkCategories([])
@@ -84,8 +126,12 @@ function MarkEntryPage() {
 
   const loadExistingMarks = async () => {
     try {
+      if (!facultyIdentifier) {
+        setMessage({ type: 'error', text: 'User identifier not found. Please login again.' })
+        return
+      }
       const response = await fetch(
-        `${API_BASE_URL}/course/${selectedCourse.course_id}/student-marks?teacher_id=${teacherId}`
+        `${API_BASE_URL}/course/${selectedCourse.course_id}/student-marks?teacher_id=${facultyIdentifier}`
       )
       if (response.status === 403) {
         setStudentMarks({})
@@ -155,8 +201,14 @@ function MarkEntryPage() {
 
   // Update students when course changes
   useEffect(() => {
-    if (selectedCourse && selectedCourse.enrollments) {
-      // Enrich students with enrollment numbers
+    if (!selectedCourse) return
+
+    // For users, fetch assigned students from window
+    if (!isTeacher && username) {
+      fetchUserAssignedStudents()
+    }
+    // For teachers, use enrollments from course
+    else if (selectedCourse.enrollments) {
       enrichStudentsWithEnrollmentNumbers(selectedCourse.enrollments).then((enrichedStudents) => {
         setAllStudents(enrichedStudents)
         
@@ -184,7 +236,56 @@ function MarkEntryPage() {
       })
       setStudentMarks(newMarks)
     }
-  }, [selectedCourse, learningMode])
+  }, [selectedCourse, learningMode, username, teacherId])
+
+  const fetchUserAssignedStudents = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/mark-entry/user-assigned-students?user_id=${username}&course_id=${selectedCourse.course_id}`
+      )
+      if (!response.ok) throw new Error('Failed to fetch assigned students')
+      const data = await response.json()
+      
+      // Transform to match student format with enrollment info
+      const studentList = await enrichStudentsWithEnrollmentNumbers(
+        data.map(s => ({
+          student_id: s.student_id,
+          student_name: s.student_name,
+          enrollment_no: s.enrollment_no
+        }))
+      )
+      
+      setAllStudents(studentList)
+
+      const hasWindow = studentList.length > 0
+      setHasActiveWindow(hasWindow)
+      if (!hasWindow) {
+        setStudents([])
+        setStudentMarks({})
+        setMessage({ type: 'warning', text: 'No active mark entry window for this course.' })
+        return
+      }
+      
+      // Filter by learning mode (include students with missing learning_mode_id)
+      const learningModeId = learningMode === 'UAL' ? 1 : 2
+      const filteredStudents = studentList.filter(
+        (student) => !student.learning_mode_id || student.learning_mode_id === learningModeId
+      )
+      
+      setStudents(filteredStudents)
+      
+      // Initialize marks
+      const newMarks = {}
+      studentList.forEach((student) => {
+        newMarks[student.student_id] = studentMarks[student.student_id] || {}
+      })
+      setStudentMarks(newMarks)
+    } catch (error) {
+      console.error('Error fetching assigned students:', error)
+      setHasActiveWindow(false)
+      setMessage({ type: 'error', text: 'Failed to load assigned students.' })
+    }
+  }
 
   const handleMarkChange = (studentId, categoryId, value) => {
     const category = markCategories.find((cat) => cat.id === categoryId)
@@ -237,8 +338,9 @@ function MarkEntryPage() {
   }
 
   const handleSaveMarks = async () => {
-    if (!selectedCourse || !teacherId) {
-      setMessage({ type: 'error', text: 'Invalid course or teacher information' })
+    const facultyId = facultyIdentifier
+    if (!selectedCourse || !facultyId) {
+      setMessage({ type: 'error', text: 'Invalid course or user information' })
       return
     }
 
@@ -270,7 +372,7 @@ function MarkEntryPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           course_id: selectedCourse.course_id,
-          faculty_id: teacherId,
+          faculty_id: facultyId,
           mark_entries: markEntries,
         }),
       })

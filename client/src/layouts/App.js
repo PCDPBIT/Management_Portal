@@ -40,6 +40,7 @@ import TeacherCoursesPage from "../pages/curriculum/TeacherCoursesPage";
 import TeacherCourseStudentsPage from "../pages/curriculum/TeacherCourseStudentsPage";
 import MarkEntryPage from "../pages/curriculum/MarkEntryPage";
 import MarkEntryPermissionsPage from "../pages/curriculum/MarkEntryPermissionsPage";
+import MyAssignedStudentsPage from "../pages/curriculum/MyAssignedStudentsPage";
 
 function App() {
   return (
@@ -66,6 +67,7 @@ function App() {
 
           <Route path="mark-entry" element={<MarkEntryPage />} />
           <Route path="mark-entry-permissions" element={<MarkEntryPermissionsPage />} />
+          <Route path="my-assigned-students" element={<MyAssignedStudentsPage />} />
 
           <Route path="course-allocation" element={<CourseAllocationPage />} />
           <Route path="elective-management" element={<ElectiveManagementPage />} />
