@@ -114,10 +114,13 @@ function MarkEntryPermissionsPage() {
       if (showTeacherDropdown && !event.target.closest('.teacher-search-container')) {
         setShowTeacherDropdown(false)
       }
+      if (showUserDropdown && !event.target.closest('.user-search-container')) {
+        setShowUserDropdown(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showTeacherDropdown])
+  }, [showTeacherDropdown, showUserDropdown])
 
   useEffect(() => {
     // Load window components when course context changes
@@ -357,8 +360,8 @@ function MarkEntryPermissionsPage() {
   const loadWindowRule = async () => {
     const query = buildWindowQuery()
     if (!query) {
-      setWindowStartAt('')
-      setWindowEndAt('')
+      // setWindowStartAt('')
+      // setWindowEndAt('')
       setWindowEnabled(true)
       return
     }
@@ -830,7 +833,7 @@ function MarkEntryPermissionsPage() {
 
         {/* Tab Navigation */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="flex border-b border-gray-200">
+          <div className="flex border-b border-gray-200 pl-2">
             <button
               onClick={() => setActiveTab('windows')}
               className={`px-6 py-3 font-medium transition-colors ${
@@ -982,7 +985,7 @@ function MarkEntryPermissionsPage() {
               ) : (
                 <button
                   onClick={saveWindowRule}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   disabled={windowLoading}
                 >
                   {windowLoading ? 'Saving...' : 'Save Window'}
@@ -1088,7 +1091,7 @@ function MarkEntryPermissionsPage() {
             )}
 
             {/* Time Window */}
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+            <div className="bg-background rounded-lg p-4 border border-blue-100">
               <h4 className="text-sm font-semibold text-gray-700 mb-3">Time Window Configuration</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -1124,20 +1127,20 @@ function MarkEntryPermissionsPage() {
             </div>
 
             {/* Learning Mode Toggle */}
-            <div className="bg-purple-50 rounded-lg p-4 border border-purple-100">
+            <div className="bg-background rounded-lg p-4 border border-purple-100">
               <h4 className="text-sm font-semibold text-gray-700 mb-3">Learning Mode Selection</h4>
               <p className="text-xs text-gray-600 mb-3">
                 Toggle to select mark components for each learning mode. Students of both UAL and PBL can be in the same course.
                 <strong className="block mt-1">Both PBL and UAL component selections will be saved together in this window.</strong>
               </p>
               <div className="flex items-center justify-center gap-4">
-                <span className={`text-sm font-semibold transition-colors ${learningMode === 'PBL' ? 'text-blue-700' : 'text-gray-400'}`}>
+                <span className={`text-sm font-semibold transition-colors ${learningMode === 'PBL' ? 'text-primary' : 'text-gray-400'}`}>
                   PBL
                 </span>
                 <button
                   onClick={() => setLearningMode(learningMode === 'PBL' ? 'UAL' : 'PBL')}
                   className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                    learningMode === 'PBL' ? 'bg-blue-600' : 'bg-orange-600'
+                    learningMode === 'PBL' ? 'bg-primary' : 'bg-orange-600'
                   }`}
                 >
                   <span
@@ -1155,7 +1158,7 @@ function MarkEntryPermissionsPage() {
                   Currently viewing: <span className="font-semibold text-gray-800">{learningMode === 'PBL' ? 'Problem-Based Learning' : 'University Aided Learning'}</span>
                 </p>
                 <div className="flex gap-4 text-xs">
-                  <span className="text-blue-600 font-medium">PBL: {selectedPBLComponents.length}</span>
+                  <span className="text-primary font-medium">PBL: {selectedPBLComponents.length}</span>
                   <span className="text-orange-600 font-medium">UAL: {selectedUALComponents.length}</span>
                   <span className="text-gray-600 font-semibold">Total: {selectedPBLComponents.length + selectedUALComponents.length}</span>
                 </div>
@@ -1225,7 +1228,7 @@ function MarkEntryPermissionsPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-700">Existing Windows</h3>
-            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+            <span className="px-3 py-1 bg-background text-primary rounded-full text-sm font-semibold">
               {existingWindows.length} {existingWindows.length === 1 ? 'window' : 'windows'}
             </span>
           </div>
@@ -1309,7 +1312,7 @@ function MarkEntryPermissionsPage() {
               {/* User Selection */}
               <div className="p-6 border-b border-gray-100">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3">Select User</h4>
-                <div className="relative">
+                <div className="relative user-search-container">
                   <input
                     type="text"
                     placeholder="Search users by name, email, or role..."
@@ -1323,10 +1326,10 @@ function MarkEntryPermissionsPage() {
                       setShowUserDropdown(true)
                       fetchAvailableUsers(userSearchTerm)
                     }}
-                    onBlur={() => {
-                      // Delay to allow click on dropdown item
-                      setTimeout(() => setShowUserDropdown(false), 200)
-                    }}
+                    //  onBlur={() => {
+                    //   // Delay to allow click on dropdown item
+                    //   setTimeout(() => setShowUserDropdown(false), 200)
+                    // }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
                   {showUserDropdown && availableUsers.length > 0 && (
@@ -1460,13 +1463,13 @@ function MarkEntryPermissionsPage() {
               <div className="p-6 border-b border-gray-100">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3">Allowed Mark Components</h4>
                 <div className="flex items-center justify-center gap-6 mb-3 bg-gray-50 rounded-lg p-3">
-                  <span className={`text-sm font-semibold transition-colors ${learningMode === 'PBL' ? 'text-blue-700' : 'text-gray-400'}`}>
+                  <span className={`text-sm font-semibold transition-colors ${learningMode === 'PBL' ? 'text-primary' : 'text-gray-400'}`}>
                     PBL
                   </span>
                   <button
                     onClick={() => setLearningMode(learningMode === 'PBL' ? 'UAL' : 'PBL')}
                     className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                      learningMode === 'PBL' ? 'bg-blue-600' : 'bg-orange-600'
+                      learningMode === 'PBL' ? 'bg-primary' : 'bg-orange-600'
                     }`}
                   >
                     <span
@@ -1574,7 +1577,7 @@ function MarkEntryPermissionsPage() {
                   <button
                     onClick={fetchStudentsForAssignment}
                     disabled={assignmentLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                    className="px-4 py-2 bg-primary text-white rounded-lg disabled:bg-gray-400 transition-colors"
                   >
                     {assignmentLoading ? 'Loading...' : 'Apply Filters'}
                   </button>
@@ -1582,13 +1585,13 @@ function MarkEntryPermissionsPage() {
                     <>
                       <button
                         onClick={selectAllStudents}
-                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                        className="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-gray-100 transition-colors"
                       >
                         Select All ({students.length})
                       </button>
                       <button
                         onClick={clearStudentSelection}
-                        className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors"
+                        className="px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
                       >
                         Clear Selection
                       </button>
@@ -1657,7 +1660,7 @@ function MarkEntryPermissionsPage() {
                   <button
                     onClick={assignStudentsToUser}
                     disabled={!selectedUserId || selectedStudents.length === 0 || !windowStartAt || !windowEndAt || assignmentLoading}
-                    className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                    className="px-6 py-3 bg-primary text-white font-semibold rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                   >
                     {assignmentLoading ? 'Creating Window...' : editingWindow ? 'Update Window & Assignments' : 'Create Window & Assign Students'}
                   </button>
