@@ -29,15 +29,15 @@ function LoginPage() {
         localStorage.setItem('userRole', data.user.role)
         localStorage.setItem('userName', data.user.full_name || data.teacher_name || data.user.username)
         localStorage.setItem('userId', data.user.id)
-        
+
         // Store teacher ID if teacher role
         if (data.user.role === 'teacher' && data.teacher_id) {
           localStorage.setItem('teacherId', data.teacher_id)
         }
-        
+
         setUsername('')
         setPassword('')
-        
+
         // Redirect based on role
         if (data.user.role === 'teacher') {
           navigate('/teacher-dashboard')
@@ -58,86 +58,65 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white flex items-center justify-center p-4" style={{backgroundImage: 'linear-gradient(to bottom right, rgba(67, 113, 229, 0.05), rgb(255, 255, 255), rgba(168, 85, 247, 0.05))'}}>
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob" style={{backgroundColor: 'rgba(67, 113, 229, 0.3)'}}></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000" style={{backgroundColor: 'rgba(67, 113, 229, 0.4)'}}></div>
-      </div>
-
-      <div className="relative w-full max-w-md">
-        {/* Logo and Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl shadow-2xl mb-6 transform hover:scale-105 transition-transform" style={{background: 'rgb(125, 83, 246)'}}>
-            <svg className="w-11 h-11 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-          </div>
-          <h1 className="text-4xl font-bold mb-2" style={{background: 'linear-gradient(to right, #7d53f6, #6c3df0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>Curriculum Management System</h1>
-          <p className="text-gray-600 text-base font-medium">Sign in to continue to your dashboard</p>
-        </div>
-
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
         {/* Login Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-          <form onSubmit={handleLogin} className="space-y-6">
+        <div className="bg-white rounded-lg shadow-md px-8 py-6">
+          {/* Logo and Header */}
+          <div className="text-center">
+            <div className='flex justify-center items-center gap-3'>
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border-2 border-iconcolor">
+                <svg className="w-11 h-11 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <h1 className="text-xl font-medium text-gray-800">Curriculum Management System</h1>
+            </div>
+            <h2 className="text-xl font-medium text-primary mb-4">Hi, Welcome Back!</h2>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5">
             {/* Username */}
             <div>
-              <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
                 Username
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your username"
-                  required
-                  disabled={isLoading}
-                  className="input-custom pl-12 disabled:bg-gray-50 disabled:text-gray-500"
-                />
-              </div>
+              <input
+                type="text"
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
+                required
+                disabled={isLoading}
+                className="w-full px-4 py-3 bg-background border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-sm"
+              />
             </div>
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Password
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <input
-                  type="password"
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  required
-                  disabled={isLoading}
-                  className="input-custom pl-12 disabled:bg-gray-50 disabled:text-gray-500"
-                />
-              </div>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+                disabled={isLoading}
+                className="w-full px-4 py-3 bg-background border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-sm"
+              />
             </div>
 
             {/* Error Message */}
             {error && (
-              <div className="flex items-start space-x-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start space-x-2 p-3 bg-red-50 border border-red-200 rounded-md">
                 <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
-                <div>
-                  <p className="text-sm font-medium text-red-600">{error}</p>
-                </div>
+                <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
 
@@ -145,32 +124,22 @@ function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-primary btn-primary-custom disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-md transition-colors duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {isLoading ? (
                 <>
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-5 w-5 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                   <span>Signing in...</span>
                 </>
               ) : (
-                <>
-                  <span>Sign In</span>
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
-                </>
+                <span>Login</span>
               )}
             </button>
           </form>
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-sm text-gray-500 mt-6">
-          © 2025 Curriculum Management System. All rights reserved.
-        </p>
       </div>
     </div>
   )

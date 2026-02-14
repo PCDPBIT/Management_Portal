@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
 import './CourseAllocationPage.css'
@@ -10,6 +10,9 @@ function CourseAllocationPage() {
   const [teachers, setTeachers] = useState([])
   const [courses, setCourses] = useState([])
   const [summary, setSummary] = useState(null)
+  const [teacherSearch, setTeacherSearch] = useState('')
+  const [showTeacherDropdown, setShowTeacherDropdown] = useState(false)
+  const dropdownRef = useRef(null)
   
   const [filters, setFilters] = useState({
     curriculum_id: '',
@@ -54,6 +57,17 @@ function CourseAllocationPage() {
       setSummary(null)
     }
   }, [filters.semester_id, filters.academic_year])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowTeacherDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const fetchCurriculums = async () => {
     try {
@@ -124,9 +138,22 @@ function CourseAllocationPage() {
     }
   }
 
+  // Filter teachers based on search
+const filteredTeachers = teachers.filter(t =>
+  t.name.toLowerCase().includes(teacherSearch.toLowerCase()) ||
+  (t.desg && t.desg.toLowerCase().includes(teacherSearch.toLowerCase()))
+)
+
+  const handleTeacherSelect = (teacher) => {
+    setNewAlloc({ ...newAlloc, teacher_id: teacher.id })
+    setTeacherSearch(`${teacher.name} (${teacher.desg})`)
+    setShowTeacherDropdown(false)
+  }
+
   const handleAddFaculty = (course) => {
     setSelectedCourse(course)
     setNewAlloc({ teacher_id: '', section: 'A', role: 'Primary', allocation_id: null })
+    setTeacherSearch('')
     setShowAddModal(true)
   }
 
@@ -138,6 +165,8 @@ function CourseAllocationPage() {
       role: allocation.role,
       allocation_id: allocation.id
     })
+    const teacher = teachers.find(t => t.id === allocation.teacher_id)
+    setTeacherSearch(teacher ? `${teacher.name} (${teacher.desg})` : '')
     setShowAddModal(true)
   }
 
@@ -345,17 +374,49 @@ function CourseAllocationPage() {
             <form onSubmit={saveAllocation} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Select Teacher</label>
-                <select
-                  value={newAlloc.teacher_id}
-                  onChange={(e) => setNewAlloc({ ...newAlloc, teacher_id: e.target.value })}
-                  className="input-custom"
-                  required
-                >
-                  <option value="">Select Teacher</option>
-                  {teachers.map(t => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.desg})</option>
-                  ))}
-                </select>
+                <div className="relative" ref={dropdownRef}>
+                  <input
+                    type="text"
+                    value={teacherSearch}
+                    onChange={(e) => {
+                      setTeacherSearch(e.target.value)
+                      setShowTeacherDropdown(true)
+                      if (newAlloc.teacher_id) {
+                        setNewAlloc({ ...newAlloc, teacher_id: '' })
+                      }
+                    }}
+                    onFocus={() => setShowTeacherDropdown(true)}
+                    className="input-custom"
+                    placeholder="Search teacher by name..."
+                    required={!newAlloc.teacher_id}
+                  />
+                  
+                  {showTeacherDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {filteredTeachers.length > 0 ? (
+                        filteredTeachers.map(t => (
+                          <div
+                            key={t.id}
+                            onClick={() => handleTeacherSelect(t)}
+                            className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium text-gray-900">{t.name}</div>
+                            <div className="text-sm text-gray-500">{t.desg}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-gray-500 text-center">
+                          No teachers found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {newAlloc.teacher_id && (
+                  <div className="mt-1 text-xs text-green-600">
+                    ✓ Teacher selected
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
