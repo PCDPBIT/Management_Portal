@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
+import StatCard from '../../components/StatCard'
+import QuickActionBtn from '../../components/QuickActionBtn'
 
 function Dashboard() {
   const navigate = useNavigate()
@@ -78,9 +80,6 @@ function Dashboard() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
       ),
-      color: 'from-blue-500 to-blue-600',
-      bgColor: 'bg-blue-50',
-      textColor: 'text-blue-600',
     },
     {
       title: 'Active Windows',
@@ -90,9 +89,6 @@ function Dashboard() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      color: 'from-green-500 to-green-600',
-      bgColor: 'bg-green-50',
-      textColor: 'text-green-600'
     },
     {
       title: 'Upcoming Windows',
@@ -102,9 +98,6 @@ function Dashboard() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      color: 'from-purple-500 to-purple-600',
-      bgColor: 'bg-purple-50',
-      textColor: 'text-purple-600'
     },
     {
       title: 'Teachers with Permissions',
@@ -114,9 +107,6 @@ function Dashboard() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       ),
-      color: 'from-orange-500 to-orange-600',
-      bgColor: 'bg-orange-50',
-      textColor: 'text-orange-600'
     }
   ] : [
     {
@@ -127,11 +117,6 @@ function Dashboard() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
       ),
-      color: 'from-blue-500 to-blue-600',
-      bgColor: 'bg-blue-50',
-      textColor: 'text-blue-600',
-      customColor: 'rgb(255, 195, 0)',
-      customBg: 'rgba(255, 195, 0, 0.1)'
     },
     {
       title: 'Active Curriculum',
@@ -141,9 +126,6 @@ function Dashboard() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
         </svg>
       ),
-      color: 'from-green-500 to-green-600',
-      bgColor: 'bg-green-50',
-      textColor: 'text-green-600'
     },
     {
       title: 'Total Departments',
@@ -153,9 +135,6 @@ function Dashboard() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
         </svg>
       ),
-      color: 'from-purple-500 to-purple-600',
-      bgColor: 'bg-purple-50',
-      textColor: 'text-purple-600'
     },
     {
       title: 'Recent Activities',
@@ -165,9 +144,6 @@ function Dashboard() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      color: 'from-orange-500 to-orange-600',
-      bgColor: 'bg-orange-50',
-      textColor: 'text-orange-600'
     }
   ]
 
@@ -234,71 +210,26 @@ function Dashboard() {
       title="Dashboard" 
       subtitle={userRole === 'coe' ? "Mark Entry Management Overview" : "Welcome back! Here's what's happening with your curriculum"}
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
+
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4">
           {statCards.map((stat, index) => (
-            <div key={index} className="card-custom card-no-hover p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
-                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-                <div className={stat.customBg ? 'p-3 rounded-xl' : `${stat.bgColor} p-3 rounded-xl`} style={stat.customBg ? {backgroundColor: stat.customBg} : {}}>
-                  <div className={stat.customColor ? '' : stat.textColor} style={stat.customColor ? {color: stat.customColor} : {}}>
-                    {stat.icon}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center">
-                <div className={stat.customColor ? 'w-full h-1 rounded-full' : `w-full h-1 bg-gradient-to-r ${stat.color} rounded-full`} style={stat.customColor ? {backgroundColor: stat.customColor} : {}}></div>
-              </div>
-            </div>
+            <StatCard key={index} stat={stat} />
           ))}
         </div>
 
         {/* Quick Actions */}
-        <div className="card-custom p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-lg shadow-sm border border-primary-200 overflow-hidden ">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Access frequently used features
+            </p>
+          </div>
+          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
             {quickActions.map((action, index) => (
-              <button
-                key={index}
-                onClick={action.action}
-                className="flex items-start space-x-4 p-5 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl transition-colors duration-200 border border-gray-200 group hover:shadow-sm"
-                style={{
-                  '--hover-from': 'rgba(67, 113, 229, 0.05)',
-                  '--hover-to': 'rgba(67, 113, 229, 0.1)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'linear-gradient(to bottom right, rgba(67, 113, 229, 0.05), rgba(67, 113, 229, 0.1))'
-                  e.currentTarget.style.borderColor = 'rgba(67, 113, 229, 0.3)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'linear-gradient(to bottom right, rgb(249, 250, 251), rgb(243, 244, 246))'
-                  e.currentTarget.style.borderColor = 'rgb(229, 231, 235)'
-                }}
-              >
-                <div className="flex-shrink-0 w-12 h-12 bg-white rounded-lg flex items-center justify-center transition-all duration-200 shadow-sm group-hover:text-white" style={{color: 'rgb(67, 113, 229)'}} onMouseEnter={(e) => {
-                  const parent = e.currentTarget.parentElement
-                  if (parent?.matches(':hover')) {
-                    e.currentTarget.style.background = 'rgb(67, 113, 229)'
-                    e.currentTarget.style.color = 'white'
-                  }
-                }} onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'white'
-                  e.currentTarget.style.color = 'rgb(67, 113, 229)'
-                }}>
-                  {action.icon}
-                </div>
-                <div className="flex-1 text-left">
-                  <h3 className="text-base font-semibold text-gray-900 mb-1">{action.title}</h3>
-                  <p className="text-sm text-gray-600">{action.description}</p>
-                </div>
-                <svg className="w-5 h-5 text-gray-400 transition-colors group-hover:text-[rgb(67,113,229)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
+              <QuickActionBtn key={index} action={action}/>
             ))}
           </div>
         </div>

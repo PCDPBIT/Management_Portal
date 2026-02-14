@@ -175,7 +175,7 @@ function TeacherCoursesPage() {
 
               <div className="form-group">
                 <label>&nbsp;</label>
-                <button type="submit" className="btn-primary" disabled={loading}>
+                <button type="submit" className="btn-primary-custom" disabled={loading}>
                   {loading ? 'Searching...' : 'Search'}
                 </button>
               </div>

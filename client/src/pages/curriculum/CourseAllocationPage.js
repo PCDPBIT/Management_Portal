@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
 import './CourseAllocationPage.css'
+import StatCard from '../../components/StatCard'
 
 function CourseAllocationPage() {
   const [curriculums, setCurriculums] = useState([])
@@ -203,26 +204,14 @@ function CourseAllocationPage() {
 
   return (
     <MainLayout title="Course Allocation" subtitle="Assign faculty to courses">
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Summary Cards */}
         {summary && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <div className="text-3xl font-bold text-gray-900">{summary.total_courses}</div>
-              <div className="text-sm text-gray-500 font-medium mt-1">Total Courses</div>
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
-              <div className="text-3xl font-bold text-green-600">{summary.assigned_courses}</div>
-              <div className="text-sm text-gray-500 font-medium mt-1">Assigned</div>
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-orange-500">
-              <div className="text-3xl font-bold text-orange-600">{summary.unassigned_courses}</div>
-              <div className="text-sm text-gray-500 font-medium mt-1">Unassigned</div>
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
-              <div className="text-3xl font-bold text-blue-600">{summary.active_teachers}/{summary.total_teachers}</div>
-              <div className="text-sm text-gray-500 font-medium mt-1">Active Teachers</div>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <StatCard stat={{ title: "Total Courses", value: summary.total_courses}} />
+            <StatCard stat={{ title: "Assigned", value: summary.assigned_courses}} />
+            <StatCard stat={{ title: "Unassigned", value: summary.unassigned_courses}} />
+            <StatCard stat={{ title: "Active Teachers", value: `${summary.active_teachers}/${summary.total_teachers}`}} />
           </div>
         )}
 
@@ -284,9 +273,9 @@ function CourseAllocationPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Faculty Allocation</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Course</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Details</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Faculty Allocation</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
