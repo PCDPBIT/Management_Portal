@@ -1,61 +1,65 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { API_BASE_URL } from '../../config'
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../../config";
 
 function LoginPage() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const navigate = useNavigate()
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleLogin = async (e) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError('')
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ username, password }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
+      console.log(data);
 
       if (data.success) {
         // Store user info in localStorage
         localStorage.setItem('userRole', data.user.role)
         localStorage.setItem('userName', data.user.full_name || data.teacher_name || data.user.username)
+        localStorage.setItem('userEmail', data.user.email)
         localStorage.setItem('userId', data.user.id)
-
         // Store teacher ID if teacher role
         if (data.user.role === 'teacher' && data.teacher_id) {
           localStorage.setItem('teacherId', data.teacher_id)
+          localStorage.setItem('teacher_id', data.teacher_id) // Store with underscore for consistency
         }
 
         setUsername('')
         setPassword('')
 
         // Redirect based on role
-        if (data.user.role === 'teacher') {
-          navigate('/teacher-dashboard')
-        } else if (data.user.role === 'curriculum_entry_user') {
-          navigate('/curriculum')
+        if (data.user.role === "teacher") {
+          navigate("/teacher-dashboard");
+        } else if (data.user.role === "curriculum_entry_user") {
+          navigate("/curriculum");
+        } else if (data.user.role === "hod") {
+          navigate("/hod/elective-management");
         } else {
-          navigate('/dashboard')
+          navigate("/dashboard");
         }
       } else {
-        setError(data.message || 'Invalid username or password')
-        setIsLoading(false)
+        setError(data.message || "Invalid username or password");
+        setIsLoading(false);
       }
     } catch (err) {
-      console.error('Login error:', err)
-      setError('Failed to connect to server. Please try again.')
-      setIsLoading(false)
+      console.error("Login error:", err);
+      setError("Failed to connect to server. Please try again.");
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -142,7 +146,7 @@ function LoginPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default LoginPage
+export default LoginPage;

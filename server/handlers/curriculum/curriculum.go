@@ -103,7 +103,7 @@ func GetSemesters(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "SELECT id, curriculum_id, semester_number, COALESCE(card_type, 'semester') as card_type FROM normal_cards WHERE curriculum_id = ? AND (status = 1 OR status IS NULL) ORDER BY COALESCE(semester_number, 999), id"
+	query := "SELECT id, curriculum_id, semester_number, COALESCE(card_type, 'semester') as card_type, COALESCE(vertical_name, '') as vertical_name FROM normal_cards WHERE curriculum_id = ? AND (status = 1 OR status IS NULL) ORDER BY COALESCE(semester_number, 999), id"
 	rows, err := db.DB.Query(query, curriculumID)
 	if err != nil {
 		log.Println("Error querying semesters:", err)
@@ -117,7 +117,7 @@ func GetSemesters(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var sem models.Semester
 		var semesterNum sql.NullInt64
-		err := rows.Scan(&sem.ID, &sem.CurriculumID, &semesterNum, &sem.CardType)
+		err := rows.Scan(&sem.ID, &sem.CurriculumID, &semesterNum, &sem.CardType, &sem.VerticalName)
 		if err != nil {
 			log.Println("Error scanning semester:", err)
 			continue
@@ -193,8 +193,12 @@ func CreateSemester(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	query := "INSERT INTO normal_cards (curriculum_id, semester_number, card_type) VALUES (?, ?, ?)"
-	result, err := db.DB.Exec(query, card.CurriculumID, card.SemesterNumber, card.CardType)
+	query := "INSERT INTO normal_cards (curriculum_id, semester_number, card_type, vertical_name) VALUES (?, ?, ?, ?)"
+	verticalName := ""
+	if card.CardType == "vertical" {
+		verticalName = card.VerticalName
+	}
+	result, err := db.DB.Exec(query, card.CurriculumID, card.SemesterNumber, card.CardType, verticalName)
 	if err != nil {
 		log.Println("Error inserting semester:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -419,8 +423,7 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var course models.Course
-	err = json.NewDecoder(r.Body).Decode(&course)
+	course, err := decodeCourseRequest(r)
 	if err != nil {
 		log.Println("Error decoding request body:", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -526,6 +529,14 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 	var courseID int
 	var wasReused bool
 
+	courseTypeID, err := resolveCourseTypeID(course.CourseType)
+	if err != nil {
+		log.Println("Error resolving course_type:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid course type"})
+		return
+	}
+
 	if course.CourseCode == "NA" {
 		// For NA courses, always create a new course entry
 		insertCourseQuery := `INSERT INTO courses (course_code, course_name, course_type, category, credit, 
@@ -533,7 +544,7 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 		                      theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs,
 	                      cia_marks, see_marks, status) 
 	                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
-		result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, course.CourseType, course.Category, course.Credit,
+		result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, courseTypeID, course.Category, course.Credit,
 			course.LectureHrs, course.TutorialHrs, course.PracticalHrs, course.ActivityHrs, course.TwSlHrs,
 			theoryTotal, tutorialTotal, practicalTotal, activityTotal,
 			course.CIAMarks, course.SEEMarks)
@@ -566,7 +577,7 @@ func AddCourseToSemester(w http.ResponseWriter, r *http.Request) {
 				                      theory_total_hrs, tutorial_total_hrs, practical_total_hrs, activity_total_hrs,
 			                      cia_marks, see_marks, status) 
 			                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
-				result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, course.CourseType, course.Category, course.Credit,
+				result, err := db.DB.Exec(insertCourseQuery, course.CourseCode, course.CourseName, courseTypeID, course.Category, course.Credit,
 					course.LectureHrs, course.TutorialHrs, course.PracticalHrs, course.ActivityHrs, course.TwSlHrs,
 					theoryTotal, tutorialTotal, practicalTotal, activityTotal,
 					course.CIAMarks, course.SEEMarks)

@@ -95,6 +95,13 @@ func InitDB() error {
 		return err
 	}
 
+	// Set session time zone if provided (e.g., +05:30)
+	if tz := os.Getenv("DB_TIME_ZONE"); tz != "" {
+		if _, err := DB.Exec("SET time_zone = ?", tz); err != nil {
+			log.Printf("Failed to set DB session time_zone to %s: %v", tz, err)
+		}
+	}
+
 	return nil
 }
 
@@ -952,5 +959,70 @@ func RemoveNameColumnFromNormalCards() error {
 	}
 
 	fmt.Println("Successfully removed name column from normal_cards!")
+	return nil
+}
+
+// CreateMarkEntryStudentPermissionsTables creates tables for student-specific mark entry permissions
+func CreateMarkEntryStudentPermissionsTables() error {
+	// Create mark_entry_student_permissions table for student-specific access control
+	// Student assignments always have a window - either existing or newly created
+	createTableQuery := `
+		CREATE TABLE IF NOT EXISTS mark_entry_student_permissions (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			window_id INT NOT NULL,
+			user_id VARCHAR(100) NOT NULL,
+			student_id INT NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			created_by VARCHAR(100),
+			UNIQUE KEY unique_permission (window_id, user_id, student_id),
+			INDEX idx_window_user (window_id, user_id),
+			INDEX idx_student (student_id),
+			INDEX idx_user (user_id),
+			INDEX idx_user_student (user_id, student_id)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+	`
+
+	_, err := DB.Exec(createTableQuery)
+	if err != nil {
+		return fmt.Errorf("failed to create mark_entry_student_permissions table: %w", err)
+	}
+
+	fmt.Println("Successfully created mark_entry_student_permissions table!")
+	return nil
+}
+
+// AddUserIdToMarkEntryWindows adds user_id column to mark_entry_windows to support user-based windows
+func AddUserIdToMarkEntryWindows() error {
+	// Check if user_id column already exists
+	var columnExists bool
+	err := DB.QueryRow(`
+		SELECT COUNT(*) > 0 
+		FROM information_schema.columns 
+		WHERE table_schema = DATABASE() 
+		AND table_name = 'mark_entry_windows' 
+		AND column_name = 'user_id'
+	`).Scan(&columnExists)
+
+	if err != nil {
+		return fmt.Errorf("failed to check if user_id column exists: %w", err)
+	}
+
+	if columnExists {
+		fmt.Println("user_id column already exists in mark_entry_windows")
+		return nil
+	}
+
+	// Add user_id column - NULL for teacher windows, populated for user windows
+	_, err = DB.Exec(`
+		ALTER TABLE mark_entry_windows 
+		ADD COLUMN user_id VARCHAR(100) NULL AFTER teacher_id,
+		ADD INDEX idx_user_lookup (user_id, department_id, semester, course_id)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to add user_id column to mark_entry_windows: %w", err)
+	}
+
+	fmt.Println("Successfully added user_id column to mark_entry_windows!")
 	return nil
 }

@@ -34,10 +34,13 @@ import TeacherStudentMappingPage from "../pages/student-teacher_entry/TeacherStu
 
 // Courses & Marks
 import CourseAllocationPage from "../pages/curriculum/CourseAllocationPage";
+import ElectiveManagementPage from "../pages/curriculum/ElectiveManagementPage";
+import HODElectivePage from "../pages/curriculum/HODElectivePage";
 import TeacherCoursesPage from "../pages/curriculum/TeacherCoursesPage";
 import TeacherCourseStudentsPage from "../pages/curriculum/TeacherCourseStudentsPage";
 import MarkEntryPage from "../pages/curriculum/MarkEntryPage";
 import MarkEntryPermissionsPage from "../pages/curriculum/MarkEntryPermissionsPage";
+import MyAssignedStudentsPage from "../pages/curriculum/MyAssignedStudentsPage";
 
 //404 page
 import NotFoundPage from "../components/NotFoundPage";
@@ -51,6 +54,7 @@ function App() {
       {/* Protected */}
       <Route element={<PrivateRoute />}>
         <Route element={<AppShell />}>
+
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="teacher-dashboard" element={<TeacherDashboardPage />} />
 
@@ -61,20 +65,21 @@ function App() {
           <Route path="teacher-details" element={<TeacherDetailsPage />} />
           <Route path="teacher-student-mapping" element={<TeacherStudentMappingPage />} />
 
-          <Route path="course-allocation" element={<CourseAllocationPage />} />
           <Route path="teacher-courses" element={<TeacherCoursesPage />} />
           <Route path="teacher-course/:courseId/students" element={<TeacherCourseStudentsPage />} />
 
           <Route path="mark-entry" element={<MarkEntryPage />} />
           <Route path="mark-entry-permissions" element={<MarkEntryPermissionsPage />} />
+          <Route path="my-assigned-students" element={<MyAssignedStudentsPage />} />
+
+          <Route path="course-allocation" element={<CourseAllocationPage />} />
+          <Route path="elective-management" element={<ElectiveManagementPage />} />
+          <Route path="hod/elective-management" element={<HODElectivePage />} />
 
           <Route path="regulations" element={<RegulationPage />} />
           <Route path="curriculum/:id/editor" element={<RegulationEditorPage />} />
 
           <Route path="curriculum" element={<CurriculumMainPage />} />
-          <Route path="clusters" element={<ClusterManagementPage />} />
-          <Route path="sharing" element={<SharingManagementPage />} />
-
           <Route path="curriculum/:id/overview" element={<DepartmentOverviewPage />} />
           <Route path="curriculum/:id/curriculum" element={<ManageCurriculumPage />} />
           <Route path="curriculum/:id/curriculum/semester/:semId" element={<SemesterDetailPage />} />
@@ -84,7 +89,12 @@ function App() {
           <Route path="course/:courseId/mapping" element={<MappingPage />} />
           <Route path="curriculum/:id/peo-po-mapping" element={<PEOPOMappingPage />} />
 
+
+          <Route path="clusters" element={<ClusterManagementPage />} />
+          <Route path="sharing" element={<SharingManagementPage />} />
+
           <Route path="*" element={<NotFoundPage />} />
+
         </Route>
       </Route>
     </Routes>

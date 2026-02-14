@@ -10,6 +10,7 @@ type Semester struct {
 	CurriculumID   int    `json:"curriculum_id"`
 	SemesterNumber *int   `json:"semester_number"`
 	CardType       string `json:"card_type"`
+	VerticalName   string `json:"vertical_name,omitempty"`
 }
 
 type Course struct {

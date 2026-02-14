@@ -101,6 +101,26 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
       roles: ["admin"], // Only admin
     },
     {
+      name: "Elective Management",
+      path: "/hod/elective-management",
+      icon: (
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+          />
+        </svg>
+      ),
+      roles: ["hod"],
+    },
+    {
       name: "Teacher Courses",
       path: "/teacher-courses",
       icon: (
@@ -138,7 +158,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
           />
         </svg>
       ),
-      roles: ["teacher"], // Only teacher
+      roles: ["teacher", "user", "faculty", "staff", "coe", "curriculum_entry_user"], // Available to teachers and all users who can be assigned mark entry
     },
     {
       name: "Mark Entry Permissions",
@@ -163,7 +183,9 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
   ];
 
   // Filter menu items based on user role
-  const menuItems = allMenuItems.filter(item => item.roles.includes(userRole));
+  const menuItems = allMenuItems.filter((item) =>
+    item.roles.includes(userRole),
+  );
 
   const isActive = (path) => {
     return (

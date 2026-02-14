@@ -14,7 +14,7 @@ function ManageCurriculumPage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [cardType, setCardType] = useState('normal') // 'normal' or 'honour'
   const [showDropdown, setShowDropdown] = useState(false)
-  const [newSemester, setNewSemester] = useState({ semester_number: null, name: '', card_type: 'semester' })
+  const [newSemester, setNewSemester] = useState({ semester_number: null, name: '', card_type: 'semester', vertical_name: '' })
   const [newHonourCard, setNewHonourCard] = useState({ title: '' })
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingSemester, setEditingSemester] = useState(null)
@@ -108,7 +108,8 @@ function ManageCurriculumPage() {
         body: JSON.stringify({
           semester_number: newSemester.semester_number,
           name: generatedName,
-          card_type: newSemester.card_type
+          card_type: newSemester.card_type,
+          vertical_name: newSemester.card_type === 'vertical' ? newSemester.vertical_name : ''
         }),
       })
 
@@ -116,7 +117,7 @@ function ManageCurriculumPage() {
         throw new Error('Failed to create semester')
       }
 
-      setNewSemester({ semester_number: null, name: '', card_type: 'semester' })
+      setNewSemester({ semester_number: null, name: '', card_type: 'semester', vertical_name: '' })
       setShowCreateForm(false)
       setShowDropdown(false)
       fetchSemesters()
@@ -391,7 +392,7 @@ function ManageCurriculumPage() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Card Type</label>
                   <select
                     value={newSemester.card_type}
-                    onChange={(e) => setNewSemester({ ...newSemester, card_type: e.target.value, semester_number: null })}
+                    onChange={(e) => setNewSemester({ ...newSemester, card_type: e.target.value, semester_number: null, vertical_name: '' })}
                     className="input-custom"
                   >
                     <option value="semester">Semester</option>
@@ -415,6 +416,19 @@ function ManageCurriculumPage() {
                     />
                   </div>
                 )}
+                {newSemester.card_type === 'vertical' && (
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Vertical Name</label>
+                    <input
+                      type="text"
+                      value={newSemester.vertical_name || ''}
+                      onChange={(e) => setNewSemester({ ...newSemester, vertical_name: e.target.value })}
+                      placeholder="e.g., AI & ML"
+                      required
+                      className="input-custom"
+                    />
+                  </div>
+                )}
                 <button type="submit" className="btn-primary-custom">Create Card</button>
                 <button
                   type="button"
@@ -428,14 +442,16 @@ function ManageCurriculumPage() {
               <form onSubmit={handleCreateHonourCard} className="flex gap-4 items-end">
                 <div className="flex-1">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Honour Card Title</label>
-                  <input
-                    type="text"
+                  <select
                     value={newHonourCard.title}
                     onChange={(e) => setNewHonourCard({ ...newHonourCard, title: e.target.value })}
-                    placeholder="e.g., Honours Program"
                     required
                     className="input-custom"
-                  />
+                  >
+                    <option value="">Select Honour Card Type</option>
+                    <option value="HONOUR VERTICAL">HONOUR VERTICAL</option>
+                    <option value="MINOR VERTICAL">MINOR VERTICAL</option>
+                  </select>
                 </div>
                 <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white font-medium px-5 py-2.5 rounded-lg transition-all">
                   Create Honour Card
@@ -467,6 +483,7 @@ function ManageCurriculumPage() {
             {/* Normal Cards (All Types) */}
             {semesters.map(sem => {
               const style = getCardStyle(sem.card_type || 'semester')
+              const displayLabel = sem.card_type === 'vertical' && sem.vertical_name ? sem.vertical_name : style.label
               return (
                 <div
                   key={`sem-${sem.id}`}
@@ -525,12 +542,12 @@ function ManageCurriculumPage() {
                     
                     {/* Card Name */}
                     <h3 className="text-lg font-bold text-gray-900 mb-2 min-h-[3rem] flex items-center justify-center">
-                      {style.label}
+                      {displayLabel}
                     </h3>
                     
                     {/* Card Type Badge */}
                     <span className={`inline-block mb-2 px-3 py-1 ${style.badge} text-xs font-semibold rounded-full`}>
-                      {style.label}
+                      {displayLabel}
                     </span>
                     
                     <p className="text-sm text-gray-600">Manage courses →</p>

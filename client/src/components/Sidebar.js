@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 
 const COLLAPSED_WIDTH_PX = 80; // Tailwind w-20
 const EXPANDED_WIDTH_PX = 256; // Tailwind w-64
@@ -17,13 +18,60 @@ function Sidebar({ onExpandedChange }) {
   // Prevent collapse while clicking/dragging in sidebar.
   const [isPointerDownInSidebar, setIsPointerDownInSidebar] = useState(false);
 
+  // Track if user has assigned windows
+  const [hasAssignedWindows, setHasAssignedWindows] = useState(false);
+
   const rafId = useRef(0);
 
   const userRole = localStorage.getItem("userRole");
   const userName = localStorage.getItem("userName") || "User";
   const userEmail = localStorage.getItem("userEmail") || "user@cms.edu";
+  const username = localStorage.getItem("username");
 
   const isSidebarExpanded = sidebarPinned || isHovering || isPointerDownInSidebar;
+
+  // Check if user has assigned windows (for non-teacher roles)
+  useEffect(() => {
+    const checkUserWindows = async () => {
+      if (userRole === 'teacher') {
+        // Teachers always have access to mark entry
+        setHasAssignedWindows(true);
+        return;
+      }
+
+      // For other roles, check if they have assigned windows
+      try {
+        if (!username) {
+          setHasAssignedWindows(false);
+          return;
+        }
+
+        const response = await fetch(
+          `${API_BASE_URL}/mark-entry/check-user-windows?user_id=${username}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setHasAssignedWindows(data.has_windows || false);
+        } else {
+          setHasAssignedWindows(false);
+        }
+      } catch (error) {
+        console.error('Error checking user windows:', error);
+        setHasAssignedWindows(false);
+      }
+    };
+
+    if (username && userRole) {
+      checkUserWindows();
+    }
+  }, [username, userRole]);
 
   useEffect(() => {
     onExpandedChange?.(isSidebarExpanded);
@@ -170,7 +218,8 @@ function Sidebar({ onExpandedChange }) {
             />
           </svg>
         ),
-        roles: ["teacher"],
+        roles: ["teacher", "user", "faculty", "staff", "coe", "curriculum_entry_user"],
+        requiresWindow: true, // This menu item requires window assignment for non-teachers
       },
       {
         name: "Mark Permissions",
@@ -189,8 +238,20 @@ function Sidebar({ onExpandedChange }) {
       },
     ];
 
-    return allMenuItems.filter((item) => item.roles.includes(userRole));
-  }, [userRole]);
+    return allMenuItems.filter((item) => {
+      // Special handling for Mark Entry - show if teacher OR has assigned windows
+      if (item.name === "Mark Entry") {
+        return userRole === "teacher" || hasAssignedWindows;
+      }
+
+      // For other items, check if role matches
+      if (!item.roles.includes(userRole)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [userRole, hasAssignedWindows]);
 
   const isActive = (path) => {
     return location.pathname === path || location.pathname.startsWith(path + "/");

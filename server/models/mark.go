@@ -99,6 +99,7 @@ type MarkEntryWindow struct {
 // MarkEntryWindowRequest represents a create/update window request.
 type MarkEntryWindowRequest struct {
 	TeacherID    *string `json:"teacher_id,omitempty"`
+	UserID       *string `json:"user_id,omitempty"` // For user-based windows
 	DepartmentID *int    `json:"department_id,omitempty"`
 	Semester     *int    `json:"semester,omitempty"`
 	CourseID     *int    `json:"course_id,omitempty"`
@@ -106,4 +107,71 @@ type MarkEntryWindowRequest struct {
 	EndAt        string  `json:"end_at"`
 	Enabled      bool    `json:"enabled"`
 	ComponentIDs []int   `json:"component_ids,omitempty"` // Empty = all components allowed
+}
+
+// StudentMarkPermission represents student-specific mark entry permission
+type StudentMarkPermission struct {
+	ID        int    `json:"id"`
+	WindowID  int    `json:"window_id"`
+	UserID    string `json:"user_id"`
+	StudentID int    `json:"student_id"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	CreatedBy string `json:"created_by,omitempty"`
+}
+
+// CreateUserStudentWindowRequest represents a request to create a user-student mark entry window
+type CreateUserStudentWindowRequest struct {
+	UserID       string `json:"user_id"`
+	DepartmentID *int   `json:"department_id,omitempty"`
+	Semester     *int   `json:"semester,omitempty"`
+	CourseID     *int   `json:"course_id,omitempty"`
+	StudentIDs   []int  `json:"student_ids"` // Specific students for this window
+	StartAt      string `json:"start_at"`
+	EndAt        string `json:"end_at"`
+	ComponentIDs []int  `json:"component_ids,omitempty"` // PBL/UAL components
+	CreatedBy    string `json:"created_by,omitempty"`
+}
+
+// CreateUserStudentWindowResponse represents the response after creating user-student window
+type CreateUserStudentWindowResponse struct {
+	Success            bool   `json:"success"`
+	Message            string `json:"message"`
+	WindowID           int    `json:"window_id"`
+	AssignmentsCreated int    `json:"assignments_created"`
+}
+
+// AssignStudentsToUserRequest represents a request to assign students to a user for mark entry
+type AssignStudentsToUserRequest struct {
+	WindowID   int    `json:"window_id"`
+	UserID     string `json:"user_id"`
+	StudentIDs []int  `json:"student_ids"`
+	CreatedBy  string `json:"created_by,omitempty"`
+}
+
+// AssignStudentsToUserResponse represents the response after assigning students
+type AssignStudentsToUserResponse struct {
+	Success            bool   `json:"success"`
+	Message            string `json:"message"`
+	AssignmentsCreated int    `json:"assignments_created"`
+}
+
+// UserAssignedStudentsRequest represents a request to get assigned students for a user
+type UserAssignedStudentsRequest struct {
+	UserID   string `json:"user_id"`
+	CourseID *int   `json:"course_id,omitempty"`
+}
+
+// AssignedStudentInfo represents detailed information about an assigned student
+type AssignedStudentInfo struct {
+	StudentID    int    `json:"student_id"`
+	EnrollmentNo string `json:"enrollment_no"`
+	StudentName  string `json:"student_name"`
+	Department   string `json:"department"`
+	Year         int    `json:"year"`
+	WindowID     int    `json:"window_id"`
+	WindowStart  string `json:"window_start"`
+	WindowEnd    string `json:"window_end"`
+	CourseID     *int   `json:"course_id,omitempty"`
+	CourseName   string `json:"course_name,omitempty"`
 }

@@ -7,21 +7,31 @@ function MarkEntryPage() {
   const [selectedCourse, setSelectedCourse] = useState(null)
   const [markCategories, setMarkCategories] = useState([])
   const [students, setStudents] = useState([])
+  const [allStudents, setAllStudents] = useState([])
   const [studentMarks, setStudentMarks] = useState({})
   const [loading, setLoading] = useState(false)
   const [savingMarks, setSavingMarks] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
+  const [learningMode, setLearningMode] = useState('PBL') // 'PBL' or 'UAL'
+  const [hasActiveWindow, setHasActiveWindow] = useState(true)
 
   const teacherId = localStorage.getItem('teacher_id') || localStorage.getItem('teacherId')
+  const username = localStorage.getItem('username') // Username is needed for users with mark entry permissions
+  const userRole = localStorage.getItem('userRole') || localStorage.getItem('role')
+  const isTeacher = userRole === 'teacher' && !!teacherId
+  const facultyIdentifier = isTeacher ? teacherId : username
 
-  // Fetch teacher's courses on component mount
+  // Fetch courses on component mount (teacher or user)
   useEffect(() => {
-    if (!teacherId) {
-      setMessage({ type: 'error', text: 'Teacher ID not found. Please login again.' })
-      return
+    if (isTeacher) {
+      fetchTeacherCourses()
+    } else if (username) {
+      // For users with mark entry permissions, use username
+      fetchUserCourses()
+    } else {
+      setMessage({ type: 'error', text: 'User credentials not found. Please login again.' })
     }
-    fetchTeacherCourses()
-  }, [teacherId])
+  }, [isTeacher, teacherId, username, userRole])
 
   const fetchTeacherCourses = async () => {
     try {
@@ -47,22 +57,58 @@ function MarkEntryPage() {
     }
   }
 
-  // Fetch mark categories when course is selected
+  const fetchUserCourses = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`${API_BASE_URL}/users/${username}/courses`)
+      if (!response.ok) throw new Error('Failed to fetch courses')
+      const data = await response.json()
+      
+      // Transform user courses to match teacher courses format
+      const formattedCourses = data.map(course => ({
+        course_id: course.course_id,
+        course_code: course.course_code,
+        course_name: course.course_name,
+        category: course.category,
+        semester: course.semester,
+        window_id: course.window_id,
+        enrollments: [] // Will be populated when fetching students
+      }))
+      
+      setCourses(formattedCourses)
+      
+      // Select first course if available
+      if (formattedCourses.length > 0) {
+        setSelectedCourse(formattedCourses[0])
+      }
+      setMessage({ type: '', text: '' })
+    } catch (error) {
+      console.error('Error fetching courses:', error)
+      setMessage({ type: 'error', text: 'Failed to load courses. Please try again.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch mark categories when course is selected or learning mode changes
   useEffect(() => {
     if (!selectedCourse) return
+    if (userRole !== 'teacher' && !hasActiveWindow) return
     fetchMarkCategories()
     loadExistingMarks()
-  }, [selectedCourse])
+  }, [selectedCourse, learningMode, hasActiveWindow, userRole])
 
   const fetchMarkCategories = async () => {
     try {
-      if (!teacherId) {
-        setMessage({ type: 'error', text: 'Teacher ID not found. Please login again.' })
+      if (!facultyIdentifier) {
+        setMessage({ type: 'error', text: 'User identifier not found. Please login again.' })
         return
       }
 
+      // Convert learning mode to ID (UAL=1, PBL=2) and add as query parameter
+      const learningModeId = learningMode === 'UAL' ? 1 : 2
       const response = await fetch(
-        `${API_BASE_URL}/course/${selectedCourse.course_id}/mark-categories?teacher_id=${teacherId}`
+        `${API_BASE_URL}/course/${selectedCourse.course_id}/mark-categories?teacher_id=${facultyIdentifier}&learning_modes=${learningModeId}`
       )
       if (response.status === 403) {
         setMarkCategories([])
@@ -80,8 +126,12 @@ function MarkEntryPage() {
 
   const loadExistingMarks = async () => {
     try {
+      if (!facultyIdentifier) {
+        setMessage({ type: 'error', text: 'User identifier not found. Please login again.' })
+        return
+      }
       const response = await fetch(
-        `${API_BASE_URL}/course/${selectedCourse.course_id}/student-marks?teacher_id=${teacherId}`
+        `${API_BASE_URL}/course/${selectedCourse.course_id}/student-marks?teacher_id=${facultyIdentifier}`
       )
       if (response.status === 403) {
         setStudentMarks({})
@@ -115,7 +165,7 @@ function MarkEntryPage() {
 
   const enrichStudentsWithEnrollmentNumbers = async (enrollments) => {
     try {
-      // Fetch all students to get enrollment numbers
+      // Fetch all students to get enrollment numbers and learning mode
       const response = await fetch(`${API_BASE_URL}/students`)
       if (!response.ok) throw new Error('Failed to fetch students')
       const allStudents = await response.json()
@@ -123,18 +173,21 @@ function MarkEntryPage() {
       // Create maps for student data
       const enrollmentMap = {}
       const registerMap = {}
+      const learningModeMap = {}
       if (Array.isArray(allStudents)) {
         allStudents.forEach((student) => {
           enrollmentMap[student.student_id] = student.enrollment_no || ''
           registerMap[student.student_id] = student.register_no || ''
+          learningModeMap[student.student_id] = student.learning_mode_id
         })
       }
       
-      // Enrich enrollments with enrollment and register numbers
+      // Enrich enrollments with enrollment numbers, register numbers, and learning mode
       return enrollments.map((student) => ({
         ...student,
         enrollment_no: enrollmentMap[student.student_id] || '',
         register_no: registerMap[student.student_id] || '',
+        learning_mode_id: student.learning_mode_id || learningModeMap[student.student_id]
       }))
     } catch (error) {
       console.error('Error fetching enrollment numbers:', error)
@@ -148,10 +201,32 @@ function MarkEntryPage() {
 
   // Update students when course changes
   useEffect(() => {
-    if (selectedCourse && selectedCourse.enrollments) {
-      // Enrich students with enrollment numbers
+    if (!selectedCourse) return
+
+    // For users, fetch assigned students from window
+    if (!isTeacher && username) {
+      fetchUserAssignedStudents()
+    }
+    // For teachers, use enrollments from course
+    else if (selectedCourse.enrollments) {
       enrichStudentsWithEnrollmentNumbers(selectedCourse.enrollments).then((enrichedStudents) => {
-        setStudents(enrichedStudents)
+        setAllStudents(enrichedStudents)
+        
+        console.log('[DEBUG] All students:', enrichedStudents.map(s => ({
+          id: s.student_id,
+          name: s.student_name,
+          learning_mode_id: s.learning_mode_id
+        })))
+        
+        // Filter students by learning mode (UAL=1, PBL=2)
+        const learningModeId = learningMode === 'UAL' ? 1 : 2
+        const filteredStudents = enrichedStudents.filter(
+          (student) => student.learning_mode_id === learningModeId
+        )
+        
+        console.log(`[DEBUG] Filtered ${filteredStudents.length} students for ${learningMode} (learning_mode_id=${learningModeId})`)
+        
+        setStudents(filteredStudents)
       })
       
       // Initialize marks for new students
@@ -161,7 +236,56 @@ function MarkEntryPage() {
       })
       setStudentMarks(newMarks)
     }
-  }, [selectedCourse])
+  }, [selectedCourse, learningMode, username, teacherId])
+
+  const fetchUserAssignedStudents = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/mark-entry/user-assigned-students?user_id=${username}&course_id=${selectedCourse.course_id}`
+      )
+      if (!response.ok) throw new Error('Failed to fetch assigned students')
+      const data = await response.json()
+      
+      // Transform to match student format with enrollment info
+      const studentList = await enrichStudentsWithEnrollmentNumbers(
+        data.map(s => ({
+          student_id: s.student_id,
+          student_name: s.student_name,
+          enrollment_no: s.enrollment_no
+        }))
+      )
+      
+      setAllStudents(studentList)
+
+      const hasWindow = studentList.length > 0
+      setHasActiveWindow(hasWindow)
+      if (!hasWindow) {
+        setStudents([])
+        setStudentMarks({})
+        setMessage({ type: 'warning', text: 'No active mark entry window for this course.' })
+        return
+      }
+      
+      // Filter by learning mode (include students with missing learning_mode_id)
+      const learningModeId = learningMode === 'UAL' ? 1 : 2
+      const filteredStudents = studentList.filter(
+        (student) => !student.learning_mode_id || student.learning_mode_id === learningModeId
+      )
+      
+      setStudents(filteredStudents)
+      
+      // Initialize marks
+      const newMarks = {}
+      studentList.forEach((student) => {
+        newMarks[student.student_id] = studentMarks[student.student_id] || {}
+      })
+      setStudentMarks(newMarks)
+    } catch (error) {
+      console.error('Error fetching assigned students:', error)
+      setHasActiveWindow(false)
+      setMessage({ type: 'error', text: 'Failed to load assigned students.' })
+    }
+  }
 
   const handleMarkChange = (studentId, categoryId, value) => {
     const category = markCategories.find((cat) => cat.id === categoryId)
@@ -214,8 +338,9 @@ function MarkEntryPage() {
   }
 
   const handleSaveMarks = async () => {
-    if (!selectedCourse || !teacherId) {
-      setMessage({ type: 'error', text: 'Invalid course or teacher information' })
+    const facultyId = facultyIdentifier
+    if (!selectedCourse || !facultyId) {
+      setMessage({ type: 'error', text: 'Invalid course or user information' })
       return
     }
 
@@ -247,7 +372,7 @@ function MarkEntryPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           course_id: selectedCourse.course_id,
-          faculty_id: teacherId,
+          faculty_id: facultyId,
           mark_entries: markEntries,
         }),
       })
@@ -347,25 +472,73 @@ function MarkEntryPage() {
         {/* Mark Entry Table */}
         {selectedCourse && markCategories.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700">
-                  Mark Entry - {selectedCourse.course_code}
-                </h3>
-                <p className="text-xs text-gray-500 mt-1">Enter marks for each assessment component</p>
+            <div className="border-b border-gray-200 px-6 py-4">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700">
+                    Mark Entry - {selectedCourse.course_code}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">Enter marks for each assessment component</p>
+                </div>
+                <button
+                  onClick={handleSaveMarks}
+                  disabled={savingMarks}
+                  className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  {savingMarks ? 'Saving...' : 'Save Marks'}
+                </button>
               </div>
-              <button
-                onClick={handleSaveMarks}
-                disabled={savingMarks}
-                className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-              >
-                {savingMarks ? 'Saving...' : 'Save Marks'}
-              </button>
+              
+              {/* Learning Mode Toggle */}
+              <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h4 className="text-xs font-semibold text-gray-700 mb-1">Student Learning Mode</h4>
+                    <p className="text-xs text-gray-600">
+                      Toggle to view and enter marks for {learningMode === 'PBL' ? 'PBL' : 'UAL'} students
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-semibold transition-colors ${learningMode === 'PBL' ? 'text-blue-700' : 'text-gray-400'}`}>
+                      PBL
+                    </span>
+                    <button
+                      onClick={() => setLearningMode(learningMode === 'PBL' ? 'UAL' : 'PBL')}
+                      className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                        learningMode === 'PBL' ? 'bg-blue-600' : 'bg-orange-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform ${
+                          learningMode === 'PBL' ? 'translate-x-1' : 'translate-x-8'
+                        }`}
+                      />
+                    </button>
+                    <span className={`text-xs font-semibold transition-colors ${learningMode === 'UAL' ? 'text-orange-700' : 'text-gray-400'}`}>
+                      UAL
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-gray-600">
+                    Showing: <span className="font-semibold text-gray-800">{learningMode === 'PBL' ? 'Problem-Based Learning' : 'University Aided Learning'}</span> students
+                  </span>
+                  <span className="text-gray-600">
+                    Students: <span className="font-semibold text-gray-800">{students.length}</span> / <span className="text-gray-500">{allStudents.length} total</span>
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="overflow-x-auto" style={{ maxHeight: '70vh' }}>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 sticky top-0 z-10">
+              {students.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <p className="text-sm font-medium">No {learningMode} students found for this course</p>
+                  <p className="text-xs mt-1">Try switching to {learningMode === 'PBL' ? 'UAL' : 'PBL'} mode to see other students</p>
+                </div>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200 sticky left-0 bg-gray-50 min-w-[200px]">
                       Student
@@ -428,7 +601,8 @@ function MarkEntryPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              )}
             </div>
 
             {/* Legend */}
