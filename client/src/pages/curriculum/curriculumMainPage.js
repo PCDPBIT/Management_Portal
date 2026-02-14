@@ -245,7 +245,7 @@ function CurriculumMainPage() {
         </div>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-0">
 
         {/* Error Message */}
         {error && (
@@ -368,7 +368,7 @@ function CurriculumMainPage() {
 
         {/* Activity Logs Modal */}
         {showLogsModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowLogsModal(false)}>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center  justify-center z-50 p-4" onClick={() => setShowLogsModal(false)}>
             <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="bg-primary text-white px-8 py-5 flex items-start justify-between">
                 <div>
@@ -462,14 +462,14 @@ function CurriculumMainPage() {
                 )}
               </div>
 
-              <div className="flex justify-end pb-3 px-3">
+              {/* <div className="flex justify-end pb-3 px-3">
                 <button
                   onClick={() => setShowLogsModal(false)}
                   className="btn-primary-custom "
                 >
                   Close
                 </button>
-              </div>
+              </div> */}
             </div>
           </div>
         )}

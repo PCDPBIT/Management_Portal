@@ -49,7 +49,7 @@ function TeacherDetailsPage() {
         throw new Error("Failed to fetch departments");
       }
       const data = await response.json();
-      setDepartments(data || []);
+      setDepartments(data.departments || []);
     } catch (err) {
       console.error("Error fetching departments:", err);
       setError("Failed to load departments. Please try again.");
