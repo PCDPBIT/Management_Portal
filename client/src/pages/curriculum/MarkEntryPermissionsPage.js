@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
+import SearchBarWithDropdown from '../../components/SearchBarWithDropdown'
 
 // Helper function to format date for datetime-local input (preserves local timezone)
 const formatDateTimeLocal = (dateString) => {
@@ -18,7 +19,7 @@ const formatDateTimeLocal = (dateString) => {
 function MarkEntryPermissionsPage() {
   const navigate = useNavigate()
   const userRole = localStorage.getItem('userRole')
-  
+
   const [teachers, setTeachers] = useState([])
   const [selectedTeacherId, setSelectedTeacherId] = useState('')
   const [courses, setCourses] = useState([])
@@ -40,15 +41,15 @@ function MarkEntryPermissionsPage() {
   const [existingWindows, setExistingWindows] = useState([])
   const [editingWindow, setEditingWindow] = useState(null)
   const [teacherSearch, setTeacherSearch] = useState('')
+  const [courseSearch, setCourseSearch] = useState('')
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false)
   const [learningMode, setLearningMode] = useState('PBL') // 'PBL' or 'UAL'
-  
+
   // Student Assignment States
   const [activeTab, setActiveTab] = useState('windows') // 'windows' or 'student-assignment'
   const [availableUsers, setAvailableUsers] = useState([])
   const [selectedUserId, setSelectedUserId] = useState('')
   const [userSearchTerm, setUserSearchTerm] = useState('')
-  const [showUserDropdown, setShowUserDropdown] = useState(false)
   const [students, setStudents] = useState([])
   const [selectedStudents, setSelectedStudents] = useState([])
   const [studentFilters, setStudentFilters] = useState({
@@ -114,13 +115,10 @@ function MarkEntryPermissionsPage() {
       if (showTeacherDropdown && !event.target.closest('.teacher-search-container')) {
         setShowTeacherDropdown(false)
       }
-      if (showUserDropdown && !event.target.closest('.user-search-container')) {
-        setShowUserDropdown(false)
-      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showTeacherDropdown, showUserDropdown])
+  }, [showTeacherDropdown])
 
   useEffect(() => {
     // Load window components when course context changes
@@ -177,20 +175,20 @@ function MarkEntryPermissionsPage() {
     try {
       // Convert learning mode to ID (UAL=1, PBL=2)
       const learningModeId = learningMode === 'UAL' ? 1 : 2
-      
+
       console.log(`[DEBUG] Fetching mark categories for learning mode: ${learningMode} (ID=${learningModeId})`)
-      
+
       // Fetch all mark category types (Theory=1, Lab=2, Theory+Lab=3)
       const results = await Promise.all([
         fetch(`${API_BASE_URL}/mark-categories-by-type/1?learning_modes=${learningModeId}`).then(r => r.json()),
         fetch(`${API_BASE_URL}/mark-categories-by-type/2?learning_modes=${learningModeId}`).then(r => r.json()),
         fetch(`${API_BASE_URL}/mark-categories-by-type/3?learning_modes=${learningModeId}`).then(r => r.json())
       ])
-      
+
       // Combine and deduplicate
       const allCategories = []
       const seen = new Set()
-      
+
       results.forEach(categories => {
         if (Array.isArray(categories)) {
           categories.forEach(cat => {
@@ -201,9 +199,9 @@ function MarkEntryPermissionsPage() {
           })
         }
       })
-      
-      console.log(`[DEBUG] Found ${allCategories.length} components for ${learningMode}:`, allCategories.map(c => ({id: c.id, name: c.name, learning_mode_id: c.learning_mode_id})))
-      
+
+      console.log(`[DEBUG] Found ${allCategories.length} components for ${learningMode}:`, allCategories.map(c => ({ id: c.id, name: c.name, learning_mode_id: c.learning_mode_id })))
+
       // Sort by position
       allCategories.sort((a, b) => (a.position || 0) - (b.position || 0))
       setWindowComponents(allCategories)
@@ -224,23 +222,23 @@ function MarkEntryPermissionsPage() {
     try {
       // Convert learning mode to ID (UAL=1, PBL=2)
       const learningModeId = learningMode === 'UAL' ? 1 : 2
-      
+
       // First fetch the course to get its category
       const courseRes = await fetch(`${API_BASE_URL}/courses/${courseId}`)
       if (!courseRes.ok) throw new Error('Failed to fetch course')
       const course = await courseRes.json()
-      
+
       const courseTypeID = mapCourseCategoryToTypeID(course.category)
       if (courseTypeID === 0) {
         setWindowComponents([])
         return
       }
-      
+
       // Fetch mark categories for this course type with selected learning mode
       const res = await fetch(`${API_BASE_URL}/mark-categories-by-type/${courseTypeID}?learning_modes=${learningModeId}`)
       if (!res.ok) throw new Error('Failed to fetch mark categories')
       const categories = await res.json()
-      
+
       // Sort by position
       const sorted = Array.isArray(categories) ? categories : []
       sorted.sort((a, b) => (a.position || 0) - (b.position || 0))
@@ -271,7 +269,7 @@ function MarkEntryPermissionsPage() {
     }
     try {
       // If departmentId is empty, fetch courses from all departments
-      const url = departmentId 
+      const url = departmentId
         ? `${API_BASE_URL}/departments/${departmentId}/curriculum/semester/${semester}/courses`
         : `${API_BASE_URL}/all-departments/semester/${semester}/courses`
       const res = await fetch(url)
@@ -384,7 +382,7 @@ function MarkEntryPermissionsPage() {
       setWindowStartAt(formatDateTimeLocal(data.start_at))
       setWindowEndAt(formatDateTimeLocal(data.end_at))
       setWindowEnabled(data.enabled !== false)
-      
+
       // Separate components by learning mode
       if (data.component_ids && data.component_ids.length > 0) {
         // Fetch all components to check their learning modes
@@ -393,12 +391,12 @@ function MarkEntryPermissionsPage() {
           fetch(`${API_BASE_URL}/mark-categories-by-type/2?learning_modes=1,2`).then(r => r.json()),
           fetch(`${API_BASE_URL}/mark-categories-by-type/3?learning_modes=1,2`).then(r => r.json())
         ])
-        
+
         const allComponents = []
         allComponentsRes.forEach(cats => {
           if (Array.isArray(cats)) allComponents.push(...cats)
         })
-        
+
         const pblIds = []
         const ualIds = []
         data.component_ids.forEach(id => {
@@ -408,7 +406,7 @@ function MarkEntryPermissionsPage() {
             else if (comp.learning_mode_id === 1) ualIds.push(id)
           }
         })
-        
+
         setSelectedPBLComponents(pblIds)
         setSelectedUALComponents(ualIds)
       } else {
@@ -439,8 +437,8 @@ function MarkEntryPermissionsPage() {
       start_at: startDate.toISOString(),
       end_at: endDate.toISOString(),
       enabled: windowEnabled,
-      component_ids: [...selectedPBLComponents, ...selectedUALComponents].length > 0 
-        ? [...selectedPBLComponents, ...selectedUALComponents] 
+      component_ids: [...selectedPBLComponents, ...selectedUALComponents].length > 0
+        ? [...selectedPBLComponents, ...selectedUALComponents]
         : null,
     }
 
@@ -538,13 +536,13 @@ function MarkEntryPermissionsPage() {
   const editUserWindow = async (win) => {
     // Switch to student-assignment tab
     setActiveTab('student-assignment')
-    
+
     // Set editing mode
     setEditingWindow(win)
     setWindowStartAt(formatDateTimeLocal(win.start_at))
     setWindowEndAt(formatDateTimeLocal(win.end_at))
     setWindowEnabled(win.enabled)
-    
+
     // Set user
     if (win.user_id) {
       const userRes = await fetch(`${API_BASE_URL}/users/${win.user_id}`)
@@ -553,17 +551,17 @@ function MarkEntryPermissionsPage() {
         setSelectedUserId(userData.username)
       }
     }
-    
+
     // Set scope fields
     setWindowDepartmentId(win.department_id || '')
     setWindowSemester(win.semester || '')
     setWindowCourseId(win.course_id || '')
-    
+
     // Load components if course is set
     if (win.course_id && win.component_ids) {
       const allPBL = []
       const allUAL = []
-      
+
       for (const compId of win.component_ids) {
         const comp = windowComponents.find(c => c.id === compId)
         if (comp) {
@@ -574,11 +572,11 @@ function MarkEntryPermissionsPage() {
           }
         }
       }
-      
+
       setSelectedPBLComponents(allPBL)
       setSelectedUALComponents(allUAL)
     }
-    
+
     // Load assigned students for this window
     try {
       const res = await fetch(
@@ -591,6 +589,8 @@ function MarkEntryPermissionsPage() {
     } catch (error) {
       console.error('Error loading assigned students:', error)
     }
+    // Scroll to top after loading
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100)
   }
 
   const editWindow = (win) => {
@@ -598,11 +598,11 @@ function MarkEntryPermissionsPage() {
     setWindowStartAt(formatDateTimeLocal(win.start_at))
     setWindowEndAt(formatDateTimeLocal(win.end_at))
     setWindowEnabled(win.enabled)
-    
+
     // Will be populated by loadWindowRule which separates by learning mode
     setSelectedPBLComponents([])
     setSelectedUALComponents([])
-    
+
     // Determine scope and set appropriate fields
     if (win.teacher_id && win.course_id) {
       setWindowScope('teacher_course')
@@ -633,8 +633,8 @@ function MarkEntryPermissionsPage() {
       start_at: startDate.toISOString(),
       end_at: endDate.toISOString(),
       enabled: windowEnabled,
-      component_ids: [...selectedPBLComponents, ...selectedUALComponents].length > 0 
-        ? [...selectedPBLComponents, ...selectedUALComponents] 
+      component_ids: [...selectedPBLComponents, ...selectedUALComponents].length > 0
+        ? [...selectedPBLComponents, ...selectedUALComponents]
         : null,
     }
 
@@ -685,7 +685,7 @@ function MarkEntryPermissionsPage() {
     const now = new Date()
     const startAt = new Date(win.start_at)
     const endAt = new Date(win.end_at)
-    
+
     if (!win.enabled) {
       return { status: 'Disabled', color: 'bg-red-100 text-red-800' }
     } else if (now < startAt) {
@@ -767,15 +767,15 @@ function MarkEntryPermissionsPage() {
       }
 
       const result = await res.json()
-      setMessage({ 
-        type: 'success', 
-        text: `Successfully created window #${result.window_id} and assigned ${result.assignments_created} students! User can now enter marks (will overwrite existing marks).` 
+      setMessage({
+        type: 'success',
+        text: `Successfully created window #${result.window_id} and assigned ${result.assignments_created} students! User can now enter marks (will overwrite existing marks).`
       })
-      
+
       // Refresh windows lists to show the newly created window
       fetchExistingWindows()
       fetchUserAssignedWindows()
-      
+
       // Reset form
       setSelectedStudents([])
       setSelectedUserId('')
@@ -815,17 +815,16 @@ function MarkEntryPermissionsPage() {
   return (
     <MainLayout title="Mark Permissions" subtitle="Manage mark entry windows and permissions">
       <div className="space-y-6">
-        
+
         {/* Message Alert */}
         {message.text && (
           <div
-            className={`rounded-lg p-4 border-l-4 ${
-              message.type === 'error'
+            className={`rounded-lg p-4 border-l-4 ${message.type === 'error'
                 ? 'bg-red-50 text-red-700 border-red-400'
                 : message.type === 'success'
-                ? 'bg-green-50 text-green-700 border-green-400'
-                : 'bg-blue-50 text-blue-700 border-blue-400'
-            }`}
+                  ? 'bg-green-50 text-green-700 border-green-400'
+                  : 'bg-blue-50 text-blue-700 border-blue-400'
+              }`}
           >
             {message.text}
           </div>
@@ -836,21 +835,19 @@ function MarkEntryPermissionsPage() {
           <div className="flex border-b border-gray-200 pl-2">
             <button
               onClick={() => setActiveTab('windows')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'windows'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+              className={`px-6 py-3 font-medium transition-colors ${activeTab === 'windows'
+                  ? 'text-primary border-b-2 border-primary'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               Mark Entry Windows
             </button>
             <button
               onClick={() => setActiveTab('student-assignment')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'student-assignment'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+              className={`px-6 py-3 font-medium transition-colors ${activeTab === 'student-assignment'
+                  ? 'text-primary border-b-2 border-primary'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               Student-User Assignment
             </button>
@@ -860,441 +857,415 @@ function MarkEntryPermissionsPage() {
         {/* Windows Tab Content */}
         {activeTab === 'windows' && (
           <>
-        {/* Teacher & Course Selection Card */}
-        {windowScope === 'teacher_course' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="border-b border-gray-200 px-6 py-3">
-              <h3 className="text-sm font-semibold text-gray-700">Teacher & Course Selection</h3>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="relative teacher-search-container">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Teacher
-                  </label>
-                  <input
-                    type="text"
-                    value={teacherSearch}
-                    onChange={(e) => {
-                      setTeacherSearch(e.target.value)
-                      setShowTeacherDropdown(true)
-                    }}
-                    onFocus={() => setShowTeacherDropdown(true)}
-                    placeholder="Search by name or ID..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  />
-                  {showTeacherDropdown && (
-                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      {teachers
-                        .filter(
-                          (teacher) =>
-                            teacher.name.toLowerCase().includes(teacherSearch.toLowerCase()) ||
-                            teacher.faculty_id.toLowerCase().includes(teacherSearch.toLowerCase())
-                        )
-                        .slice(0, 50)
-                        .map((teacher) => (
-                          <div
-                            key={teacher.faculty_id}
-                            onClick={() => {
-                              setSelectedTeacherId(teacher.faculty_id)
-                              setTeacherSearch(`${teacher.name} (${teacher.faculty_id})`)
-                              setShowTeacherDropdown(false)
-                            }}
-                            className={`px-3 py-2 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-0 ${
-                              selectedTeacherId === teacher.faculty_id ? 'bg-blue-50' : ''
-                            }`}
-                          >
+            {/* Teacher & Course Selection Card */}
+            {windowScope === 'teacher_course' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className="border-b border-gray-200 px-6 py-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Teacher & Course Selection</h3>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="relative teacher-search-container">
+                      <SearchBarWithDropdown
+                        value={teacherSearch}
+                        onChange={(e) => setTeacherSearch(e.target.value)}
+                        items={teachers}
+                        onSelect={(teacher) => {
+                          setSelectedTeacherId(teacher.faculty_id)
+                          setTeacherSearch(`${teacher.name} (${teacher.faculty_id})`)
+                        }}
+                        filterFunction={(teacher, term) => {
+                          const search = term.toLowerCase()
+                          return (
+                            teacher.name.toLowerCase().includes(search) ||
+                            teacher.faculty_id.toLowerCase().includes(search)
+                          )
+                        }}
+                        renderItem={(teacher) => (
+                          <div className={selectedTeacherId === teacher.faculty_id ? 'bg-blue-50' : ''}>
                             <div className="font-medium text-gray-900">{teacher.name}</div>
                             <div className="text-sm text-gray-500">{teacher.faculty_id}</div>
                           </div>
-                        ))}
-                      {teachers.filter(
-                        (teacher) =>
-                          teacher.name.toLowerCase().includes(teacherSearch.toLowerCase()) ||
-                          teacher.faculty_id.toLowerCase().includes(teacherSearch.toLowerCase())
-                      ).length === 0 && (
-                        <div className="px-3 py-4 text-sm text-gray-500 text-center">No teachers found</div>
-                      )}
+                        )}
+                        getItemKey={(teacher) => teacher.faculty_id}
+                        label="Teacher"
+                        placeholder="Search by name or ID..."
+                        width="w-full"
+                      />
                     </div>
-                  )}
-                  {selectedTeacherId && (
+                    <div className="relative course-search-container">
+                      <SearchBarWithDropdown
+                        value={courseSearch}
+                        onChange={(e) => setCourseSearch(e.target.value)}
+                        items={courses}
+                        onSelect={(course) => {
+                          setSelectedCourseId(course.course_id)
+                          setCourseSearch(`${course.course_code} - ${course.course_name}`)
+                        }}
+                        filterFunction={(course, term) => {
+                          const search = term.toLowerCase()
+                          return (
+                            course.course_code.toLowerCase().includes(search) ||
+                            course.course_name.toLowerCase().includes(search)
+                          )
+                        }}
+                        renderItem={(course) => (
+                          <div className={selectedCourseId === course.course_id ? 'bg-blue-50' : ''}>
+                            <div className="font-medium text-gray-900">{course.course_code}</div>
+                            <div className="text-sm text-gray-500">{course.course_name}</div>
+                          </div>
+                        )}
+                        getItemKey={(course) => course.course_id}
+                        label="Course"
+                        placeholder="Search by code or name..."
+                        width="w-full"
+                        disabled={!selectedTeacherId}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Window Configuration Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700">
+                    {editingWindow ? 'Edit Mark Entry Window' : 'Create Mark Entry Window'}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {editingWindow ? 'Update window configuration' : 'Define time-based access control'}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  {editingWindow ? (
+                    <>
+                      <button
+                        onClick={cancelEdit}
+                        className="px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={updateWindow}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        disabled={windowLoading}
+                      >
+                        {windowLoading ? 'Updating...' : 'Update Window'}
+                      </button>
+                    </>
+                  ) : (
                     <button
-                      onClick={() => {
-                        setSelectedTeacherId('')
-                        setTeacherSearch('')
-                        setCourses([])
-                        setSelectedCourseId('')
-                      }}
-                      className="absolute right-2 top-9 text-gray-400 hover:text-gray-600"
+                      onClick={saveWindowRule}
+                      className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      disabled={windowLoading}
                     >
-                      ✕
+                      {windowLoading ? 'Saving...' : 'Save Window'}
                     </button>
                   )}
                 </div>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {editingWindow && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-900">
+                      <span className="font-semibold">Editing:</span> {getScopeDescription(editingWindow)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Scope Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Course
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Window Scope
                   </label>
                   <select
-                    value={selectedCourseId}
-                    onChange={(e) => setSelectedCourseId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    disabled={!selectedTeacherId}
+                    value={windowScope}
+                    onChange={(e) => setWindowScope(e.target.value)}
+                    disabled={editingWindow !== null}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
-                    <option value="">Select Course</option>
-                    {courses.map((course) => (
-                      <option key={course.course_id} value={course.course_id}>
-                        {course.course_code} - {course.course_name}
-                      </option>
-                    ))}
+                    <option value="teacher_course">Teacher + Course (Most Specific)</option>
+                    <option value="department_semester">Department + Semester</option>
+                    <option value="department_semester_course">Department + Semester + Course</option>
                   </select>
+                  {editingWindow && (
+                    <p className="text-xs text-gray-500 mt-1">Scope cannot be changed for existing windows</p>
+                  )}
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Window Configuration Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700">
-                {editingWindow ? 'Edit Mark Entry Window' : 'Create Mark Entry Window'}
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                {editingWindow ? 'Update window configuration' : 'Define time-based access control'}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {editingWindow ? (
-                <>
-                  <button
-                    onClick={cancelEdit}
-                    className="px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={updateWindow}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    disabled={windowLoading}
-                  >
-                    {windowLoading ? 'Updating...' : 'Update Window'}
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={saveWindowRule}
-                  className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  disabled={windowLoading}
-                >
-                  {windowLoading ? 'Saving...' : 'Save Window'}
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="p-6 space-y-5">
-            {editingWindow && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-900">
-                  <span className="font-semibold">Editing:</span> {getScopeDescription(editingWindow)}
-                </p>
-              </div>
-            )}
-
-            {/* Scope Selection */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Window Scope
-              </label>
-              <select
-                value={windowScope}
-                onChange={(e) => setWindowScope(e.target.value)}
-                disabled={editingWindow !== null}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-              >
-                <option value="teacher_course">Teacher + Course (Most Specific)</option>
-                <option value="department_semester">Department + Semester</option>
-                <option value="department_semester_course">Department + Semester + Course</option>
-              </select>
-              {editingWindow && (
-                <p className="text-xs text-gray-500 mt-1">Scope cannot be changed for existing windows</p>
-              )}
-            </div>
-
-            {/* Department/Semester Selection */}
-            {(windowScope === 'department_semester' || windowScope === 'department_semester_course') && (
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Department & Semester</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
-                    <select
-                      value={windowDepartmentId}
-                      onChange={(e) => setWindowDepartmentId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="">Select Department</option>
-                      <option value="0">All Departments</option>
-                      {departments.map((department) => (
-                        <option key={department.id} value={department.id}>
-                          {department.department_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Semester</label>
-                    <select
-                      value={windowSemester}
-                      onChange={(e) => setWindowSemester(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="">Select Semester</option>
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
-                        <option key={sem} value={sem}>
-                          Semester {sem}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {windowScope === 'department_semester_course' && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Course</label>
-                      {windowDepartmentId === '0' ? (
-                        <input
-                          type="number"
-                          value={windowCourseId}
-                          onChange={(e) => setWindowCourseId(e.target.value)}
-                          placeholder="Enter Course ID"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                        />
-                      ) : (
+                {/* Department/Semester Selection */}
+                {(windowScope === 'department_semester' || windowScope === 'department_semester_course') && (
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Department & Semester</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
                         <select
-                          value={windowCourseId}
-                          onChange={(e) => setWindowCourseId(e.target.value)}
+                          value={windowDepartmentId}
+                          onChange={(e) => setWindowDepartmentId(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                         >
-                          <option value="">Select Course</option>
-                          {windowCourses.map((course) => (
-                            <option key={course.course_id} value={course.course_id}>
-                              {course.course_code} - {course.course_name}
+                          <option value="">Select Department</option>
+                          <option value="0">All Departments</option>
+                          {departments.map((department) => (
+                            <option key={department.id} value={department.id}>
+                              {department.department_name}
                             </option>
                           ))}
                         </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Semester</label>
+                        <select
+                          value={windowSemester}
+                          onChange={(e) => setWindowSemester(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                        >
+                          <option value="">Select Semester</option>
+                          {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                            <option key={sem} value={sem}>
+                              Semester {sem}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {windowScope === 'department_semester_course' && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Course</label>
+                          {windowDepartmentId === '0' ? (
+                            <input
+                              type="number"
+                              value={windowCourseId}
+                              onChange={(e) => setWindowCourseId(e.target.value)}
+                              placeholder="Enter Course ID"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                            />
+                          ) : (
+                            <select
+                              value={windowCourseId}
+                              onChange={(e) => setWindowCourseId(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                            >
+                              <option value="">Select Course</option>
+                              {windowCourses.map((course) => (
+                                <option key={course.course_id} value={course.course_id}>
+                                  {course.course_code} - {course.course_name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
+                  </div>
+                )}
 
-            {/* Time Window */}
-            <div className="bg-background rounded-lg p-4 border border-blue-100">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">Time Window Configuration</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Start Date & Time</label>
-                  <input
-                    type="datetime-local"
-                    value={windowStartAt}
-                    onChange={(e) => setWindowStartAt(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">End Date & Time</label>
-                  <input
-                    type="datetime-local"
-                    value={windowEndAt}
-                    onChange={(e) => setWindowEndAt(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div className="mt-3">
-                <label className="inline-flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={windowEnabled}
-                    onChange={(e) => setWindowEnabled(e.target.checked)}
-                    className="h-4 w-4 accent-blue-600 cursor-pointer"
-                  />
-                  <span className="text-sm text-gray-700 font-medium">Enable this window</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Learning Mode Toggle */}
-            <div className="bg-background rounded-lg p-4 border border-purple-100">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">Learning Mode Selection</h4>
-              <p className="text-xs text-gray-600 mb-3">
-                Toggle to select mark components for each learning mode. Students of both UAL and PBL can be in the same course.
-                <strong className="block mt-1">Both PBL and UAL component selections will be saved together in this window.</strong>
-              </p>
-              <div className="flex items-center justify-center gap-4">
-                <span className={`text-sm font-semibold transition-colors ${learningMode === 'PBL' ? 'text-primary' : 'text-gray-400'}`}>
-                  PBL
-                </span>
-                <button
-                  onClick={() => setLearningMode(learningMode === 'PBL' ? 'UAL' : 'PBL')}
-                  className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                    learningMode === 'PBL' ? 'bg-primary' : 'bg-orange-600'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform ${
-                      learningMode === 'PBL' ? 'translate-x-1' : 'translate-x-9'
-                    }`}
-                  />
-                </button>
-                <span className={`text-sm font-semibold transition-colors ${learningMode === 'UAL' ? 'text-orange-700' : 'text-gray-400'}`}>
-                  UAL
-                </span>
-              </div>
-              <div className="mt-3 flex items-center justify-between px-4">
-                <p className="text-xs text-gray-600">
-                  Currently viewing: <span className="font-semibold text-gray-800">{learningMode === 'PBL' ? 'Problem-Based Learning' : 'University Aided Learning'}</span>
-                </p>
-                <div className="flex gap-4 text-xs">
-                  <span className="text-primary font-medium">PBL: {selectedPBLComponents.length}</span>
-                  <span className="text-orange-600 font-medium">UAL: {selectedUALComponents.length}</span>
-                  <span className="text-gray-600 font-semibold">Total: {selectedPBLComponents.length + selectedUALComponents.length}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Component Selection */}
-            {windowComponents.length > 0 && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Allowed Mark Components
-                </label>
-                <div className="space-y-3">
-                  {Object.entries(
-                    windowComponents.reduce((groups, component) => {
-                      const courseTypeName = component.course_type_name || 'Other'
-                      if (!groups[courseTypeName]) groups[courseTypeName] = []
-                      groups[courseTypeName].push(component)
-                      return groups
-                    }, {})
-                  ).map(([courseTypeName, components]) => (
-                    <div key={courseTypeName} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">
-                        {courseTypeName}
-                      </h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {components.map((component) => {
-                          const selectedComponents = learningMode === 'PBL' ? selectedPBLComponents : selectedUALComponents
-                          const setSelectedComponents = learningMode === 'PBL' ? setSelectedPBLComponents : setSelectedUALComponents
-                          
-                          return (
-                            <label
-                              key={component.id}
-                              className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:text-blue-600"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedComponents.includes(component.id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedComponents([...selectedComponents, component.id])
-                                  } else {
-                                    setSelectedComponents(
-                                      selectedComponents.filter((id) => id !== component.id)
-                                    )
-                                  }
-                                }}
-                                className="h-4 w-4 accent-blue-600 cursor-pointer"
-                              />
-                              <span className="font-medium">{component.name}</span>
-                            </label>
-                          )
-                        })}
-                      </div>
+                {/* Time Window */}
+                <div className="bg-background rounded-lg p-4 border border-blue-100">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Time Window Configuration</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">Start Date & Time</label>
+                      <input
+                        type="datetime-local"
+                        value={windowStartAt}
+                        onChange={(e) => setWindowStartAt(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
                     </div>
-                  ))}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">End Date & Time</label>
+                      <input
+                        type="datetime-local"
+                        value={windowEndAt}
+                        onChange={(e) => setWindowEndAt(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={windowEnabled}
+                        onChange={(e) => setWindowEnabled(e.target.checked)}
+                        className="h-4 w-4 accent-blue-600 cursor-pointer"
+                      />
+                      <span className="text-sm text-gray-700 font-medium">Enable this window</span>
+                    </label>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Leave all unchecked to allow all components, or select specific ones to restrict access.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Existing Windows List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-700">Existing Windows</h3>
-            <span className="px-3 py-1 bg-background text-primary rounded-full text-sm font-semibold">
-              {existingWindows.length} {existingWindows.length === 1 ? 'window' : 'windows'}
-            </span>
-          </div>
-          <div className="p-6">
-            {existingWindows.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">
-                <p className="text-sm">No windows configured yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {existingWindows.map((win) => {
-                  const { status, color } = getWindowStatus(win)
-                  return (
-                    <div
-                      key={win.id}
-                      className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all"
+                {/* Learning Mode Toggle */}
+                <div className="bg-background rounded-lg p-4 border border-purple-100">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Learning Mode Selection</h4>
+                  <p className="text-xs text-gray-600 mb-3">
+                    Toggle to select mark components for each learning mode. Students of both UAL and PBL can be in the same course.
+                    <strong className="block mt-1">Both PBL and UAL component selections will be saved together in this window.</strong>
+                  </p>
+                  <div className="flex items-center justify-center gap-4">
+                    <span className={`text-sm font-semibold transition-colors ${learningMode === 'PBL' ? 'text-primary' : 'text-gray-400'}`}>
+                      PBL
+                    </span>
+                    <button
+                      onClick={() => setLearningMode(learningMode === 'PBL' ? 'UAL' : 'PBL')}
+                      className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${learningMode === 'PBL' ? 'bg-primary' : 'bg-orange-600'
+                        }`}
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-800 text-sm mb-2">
-                            {getScopeDescription(win)}
-                          </p>
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${color}`}>
-                            {status}
-                          </span>
-                        </div>
-                        <div className="flex gap-2 ml-4">
-                          <button
-                            onClick={() => editWindow(win)}
-                            className="px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg font-medium transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => deleteWindow(win.id)}
-                            className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-gray-600">
-                        <div className="bg-white rounded p-2 border border-gray-100">
-                          <div className="text-gray-500 mb-1">Start</div>
-                          <div className="font-medium">{new Date(win.start_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                        </div>
-                        <div className="bg-white rounded p-2 border border-gray-100">
-                          <div className="text-gray-500 mb-1">End</div>
-                          <div className="font-medium">{new Date(win.end_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                        </div>
-                        <div className="bg-white rounded p-2 border border-gray-100">
-                          <div className="text-gray-500 mb-1">Components</div>
-                          <div className="font-medium">
-                            {win.component_ids && win.component_ids.length > 0
-                              ? `${win.component_ids.length} selected`
-                              : 'All allowed'}
+                      <span
+                        className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform ${learningMode === 'PBL' ? 'translate-x-1' : 'translate-x-9'
+                          }`}
+                      />
+                    </button>
+                    <span className={`text-sm font-semibold transition-colors ${learningMode === 'UAL' ? 'text-orange-700' : 'text-gray-400'}`}>
+                      UAL
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between px-4">
+                    <p className="text-xs text-gray-600">
+                      Currently viewing: <span className="font-semibold text-gray-800">{learningMode === 'PBL' ? 'Problem-Based Learning' : 'University Aided Learning'}</span>
+                    </p>
+                    <div className="flex gap-4 text-xs">
+                      <span className="text-primary font-medium">PBL: {selectedPBLComponents.length}</span>
+                      <span className="text-orange-600 font-medium">UAL: {selectedUALComponents.length}</span>
+                      <span className="text-gray-600 font-semibold">Total: {selectedPBLComponents.length + selectedUALComponents.length}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Component Selection */}
+                {windowComponents.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Allowed Mark Components
+                    </label>
+                    <div className="space-y-3">
+                      {Object.entries(
+                        windowComponents.reduce((groups, component) => {
+                          const courseTypeName = component.course_type_name || 'Other'
+                          if (!groups[courseTypeName]) groups[courseTypeName] = []
+                          groups[courseTypeName].push(component)
+                          return groups
+                        }, {})
+                      ).map(([courseTypeName, components]) => (
+                        <div key={courseTypeName} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">
+                            {courseTypeName}
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {components.map((component) => {
+                              const selectedComponents = learningMode === 'PBL' ? selectedPBLComponents : selectedUALComponents
+                              const setSelectedComponents = learningMode === 'PBL' ? setSelectedPBLComponents : setSelectedUALComponents
+
+                              return (
+                                <label
+                                  key={component.id}
+                                  className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:text-blue-600"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedComponents.includes(component.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedComponents([...selectedComponents, component.id])
+                                      } else {
+                                        setSelectedComponents(
+                                          selectedComponents.filter((id) => id !== component.id)
+                                        )
+                                      }
+                                    }}
+                                    className="h-4 w-4 accent-blue-600 cursor-pointer"
+                                  />
+                                  <span className="font-medium">{component.name}</span>
+                                </label>
+                              )
+                            })}
                           </div>
                         </div>
-                      </div>
+                      ))}
                     </div>
-                  )
-                })}
+                    <p className="text-xs text-gray-500 mt-2">
+                      Leave all unchecked to allow all components, or select specific ones to restrict access.
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+
+            {/* Existing Windows List */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-700">Existing Windows</h3>
+                <span className="px-3 py-1 bg-background text-primary rounded-full text-sm font-semibold">
+                  {existingWindows.length} {existingWindows.length === 1 ? 'window' : 'windows'}
+                </span>
+              </div>
+              <div className="p-6">
+                {existingWindows.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400">
+                    <p className="text-sm">No windows configured yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {existingWindows.map((win) => {
+                      const { status, color } = getWindowStatus(win)
+                      return (
+                        <div
+                          key={win.id}
+                          className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-800 text-sm mb-2">
+                                {getScopeDescription(win)}
+                              </p>
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${color}`}>
+                                {status}
+                              </span>
+                            </div>
+                            <div className="flex gap-2 ml-4">
+                              <button
+                                onClick={() => editWindow(win)}
+                                className="px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg font-medium transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => deleteWindow(win.id)}
+                                className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-gray-600">
+                            <div className="bg-white rounded p-2 border border-gray-100">
+                              <div className="text-gray-500 mb-1">Start</div>
+                              <div className="font-medium">{new Date(win.start_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                            </div>
+                            <div className="bg-white rounded p-2 border border-gray-100">
+                              <div className="text-gray-500 mb-1">End</div>
+                              <div className="font-medium">{new Date(win.end_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                            </div>
+                            <div className="bg-white rounded p-2 border border-gray-100">
+                              <div className="text-gray-500 mb-1">Components</div>
+                              <div className="font-medium">
+                                {win.component_ids && win.component_ids.length > 0
+                                  ? `${win.component_ids.length} selected`
+                                  : 'All allowed'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         )}
 
@@ -1313,61 +1284,40 @@ function MarkEntryPermissionsPage() {
               <div className="p-6 border-b border-gray-100">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3">Select User</h4>
                 <div className="relative user-search-container">
-                  <input
-                    type="text"
-                    placeholder="Search users by name, email, or role..."
+                  <SearchBarWithDropdown
                     value={userSearchTerm}
                     onChange={(e) => {
                       setUserSearchTerm(e.target.value)
-                      setShowUserDropdown(true)
                       fetchAvailableUsers(e.target.value)
                     }}
-                    onFocus={() => {
-                      setShowUserDropdown(true)
-                      fetchAvailableUsers(userSearchTerm)
+                    onFocus={() => fetchAvailableUsers(userSearchTerm)}
+                    items={availableUsers}
+                    onSelect={(user) => {
+                      setSelectedUserId(user.username)
+                      setUserSearchTerm(`${user.username} (${user.email}) - ${user.role}`)
                     }}
-                    //  onBlur={() => {
-                    //   // Delay to allow click on dropdown item
-                    //   setTimeout(() => setShowUserDropdown(false), 200)
-                    // }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  />
-                  {showUserDropdown && availableUsers.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                      {availableUsers.map(user => (
-                        <div
-                          key={user.id}
-                          onClick={() => {
-                            setSelectedUserId(user.username)
-                            setUserSearchTerm(`${user.username} (${user.email}) - ${user.role}`)
-                            setShowUserDropdown(false)
-                          }}
-                          className={`px-4 py-3 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors ${
-                            selectedUserId === user.username ? 'bg-blue-50' : ''
-                          }`}
-                        >
-                          <div className="font-medium text-gray-900">{user.username}</div>
-                          <div className="text-sm text-gray-600">{user.email}</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            Role: <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-700">{user.role}</span>
-                          </div>
+                    filterFunction={(user, term) => {
+                      const search = term.toLowerCase()
+                      return (
+                        user.username.toLowerCase().includes(search) ||
+                        user.email.toLowerCase().includes(search) ||
+                        user.role.toLowerCase().includes(search)
+                      )
+                    }}
+                    renderItem={(user) => (
+                      <div className={selectedUserId === user.username ? 'bg-blue-50' : ''}>
+                        <div className="font-medium text-gray-900">{user.username}</div>
+                        <div className="text-sm text-gray-600">{user.email}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Role: <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-700">{user.role}</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                  {selectedUserId && (
-                    <button
-                      onClick={() => {
-                        setSelectedUserId('')
-                        setUserSearchTerm('')
-                        setShowUserDropdown(false)
-                      }}
-                      className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
-                      title="Clear selection"
-                    >
-                      ✕
-                    </button>
-                  )}
+                      </div>
+                    )}
+                    getItemKey={(user) => user.id}
+                    label="User"
+                    placeholder="Search users by name, email, or role..."
+                    width="w-1/3"
+                  />
                 </div>
                 {selectedUserId && (
                   <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-800">
@@ -1431,7 +1381,7 @@ function MarkEntryPermissionsPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                     >
                       <option value="">-- None --</option>
-                      {[1,2,3,4,5,6,7,8].map(sem => (
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
                         <option key={sem} value={sem}>{sem}</option>
                       ))}
                     </select>
@@ -1468,14 +1418,12 @@ function MarkEntryPermissionsPage() {
                   </span>
                   <button
                     onClick={() => setLearningMode(learningMode === 'PBL' ? 'UAL' : 'PBL')}
-                    className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                      learningMode === 'PBL' ? 'bg-primary' : 'bg-orange-600'
-                    }`}
+                    className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${learningMode === 'PBL' ? 'bg-primary' : 'bg-orange-600'
+                      }`}
                   >
                     <span
-                      className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform ${
-                        learningMode === 'PBL' ? 'translate-x-1' : 'translate-x-9'
-                      }`}
+                      className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform ${learningMode === 'PBL' ? 'translate-x-1' : 'translate-x-9'
+                        }`}
                     />
                   </button>
                   <span className={`text-sm font-semibold transition-colors ${learningMode === 'UAL' ? 'text-orange-700' : 'text-gray-400'}`}>
@@ -1500,7 +1448,7 @@ function MarkEntryPermissionsPage() {
                           {components.map((component) => {
                             const selectedComponents = learningMode === 'PBL' ? selectedPBLComponents : selectedUALComponents
                             const setSelectedComponents = learningMode === 'PBL' ? setSelectedPBLComponents : setSelectedUALComponents
-                            
+
                             return (
                               <label
                                 key={component.id}
@@ -1537,19 +1485,19 @@ function MarkEntryPermissionsPage() {
               {/* Student Selection */}
               <div className="p-6">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3">Select Students</h4>
-                
+
                 {/* Filters */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
                   <input
                     type="text"
                     placeholder="Search by name/enrollment..."
                     value={studentFilters.search}
-                    onChange={(e) => setStudentFilters({...studentFilters, search: e.target.value})}
+                    onChange={(e) => setStudentFilters({ ...studentFilters, search: e.target.value })}
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   />
                   <select
                     value={studentFilters.department}
-                    onChange={(e) => setStudentFilters({...studentFilters, department: e.target.value})}
+                    onChange={(e) => setStudentFilters({ ...studentFilters, department: e.target.value })}
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white"
                   >
                     <option value="">All Departments</option>
@@ -1561,14 +1509,14 @@ function MarkEntryPermissionsPage() {
                     type="number"
                     placeholder="Year (optional)"
                     value={studentFilters.year}
-                    onChange={(e) => setStudentFilters({...studentFilters, year: e.target.value})}
+                    onChange={(e) => setStudentFilters({ ...studentFilters, year: e.target.value })}
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   />
                   <input
                     type="number"
                     placeholder="Semester (optional)"
                     value={studentFilters.semester}
-                    onChange={(e) => setStudentFilters({...studentFilters, semester: e.target.value})}
+                    onChange={(e) => setStudentFilters({ ...studentFilters, semester: e.target.value })}
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -1616,11 +1564,10 @@ function MarkEntryPermissionsPage() {
                         </thead>
                         <tbody>
                           {students.map(student => (
-                            <tr 
-                              key={student.student_id} 
-                              className={`border-t hover:bg-blue-50 cursor-pointer transition-colors ${
-                                selectedStudents.includes(student.student_id) ? 'bg-blue-50' : ''
-                              }`}
+                            <tr
+                              key={student.student_id}
+                              className={`border-t hover:bg-blue-50 cursor-pointer transition-colors ${selectedStudents.includes(student.student_id) ? 'bg-blue-50' : ''
+                                }`}
                               onClick={() => toggleStudentSelection(student.student_id)}
                             >
                               <td className="p-3">
@@ -1688,12 +1635,12 @@ function MarkEntryPermissionsPage() {
                       return (
                         <div
                           key={win.id}
-                          className="bg-purple-50 rounded-lg p-4 border border-purple-200 hover:border-purple-300 hover:shadow-sm transition-all"
+                          className="bg-background rounded-lg p-4 border border-purple-200 hover:border-purple-300 hover:shadow-sm transition-all"
                         >
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1">
                               <p className="font-semibold text-gray-800 text-sm mb-2">
-                                <span className="text-purple-700">User:</span> {win.user_username || `ID: ${win.user_id}`}
+                                <span className="">User :</span> {win.user_username || `ID: ${win.user_id}`}
                                 {win.course_name && <span className="text-gray-600"> • {win.course_name}</span>}
                                 {win.department_name && <span className="text-gray-600"> • {win.department_name}</span>}
                                 {win.semester && <span className="text-gray-600"> • Sem {win.semester}</span>}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
 import CurriculumCard from '../../components/CurriculumCard'
+import SearchFilterBar from '../../components/SearchFilterBar'
 
 function CurriculumMainPage() {
   const navigate = useNavigate()
@@ -20,6 +21,9 @@ function CurriculumMainPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingCurriculum, setEditingCurriculum] = useState(null)
   const [editFormData, setEditFormData] = useState({ name: '', academic_year: '', max_credits: '', curriculum_template: '2022' })
+
+  // Search] States
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Fetch curriculum from backend
   useEffect(() => {
@@ -44,6 +48,19 @@ function CurriculumMainPage() {
       setLoading(false)
     }
   }
+
+  // Filter curriculum based on search and filters
+  const filteredCurriculum = curriculum.filter((curr) => {
+    const q = searchQuery.toLowerCase()
+    const name = (curr.name || '').toLowerCase()
+    const academicYear = (curr.academic_year || '').toLowerCase()
+    const template = (curr.curriculum_template || '').toLowerCase()
+
+    return name.includes(q) || academicYear.includes(q) || template.includes(q)
+  })
+
+  // Get unique academic years for filter
+  const academicYears = [...new Set(curriculum.map(c => c.academic_year))].sort()
 
   const fetchLogs = async (curriculumId) => {
     try {
@@ -245,9 +262,8 @@ function CurriculumMainPage() {
         </div>
       }
     >
-      <div className="space-y-0">
-
-        {/* Error Message */}
+      <div className="space-y-6">
+        {/* Messages */}
         {error && (
           <div className="flex items-start space-x-3 p-4 bg-red-50 border border-red-200 rounded-lg">
             <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -352,23 +368,37 @@ function CurriculumMainPage() {
             </button>
           </div>
         ) : (
-          /* Curriculum Grid */
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {curriculum.map(reg => (
-              <CurriculumCard 
+          <div>
+            {/* Search Bar - Same as UsersPage */}
+            <div className='card-custom mb-4'>
+              <SearchFilterBar
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                resultCount={filteredCurriculum.length}
+                resultLabel="curriculum"
+                searchWidth="w-full sm:w-80"
+              />
+            </div>
+
+            {/* Curriculum Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+              {filteredCurriculum.map(reg => (
+                <CurriculumCard
                   key={reg.id}
                   reg={reg}
                   onEdit={handleEditCurriculum}
                   onViewLogs={handleViewLogs}
                   onDownloadPDF={handleDownloadPDF}
-                  onDelete={handleDeleteCurriculum}/>
-            ))}
+                  onDelete={handleDeleteCurriculum}
+                />
+              ))}
+            </div>
           </div>
         )}
 
         {/* Activity Logs Modal */}
         {showLogsModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center  justify-center z-50 p-4" onClick={() => setShowLogsModal(false)}>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowLogsModal(false)}>
             <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="bg-primary text-white px-8 py-5 flex items-start justify-between">
                 <div>
@@ -461,15 +491,6 @@ function CurriculumMainPage() {
                   </div>
                 )}
               </div>
-
-              {/* <div className="flex justify-end pb-3 px-3">
-                <button
-                  onClick={() => setShowLogsModal(false)}
-                  className="btn-primary-custom "
-                >
-                  Close
-                </button>
-              </div> */}
             </div>
           </div>
         )}
@@ -496,7 +517,6 @@ function CurriculumMainPage() {
               <div className="p-8 overflow-y-auto max-h-[calc(90vh-160px)] bg-gray-50">
                 <div className="space-y-5">
                   {selectedLog.diff && Object.entries(selectedLog.diff).map(([field, changes]) => {
-                    // Ensure changes object exists and has the expected structure
                     if (!changes || typeof changes !== 'object') {
                       console.warn('Invalid changes object for field:', field, changes);
                       return null;

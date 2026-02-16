@@ -355,7 +355,7 @@ function HonourCardPage() {
       <MainLayout title="Honour Programme" subtitle="Loading honour card...">
         <div className="flex justify-center items-center py-20">
           <div className="text-center">
-            <svg className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin h-12 w-12 text-primary mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
@@ -370,13 +370,13 @@ function HonourCardPage() {
     return (
       <MainLayout title="Honour Programme" subtitle="Honour card not found">
         <div className="flex justify-center items-center py-20">
-          <div className="card-custom max-w-md w-full text-center">
+          <div className="bg-white rounded-xl shadow-soft border border-gray-200 max-w-md w-full text-center p-8">
             <div className="text-5xl mb-3">❌</div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">Honour Card Not Found</h2>
             <p className="text-gray-600 mb-6">The honour card you're looking for doesn't exist.</p>
             <button
               onClick={() => navigate(`/curriculum/${curriculumId}/curriculum`)}
-              className="btn-primary-custom"
+              className="bg-primary text-white font-medium px-4 py-2 rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-soft"
             >
               Back to Curriculum
             </button>
@@ -428,27 +428,27 @@ function HonourCardPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="flex items-start space-x-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <div className="flex items-start space-x-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <svg className="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
-            <p className="text-sm font-medium text-red-600">{error}</p>
+            <p className="text-sm font-medium text-gray-600">{error}</p>
           </div>
         )}
         
         {/* Success Message */}
         {success && (
-          <div className="flex items-start space-x-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <div className="flex items-start space-x-3 p-4 bg-primary/10 border border-primary/20 rounded-lg">
+            <svg className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            <p className="text-sm font-medium text-green-600">{success}</p>
+            <p className="text-sm font-medium text-primary">{success}</p>
           </div>
         )}
 
         {/* Create Vertical Form */}
         {showVerticalForm && (
-          <div className="card-custom">
+          <div className="bg-white rounded-xl shadow-soft border border-gray-200 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-5">Add New Vertical</h2>
             <form onSubmit={handleCreateVertical} className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-end">
               <div className="flex-1">
@@ -459,17 +459,17 @@ function HonourCardPage() {
                   onChange={(e) => setNewVerticalName(e.target.value)}
                   placeholder="e.g., HONOUR VERTICAL"
                   required
-                  className="input-custom"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                 />
               </div>
               <div className="flex gap-3">
-                <button type="submit" className="btn-primary-custom flex-1 sm:flex-none">
+                <button type="submit" className="bg-primary text-white font-medium px-4 py-2 rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-soft">
                   Create Vertical
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowVerticalForm(false)}
-                  className="btn-secondary-custom flex-1 sm:flex-none"
+                  className="bg-white text-gray-700 font-medium px-4 py-2 rounded-lg border border-gray-300 hover:bg-background transition-all duration-200"
                 >
                   Cancel
                 </button>
@@ -480,13 +480,13 @@ function HonourCardPage() {
 
         {/* Verticals List */}
         {!honourCard.verticals || honourCard.verticals.length === 0 ? (
-          <div className="card-custom p-12 text-center">
+          <div className="bg-white rounded-xl shadow-soft border border-gray-200 p-12 text-center">
             <svg className="w-20 h-20 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No Verticals Yet</h3>
             <p className="text-gray-600 mb-6">Create your first vertical to organize honour programme courses</p>
-            <button onClick={() => setShowVerticalForm(true)} className="btn-primary-custom">
+            <button onClick={() => setShowVerticalForm(true)} className="bg-primary text-white font-medium px-4 py-2 rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-soft">
               + Add Vertical
             </button>
           </div>
@@ -495,10 +495,10 @@ function HonourCardPage() {
             {honourCard.verticals.map(vertical => (
               <div
                 key={vertical.id}
-                className="card-custom overflow-hidden hover:shadow-xl transition-all duration-200"
+                className="bg-white rounded-xl shadow-soft border border-gray-200 overflow-hidden hover:shadow-card transition-all duration-200"
               >
                 {/* Vertical Header */}
-                <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-5 sm:px-6">
+                <div className="bg-primary px-5 py-5 sm:px-6">
                   <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       <button
@@ -522,10 +522,10 @@ function HonourCardPage() {
                       <div className="flex-1 min-w-0">
                         <h3 className="text-lg sm:text-xl font-bold text-white break-words mb-2">{vertical.name}</h3>
                         <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center px-2.5 py-1 bg-pink-500 text-white text-xs font-bold rounded-full">
+                          <span className="inline-flex items-center px-2.5 py-1 bg-primary text-white text-xs font-bold rounded-full">
                             {vertical.courses?.length || 0}
                           </span>
-                          <span className="text-sm text-purple-100">
+                          <span className="text-sm text-white">
                             {vertical.courses?.length === 1 ? 'course' : 'courses'}
                           </span>
                         </div>
@@ -540,7 +540,7 @@ function HonourCardPage() {
                             setShowAddCourse(vertical.id)
                           }
                         }}
-                        className="px-4 py-2.5 bg-white text-purple-600 font-semibold rounded-lg hover:bg-purple-50 transition-all duration-200 flex items-center gap-2 text-sm"
+                        className="px-4 py-2.5 bg-white text-primary font-semibold rounded-lg hover:bg-background transition-all duration-200 flex items-center gap-2 text-sm"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -563,7 +563,7 @@ function HonourCardPage() {
 
                 {/* Add Course Section */}
                 {showAddCourse === vertical.id && (
-                  <div className="bg-purple-50 px-5 py-5 sm:px-6 border-b border-purple-200">
+                  <div className="bg-background px-5 py-5 sm:px-6 border-b border-primary">
                     <p className="text-sm text-gray-700 mb-4 font-medium flex items-center gap-2">
                       <span className="text-lg">💡</span>
                       Add a new course to this vertical (same fields as normal card)
@@ -577,7 +577,7 @@ function HonourCardPage() {
                           onChange={(e) => setNewCourse({ ...newCourse, course_code: e.target.value })}
                           placeholder="e.g., CS101"
                           required
-                          className="input-custom"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                         />
                       </div>
 
@@ -589,7 +589,7 @@ function HonourCardPage() {
                           onChange={(e) => setNewCourse({ ...newCourse, course_name: e.target.value })}
                           placeholder="e.g., Introduction to Programming"
                           required
-                          className="input-custom"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                         />
                       </div>
 
@@ -599,7 +599,7 @@ function HonourCardPage() {
                           value={newCourse.course_type}
                           onChange={(e) => setNewCourse({ ...newCourse, course_type: e.target.value })}
                           required
-                          className="input-custom"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all appearance-none background-image-url-data-image-svg-xml-3csvg-xmlns-27http-3a-2f-2fwww-w3-org-2f2000-2fsvg-27-fill-27none-27-viewBox-270-200-2020-20-27-3e-3cpath-stroke-27-236b7280-27-stroke-linecap-27round-27-stroke-linejoin-27round-27-stroke-width-271-5-27-d-27M6-208l4-204-204-4-27-2f-3c-2fsvg-3e background-position-right-0-5rem-center background-repeat-no-repeat background-size-1-5em-1-5em padding-right-2-5rem"
                         >
                           <option value="">Select Type</option>
                           <option value="Theory">Theory</option>
@@ -615,7 +615,7 @@ function HonourCardPage() {
                           value={newCourse.category}
                           onChange={(e) => setNewCourse({ ...newCourse, category: e.target.value })}
                           required
-                          className="input-custom"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all appearance-none background-image-url-data-image-svg-xml-3csvg-xmlns-27http-3a-2f-2fwww-w3-org-2f2000-2fsvg-27-fill-27none-27-viewBox-270-200-2020-20-27-3e-3cpath-stroke-27-236b7280-27-stroke-linecap-27round-27-stroke-linejoin-27round-27-stroke-width-271-5-27-d-27M6-208l4-204-204-4-27-2f-3c-2fsvg-3e background-position-right-0-5rem-center background-repeat-no-repeat background-size-1-5em-1-5em padding-right-2-5rem"
                         >
                           <option value="">Select Category</option>
                           <option value="BS - Basic Sciences">BS - Basic Sciences</option>
@@ -637,7 +637,7 @@ function HonourCardPage() {
                           placeholder="e.g., 3"
                           required
                           min="0"
-                          className="input-custom"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                         />
                       </div>
 
@@ -652,7 +652,7 @@ function HonourCardPage() {
                           placeholder="0"
                           required
                           min="0"
-                          className="input-custom"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                         />
                       </div>
                       )}
@@ -984,11 +984,11 @@ function HonourCardPage() {
                           onClick={() => {
                             setShowAddCourse(null)
                           }}
-                          className="btn-secondary-custom"
+                          className="bg-white text-gray-700 font-medium px-4 py-2 rounded-lg border border-gray-300 hover:bg-background transition-all duration-200"
                         >
                           Cancel
                         </button>
-                        <button type="submit" className="btn-primary-custom">
+                        <button type="submit" className="bg-primary text-white font-medium px-4 py-2 rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-soft">
                           Add Course
                         </button>
                       </div>
@@ -1012,27 +1012,27 @@ function HonourCardPage() {
                         {vertical.courses.map(course => (
                           <div
                             key={course.id}
-                            className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 hover:shadow-lg hover:border-purple-200 transition-all duration-200"
+                            className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 hover:shadow-lg hover:border-primary transition-all duration-200"
                           >
                             <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
                               <div className="flex-1 min-w-0">
                                 <div className="flex flex-wrap items-center gap-3 mb-4">
-                                  <span className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold rounded-lg shadow-sm">
+                                  <span className="inline-flex items-center px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg shadow-sm">
                                     {course.course_code}
                                   </span>
                                   <h4 className="font-bold text-gray-900 text-base sm:text-lg">{course.course_name}</h4>
                                 </div>
                                 <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
                                   <span className="flex items-center gap-2 text-gray-600">
-                                    <span className="w-2 h-2 bg-pink-500 rounded-full flex-shrink-0"></span>
+                                    <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
                                     <span><strong className="font-semibold text-gray-700">Credits:</strong> {course.credit}</span>
                                   </span>
                                   <span className="flex items-center gap-2 text-gray-600">
-                                    <span className="w-2 h-2 bg-pink-500 rounded-full flex-shrink-0"></span>
+                                    <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
                                     <span><strong className="font-semibold text-gray-700">Type:</strong> {course.course_type}</span>
                                   </span>
                                   <span className="flex items-center gap-2 text-gray-600">
-                                    <span className="w-2 h-2 bg-pink-500 rounded-full flex-shrink-0"></span>
+                                    <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
                                     <span><strong className="font-semibold text-gray-700">Category:</strong> {course.category}</span>
                                   </span>
                                 </div>
@@ -1040,19 +1040,19 @@ function HonourCardPage() {
                               <div className="flex flex-wrap gap-2 flex-shrink-0 self-start lg:self-auto">
                                 <button
                                   onClick={() => handleEditCourse(course)}
-                                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-all"
+                                  className="px-3 py-1.5 bg-primary hover:bg-primary/90 text-white text-xs rounded-lg transition-all"
                                 >
                                   Edit
                                 </button>
                                 <button
                                   onClick={() => navigate(`/course/${course.id}/syllabus`)}
-                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-all"
+                                  className="px-3 py-1.5 bg-primary hover:bg-primary/90 text-white text-xs rounded-lg transition-all"
                                 >
                                   Syllabus
                                 </button>
                                 <button
                                   onClick={() => navigate(`/course/${course.id}/mapping`)}
-                                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition-all"
+                                  className="px-3 py-1.5 bg-primary hover:bg-primary text-white text-xs rounded-lg transition-all"
                                 >
                                   Mapping
                                 </button>
@@ -1079,7 +1079,7 @@ function HonourCardPage() {
         {showEditModal && editingCourse && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-5 flex items-center justify-between sticky top-0 rounded-t-2xl">
+              <div className="bg-gradient-to-r from-primary to-primary text-white px-8 py-5 flex items-center justify-between sticky top-0 rounded-t-2xl">
                 <div>
                   <h3 className="text-xl font-bold">Edit Course</h3>
                   <p className="text-sm text-green-100">Update course details</p>
@@ -1404,7 +1404,7 @@ function HonourCardPage() {
                   </button>
                   <button
                     type="submit"
-                    className="bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2.5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
+                    className="bg-primary hover:bg-primary/90 text-white font-medium px-5 py-2.5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
                   >
                     Update Course
                   </button>

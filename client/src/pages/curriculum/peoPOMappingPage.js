@@ -198,7 +198,7 @@ function PEOPOMappingPage() {
         </div>
       }
     >
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="min-w-screen mx-auto space-y-4">
 
         {/* Messages */}
         {error && (
@@ -220,35 +220,60 @@ function PEOPOMappingPage() {
         )}
 
         {/* Legend */}
-        <div className="card-custom p-6">
-          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+        <div className="card-custom p-6 bg-white border border-gray-300">
+          <h3 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
             <span className="text-xl">📊</span>
-            Mapping Scale
+            Mapping Scale Legend
           </h3>
-          <div className="grid grid-cols-4 gap-4">
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center font-bold text-gray-600">0</span>
-              <span className="text-sm text-gray-600">No Correlation</span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                <span className="font-bold text-lg text-gray-600">0</span>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900 text-sm">No Correlation</div>
+                <div className="text-xs text-gray-500">Not related</div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 bg-green-100 rounded flex items-center justify-center font-bold text-green-700">1</span>
-              <span className="text-sm text-gray-600">Low</span>
+            <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="font-bold text-lg text-green-700">1</span>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900 text-sm">Low Correlation</div>
+                <div className="text-xs text-gray-500">Slightly related</div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 bg-yellow-100 rounded flex items-center justify-center font-bold text-yellow-700">2</span>
-              <span className="text-sm text-gray-600">Medium</span>
+            <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                <span className="font-bold text-lg text-yellow-700">2</span>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900 text-sm">Medium Correlation</div>
+                <div className="text-xs text-gray-500">Moderately related</div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 bg-red-100 rounded flex items-center justify-center font-bold text-red-700">3</span>
-              <span className="text-sm text-gray-600">High</span>
+            <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <span className="font-bold text-lg text-red-700">3</span>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900 text-sm">High Correlation</div>
+                <div className="text-xs text-gray-500">Strongly related</div>
+              </div>
             </div>
+          </div>
+          <div className="mt-4 p-3 bg-background rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>How to use:</strong> Select the appropriate correlation level (0-3) for each PEO-PO and PSO-PO relationship in the matrices below.
+            </p>
           </div>
         </div>
 
         {/* PEO-PO Mapping Matrix */}
         {pos.length > 0 && (
-          <div className="card-custom overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-gray-200">
+          <div className="card-custom overflow-hidden border-gray-300">
+            <div className="px-6 py-4 bg-gray-200">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <span className="text-2xl">🎯</span>
                 PEO - PO Mapping Matrix
@@ -347,16 +372,16 @@ function PEOPOMappingPage() {
         )}
 
         {/* PEOs, POs and PSOs Reference */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4">
           <div className="card-custom p-6">
-            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <span className="text-xl">📋</span>
+            <h3 className="font-semibold text- text-gray-900 mb-4 flex items-center gap-2">
+              <span className="text-2xl">📋</span>
               Program Educational Objectives (PEOs)
             </h3>
             <div className="space-y-2">
               {peos.map((peo, index) => (
                 <div key={index} className="flex gap-3 text-sm">
-                  <span className="font-semibold text-blue-600 min-w-[70px]">PEO{index + 1}:</span>
+                  <span className="font-semibold text-gray-800 min-w-[70px]">PEO{index + 1}:</span>
                   <span className="text-gray-700">{peo.text || peo}</span>
                 </div>
               ))}
@@ -366,13 +391,13 @@ function PEOPOMappingPage() {
           {pos.length > 0 && (
             <div className="card-custom p-6">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <span className="text-xl">🎓</span>
+                <span className="text-2xl">🎓</span>
                 Program Outcomes (POs)
               </h3>
               <div className="space-y-2">
                 {pos.map((po, index) => (
                   <div key={index} className="flex gap-3 text-sm">
-                    <span className="font-semibold text-purple-600 min-w-[60px]">PO{index + 1}:</span>
+                    <span className="font-semibold text-gray-800 min-w-[60px]">PO{index + 1}:</span>
                     <span className="text-gray-700">{po.text || po}</span>
                   </div>
                 ))}
@@ -383,13 +408,13 @@ function PEOPOMappingPage() {
           {psos.length > 0 && (
             <div className="card-custom p-6">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <span className="text-xl">🎯</span>
+                <span className="text-2xl">🎯</span>
                 Program Specific Outcomes (PSOs)
               </h3>
               <div className="space-y-2">
                 {psos.map((pso, index) => (
                   <div key={index} className="flex gap-3 text-sm">
-                    <span className="font-semibold text-green-600 min-w-[70px]">PSO{index + 1}:</span>
+                    <span className="font-semibold text-gray-800 min-w-[70px]">PSO{index + 1}:</span>
                     <span className="text-gray-700">{pso.text || pso}</span>
                   </div>
                 ))}

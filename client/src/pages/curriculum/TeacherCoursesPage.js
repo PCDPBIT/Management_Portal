@@ -127,7 +127,7 @@ function TeacherCoursesPage() {
 
   return (
     <MainLayout title="Teacher Course Allocation" subtitle="View all courses allocated to a teacher">
-      <div className="teacher-courses-page">
+      <div>
         {/* Search Form */}
         <div className="search-form-card">
           <form onSubmit={fetchTeacherCourses} className="search-form">

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
-import UserSearchFilter from '../../components/UserSearchFilter'
+import SearchFilterBar from '../../components/SearchFilterBar'
 
 function UsersPage() {
   const navigate = useNavigate()
@@ -215,7 +215,7 @@ function UsersPage() {
         </button>
       }
     >
-      <div className=" card-custom">
+      <div className="card-custom">
         {/* Messages */}
         {error && (
           <div className="flex items-start space-x-3 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -235,12 +235,12 @@ function UsersPage() {
           </div>
         )}
 
-        <UserSearchFilter
+        <SearchFilterBar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          roleFilter={roleFilter}
-          onRoleFilterChange={setRoleFilter}
-          userCount={filteredUsers.length}
+          resultCount={filteredUsers.length}
+          resultLabel="users"
+          searchWidth="w-full sm:w-80"
         />
 
         {/* Users Table */}
@@ -249,7 +249,7 @@ function UsersPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-sm text-black font-bold tracking-wider">S. No</th>
+                  <th className="px-6 py-3 text-center text-sm text-black font-bold tracking-wider">S. No</th>
                   <th className="px-6 py-3 text-left text-xs text-black font-bold tracking-wider uppercase">Username</th>
                   <th className="px-6 py-3 text-left text-xs text-black font-bold tracking-wider uppercase">Email</th>
                   <th className="px-6 py-3 text-left text-xs text-black font-bold tracking-wider uppercase">Role</th>
@@ -271,7 +271,7 @@ function UsersPage() {
                       <div className="text-sm text-gray-500">{user.email}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : ' text-gray-800'}`}>
+                      <span className={`inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : ' text-gray-800'}`}>
                         {user.role}
                       </span>
                     </td>

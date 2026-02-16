@@ -102,12 +102,19 @@ function TeacherCourseStudentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <p className="text-sm text-gray-600 mb-1">Course Code</p>
-              <p className="text-lg font-semibold text-blue-600">{course?.course_code}</p>
+              <p className="text-lg font-semibold">{course?.course_code}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600 mb-1">Course Type</p>
-              <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                {course?.course_type}
+              <span className={`px-3 py-1 tracking-tighter uppercase rounded-full text-xs font-semibold ${course.course_type === 'theory'
+                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                : course.course_type === 'lab'
+                  ? 'bg-green-100 text-green-700 border border-green-200'
+                  : course.course_type === 'theory_with_lab'
+                    ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                    : 'bg-gray-100 text-gray-700 border border-gray-200'
+                }`}>
+                {course.course_type === 'theory_with_lab' ? 'Theory+Lab' : course.course_type}
               </span>
             </div>
             <div>
@@ -137,8 +144,8 @@ function TeacherCourseStudentsPage() {
                     key={student.student_id}
                     className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
                   >
-                    <div 
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0" 
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0"
                       style={{ background: 'linear-gradient(to bottom right, rgb(67, 113, 229), rgb(47, 93, 209))' }}
                     >
                       {student.student_name.charAt(0).toUpperCase()}
