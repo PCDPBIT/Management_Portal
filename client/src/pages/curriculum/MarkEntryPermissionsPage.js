@@ -104,13 +104,10 @@ function MarkEntryPermissionsPage() {
 
   // Load components when course changes in student-assignment tab
   useEffect(() => {
-    console.log('[DEBUG] Component loading effect triggered:', { activeTab, windowCourseId, learningMode })
     if (activeTab === 'student-assignment' && windowCourseId && windowCourseId !== 'all') {
-      console.log('[DEBUG] Fetching components for course:', windowCourseId)
       fetchMarkCategoriesForCourseType(windowCourseId)
     } else if (activeTab === 'student-assignment') {
       // Show all categories if no specific course selected or if "All Courses" is selected
-      console.log('[DEBUG] Fetching all mark categories')
       fetchAllMarkCategories()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,8 +181,6 @@ function MarkEntryPermissionsPage() {
       // Convert learning mode to ID (UAL=1, PBL=2)
       const learningModeId = learningMode === 'UAL' ? 1 : 2
 
-      console.log(`[DEBUG] Fetching mark categories for learning mode: ${learningMode} (ID=${learningModeId})`)
-
       // Fetch all mark category types (Theory=1, Lab=2, Theory+Lab=3)
       const results = await Promise.all([
         fetch(`${API_BASE_URL}/mark-categories-by-type/1?learning_modes=${learningModeId}`).then(r => r.json()),
@@ -207,8 +202,6 @@ function MarkEntryPermissionsPage() {
           })
         }
       })
-
-      console.log(`[DEBUG] Found ${allCategories.length} components for ${learningMode}:`, allCategories.map(c => ({ id: c.id, name: c.name, learning_mode_id: c.learning_mode_id })))
 
       // Sort by position
       allCategories.sort((a, b) => (a.position || 0) - (b.position || 0))
@@ -235,10 +228,8 @@ function MarkEntryPermissionsPage() {
       const courseRes = await fetch(`${API_BASE_URL}/course/${courseId}`)
       if (!courseRes.ok) throw new Error('Failed to fetch course')
       const course = await courseRes.json()
-      console.log('[DEBUG] Fetched course:', course)
 
       const courseTypeID = mapCourseCategoryToTypeID(course.category)
-      console.log('[DEBUG] Course category:', course.category, 'Mapped to type ID:', courseTypeID)
       if (courseTypeID === 0) {
         setWindowComponents([])
         return
@@ -252,8 +243,6 @@ function MarkEntryPermissionsPage() {
       // Sort by position
       const sorted = Array.isArray(categories) ? categories : []
       sorted.sort((a, b) => (a.position || 0) - (b.position || 0))
-      console.log('[DEBUG] Fetched categories:', sorted)
-      sorted.forEach(cat => console.log(`[DEBUG] ID=${cat.id}, Name=${cat.name}, CourseTypeName='${cat.course_type_name}', CategoryName='${cat.category_name}'`))
       setWindowComponents(sorted)
     } catch (error) {
       console.error('Error fetching mark categories for course:', error)
@@ -265,7 +254,6 @@ function MarkEntryPermissionsPage() {
     try {
       const res = await fetch(`${API_BASE_URL}/departments`)
       const data = await res.json()
-      console.log('[DEBUG] Fetched departments:', data)
       // Handle both response formats: array or object with departments property
       const depts = Array.isArray(data) ? data : (data.departments || [])
       setDepartments(depts)

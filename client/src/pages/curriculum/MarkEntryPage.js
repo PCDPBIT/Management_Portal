@@ -212,19 +212,11 @@ function MarkEntryPage() {
       enrichStudentsWithEnrollmentNumbers(selectedCourse.enrollments).then((enrichedStudents) => {
         setAllStudents(enrichedStudents)
         
-        console.log('[DEBUG] All students:', enrichedStudents.map(s => ({
-          id: s.student_id,
-          name: s.student_name,
-          learning_mode_id: s.learning_mode_id
-        })))
-        
         // Filter students by learning mode (UAL=1, PBL=2)
         const learningModeId = learningMode === 'UAL' ? 1 : 2
         const filteredStudents = enrichedStudents.filter(
           (student) => student.learning_mode_id === learningModeId
         )
-        
-        console.log(`[DEBUG] Filtered ${filteredStudents.length} students for ${learningMode} (learning_mode_id=${learningModeId})`)
         
         setStudents(filteredStudents)
       })

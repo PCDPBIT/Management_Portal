@@ -27,7 +27,6 @@ function TeacherDashboardPage() {
 
     try {
       const url = `${API_BASE_URL}/teachers/${teacherID}/courses`
-      console.log('[TEACHER DASHBOARD] Fetching from:', url)
       const response = await fetch(url)
 
       if (!response.ok) {
@@ -35,7 +34,6 @@ function TeacherDashboardPage() {
       }
 
       const data = await response.json()
-      console.log('[TEACHER DASHBOARD] Data received:', data)
 
       if (!data || data.length === 0) {
         setError('No courses assigned to you')
