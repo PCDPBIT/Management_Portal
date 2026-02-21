@@ -49,7 +49,7 @@ function TeacherDetailsPage() {
         throw new Error("Failed to fetch departments");
       }
       const data = await response.json();
-      setDepartments(data || []);
+      setDepartments(data.departments || []);
     } catch (err) {
       console.error("Error fetching departments:", err);
       setError("Failed to load departments. Please try again.");
@@ -263,7 +263,7 @@ function TeacherDetailsPage() {
         )
       }
     >
-      <div className="max-w-6xl mx-auto">
+      <div className="min-w-screen mx-auto">
         {/* Messages */}
         {error && (
           <div className="mb-6 flex items-start space-x-3 p-4 bg-red-50 border border-red-200 rounded-lg">

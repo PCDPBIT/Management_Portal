@@ -127,7 +127,7 @@ function TeacherCoursesPage() {
 
   return (
     <MainLayout title="Teacher Course Allocation" subtitle="View all courses allocated to a teacher">
-      <div className="teacher-courses-page">
+      <div>
         {/* Search Form */}
         <div className="search-form-card">
           <form onSubmit={fetchTeacherCourses} className="search-form">
@@ -175,7 +175,7 @@ function TeacherCoursesPage() {
 
               <div className="form-group">
                 <label>&nbsp;</label>
-                <button type="submit" className="btn-primary" disabled={loading}>
+                <button type="submit" className="btn-primary-custom" disabled={loading}>
                   {loading ? 'Searching...' : 'Search'}
                 </button>
               </div>

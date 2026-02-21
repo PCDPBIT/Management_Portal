@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
+import StatCard from '../../components/StatCard'
 
 function TeacherDashboardPage() {
   const navigate = useNavigate()
@@ -149,59 +150,52 @@ function TeacherDashboardPage() {
         {!loading && !error && Object.keys(coursesByCategory).length > 0 && (
           <>
             {/* Summary Stats */}
+            {/* Summary Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Total Courses Card */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600 text-sm font-medium mb-1">My Courses</p>
-                    <p className="text-3xl font-bold text-blue-600">
-                      {getTotalCourses()}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <StatCard
+                stat={{
+                  title: "My Courses",
+                  value: getTotalCourses(),
+                  icon: (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
-                  </div>
-                </div>
-              </div>
+                  )
+                }}
+              />
 
               {/* Total Students Card */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600 text-sm font-medium mb-1">Total Students</p>
-                    <p className="text-3xl font-bold text-green-600">{getTotalStudents()}</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <StatCard
+                stat={{
+                  title: "Total Students",
+                  value: getTotalStudents(),
+                  icon: (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
-                  </div>
-                </div>
-              </div>
+                  )
+                }}
+              />
 
               {/* Total Credits Card */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600 text-sm font-medium mb-1">Total Credits</p>
-                    <p className="text-3xl font-bold text-purple-600">{getTotalCredits()}</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <StatCard
+                stat={{
+                  title: "Total Credits",
+                  value: getTotalCredits(),
+                  icon: (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                     </svg>
-                  </div>
-                </div>
-              </div>
+                  )
+                }}
+              />
             </div>
 
             {/* Courses by Category */}
             <div className="space-y-4">
               {Object.entries(coursesByCategory).map(([category, courses]) => (
-                <div key={category} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div key={category} className="card-custom overflow-hidden">
                   <div className="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-gray-700">{category}</h3>
                     <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
@@ -210,15 +204,30 @@ function TeacherDashboardPage() {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 border-b border-gray-200">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course Name</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                          <th className="w-[7.28%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            S.No
+                          </th>
+                          <th className="w-[14.28%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Code
+                          </th>
+                          <th className="w-[14.28%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Course Name
+                          </th>
+                          <th className="w-[14.28%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Type
+                          </th>
+                          <th className="w-[14.28%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Credit
+                          </th>
+                          <th className="w-[14.28%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Students
+                          </th>
+                          <th className="w-[14.28%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Action
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -228,29 +237,44 @@ function TeacherDashboardPage() {
                             className="hover:bg-blue-50 transition-colors cursor-pointer"
                             onClick={() => handleCourseClick(course)}
                           >
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="font-semibold text-blue-600">{course.course_code}</span>
+                            <td className="px-4 py-4 text-center text-sm font-medium text-gray-900">
+                              {idx + 1}
                             </td>
-                            <td className="px-6 py-4">
-                              <p className="text-gray-900 font-medium">{course.course_name}</p>
+                            <td className="px-4 py-4 text-center text-sm font-semibold text-gray-900">
+                              {course.course_code}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
-                                {course.course_type}
+                            <td className="px-4 py-4 text-left">
+                              <div className="max-w-full">
+                                <p className="text-sm font-medium text-gray-900 truncate" title={course.course_name}>
+                                  {course.course_name}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 text-center">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                course.course_type === 'theory'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : course.course_type === 'lab'
+                                    ? 'bg-green-100 text-green-800'
+                                    : course.course_type === 'theory_with_lab'
+                                      ? 'bg-purple-100 text-purple-800'
+                                      : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {course.course_type === 'theory_with_lab' ? 'Theory+Lab' : course.course_type}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="font-medium text-gray-700">{course.credit}</span>
+                            <td className="px-4 py-4 text-center text-sm font-medium text-gray-900">
+                              {course.credit}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 py-1 bg-green-50 text-green-700 rounded text-xs font-medium">
+                            <td className="px-4 py-4 text-center">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 {course.enrollments?.length || 0} students
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right">
-                              <span className="text-blue-500 hover:text-blue-700">
-                                →
-                              </span>
+                            <td className="px-4 py-4 text-center">
+                              <svg className="w-5 h-5 text-blue-500 hover:text-blue-700 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
                             </td>
                           </tr>
                         ))}
@@ -265,7 +289,7 @@ function TeacherDashboardPage() {
 
         {/* Empty State */}
         {!loading && !error && Object.keys(coursesByCategory).length === 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+          <div className="card-custom p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-blue-50 mx-auto mb-4 flex items-center justify-center">
               <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />

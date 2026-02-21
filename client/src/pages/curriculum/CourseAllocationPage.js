@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
 import './CourseAllocationPage.css'
+import StatCard from '../../components/StatCard'
+import SearchBarWithDropdown from '../../components/SearchBarWithDropdown'
 
 function CourseAllocationPage() {
   const [curriculums, setCurriculums] = useState([])
@@ -9,6 +11,10 @@ function CourseAllocationPage() {
   const [teachers, setTeachers] = useState([])
   const [courses, setCourses] = useState([])
   const [summary, setSummary] = useState(null)
+  const [teacherSearch, setTeacherSearch] = useState('')
+  const [showTeacherDropdown, setShowTeacherDropdown] = useState(false)
+  const dropdownRef = useRef(null)
+  const [curriculumDisplay, setCurriculumDisplay] = useState('')
   
   const [filters, setFilters] = useState({
     curriculum_id: '',
@@ -54,6 +60,17 @@ function CourseAllocationPage() {
     }
   }, [filters.semester_id, filters.academic_year])
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowTeacherDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const fetchCurriculums = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/curriculum`)
@@ -63,6 +80,7 @@ function CourseAllocationPage() {
       if (data && data.length > 0) {
         const firstId = data[0].id
         setFilters(prev => ({ ...prev, curriculum_id: firstId }))
+        setCurriculumDisplay(data[0].name)
         // Immediately fetch semesters
         fetchSemesters(firstId)
       }
@@ -123,9 +141,22 @@ function CourseAllocationPage() {
     }
   }
 
+  // Filter teachers based on search
+const filteredTeachers = teachers.filter(t =>
+  t.name.toLowerCase().includes(teacherSearch.toLowerCase()) ||
+  (t.desg && t.desg.toLowerCase().includes(teacherSearch.toLowerCase()))
+)
+
+  const handleTeacherSelect = (teacher) => {
+    setNewAlloc({ ...newAlloc, teacher_id: teacher.id })
+    setTeacherSearch(`${teacher.name} (${teacher.desg})`)
+    setShowTeacherDropdown(false)
+  }
+
   const handleAddFaculty = (course) => {
     setSelectedCourse(course)
     setNewAlloc({ teacher_id: '', section: 'A', role: 'Primary', allocation_id: null })
+    setTeacherSearch('')
     setShowAddModal(true)
   }
 
@@ -137,6 +168,8 @@ function CourseAllocationPage() {
       role: allocation.role,
       allocation_id: allocation.id
     })
+    const teacher = teachers.find(t => t.id === allocation.teacher_id)
+    setTeacherSearch(teacher ? `${teacher.name} (${teacher.desg})` : '')
     setShowAddModal(true)
   }
 
@@ -203,26 +236,14 @@ function CourseAllocationPage() {
 
   return (
     <MainLayout title="Course Allocation" subtitle="Assign faculty to courses">
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Summary Cards */}
         {summary && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <div className="text-3xl font-bold text-gray-900">{summary.total_courses}</div>
-              <div className="text-sm text-gray-500 font-medium mt-1">Total Courses</div>
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
-              <div className="text-3xl font-bold text-green-600">{summary.assigned_courses}</div>
-              <div className="text-sm text-gray-500 font-medium mt-1">Assigned</div>
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-orange-500">
-              <div className="text-3xl font-bold text-orange-600">{summary.unassigned_courses}</div>
-              <div className="text-sm text-gray-500 font-medium mt-1">Unassigned</div>
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
-              <div className="text-3xl font-bold text-blue-600">{summary.active_teachers}/{summary.total_teachers}</div>
-              <div className="text-sm text-gray-500 font-medium mt-1">Active Teachers</div>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <StatCard stat={{ title: "Total Courses", value: summary.total_courses}} />
+            <StatCard stat={{ title: "Assigned", value: summary.assigned_courses}} />
+            <StatCard stat={{ title: "Unassigned", value: summary.unassigned_courses}} />
+            <StatCard stat={{ title: "Active Teachers", value: `${summary.active_teachers}/${summary.total_teachers}`}} />
           </div>
         )}
 
@@ -231,16 +252,18 @@ function CourseAllocationPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Curriculum</label>
-              <select
-                value={filters.curriculum_id}
-                onChange={(e) => setFilters({ ...filters, curriculum_id: e.target.value })}
-                className="input-custom"
-              >
-                <option value="">Select Curriculum</option>
-                {curriculums.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <SearchBarWithDropdown
+                value={curriculumDisplay}
+                onChange={(e) => setCurriculumDisplay(e.target.value)}
+                items={curriculums}
+                onSelect={(item) => {
+                  setFilters({ ...filters, curriculum_id: item.id })
+                  setCurriculumDisplay(item.name)
+                }}
+                placeholder="Select Curriculum"
+                renderItem={(item) => <div>{item.name}</div>}
+                getItemKey={(item) => item.id}
+              />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Semester</label>
@@ -284,9 +307,9 @@ function CourseAllocationPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Faculty Allocation</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Course</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Details</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Faculty Allocation</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -356,17 +379,49 @@ function CourseAllocationPage() {
             <form onSubmit={saveAllocation} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Select Teacher</label>
-                <select
-                  value={newAlloc.teacher_id}
-                  onChange={(e) => setNewAlloc({ ...newAlloc, teacher_id: e.target.value })}
-                  className="input-custom"
-                  required
-                >
-                  <option value="">Select Teacher</option>
-                  {teachers.map(t => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.desg})</option>
-                  ))}
-                </select>
+                <div className="relative" ref={dropdownRef}>
+                  <input
+                    type="text"
+                    value={teacherSearch}
+                    onChange={(e) => {
+                      setTeacherSearch(e.target.value)
+                      setShowTeacherDropdown(true)
+                      if (newAlloc.teacher_id) {
+                        setNewAlloc({ ...newAlloc, teacher_id: '' })
+                      }
+                    }}
+                    onFocus={() => setShowTeacherDropdown(true)}
+                    className="input-custom"
+                    placeholder="Search teacher by name..."
+                    required={!newAlloc.teacher_id}
+                  />
+                  
+                  {showTeacherDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {filteredTeachers.length > 0 ? (
+                        filteredTeachers.map(t => (
+                          <div
+                            key={t.id}
+                            onClick={() => handleTeacherSelect(t)}
+                            className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium text-gray-900">{t.name}</div>
+                            <div className="text-sm text-gray-500">{t.desg}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-gray-500 text-center">
+                          No teachers found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {newAlloc.teacher_id && (
+                  <div className="mt-1 text-xs text-green-600">
+                    ✓ Teacher selected
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

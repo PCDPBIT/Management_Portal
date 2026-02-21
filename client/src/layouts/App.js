@@ -42,6 +42,9 @@ import MarkEntryPage from "../pages/curriculum/MarkEntryPage";
 import MarkEntryPermissionsPage from "../pages/curriculum/MarkEntryPermissionsPage";
 import MyAssignedStudentsPage from "../pages/curriculum/MyAssignedStudentsPage";
 
+//404 page
+import NotFoundPage from "../components/NotFoundPage";
+
 function App() {
   return (
     <Routes>
@@ -86,8 +89,11 @@ function App() {
           <Route path="course/:courseId/mapping" element={<MappingPage />} />
           <Route path="curriculum/:id/peo-po-mapping" element={<PEOPOMappingPage />} />
 
+
           <Route path="clusters" element={<ClusterManagementPage />} />
           <Route path="sharing" element={<SharingManagementPage />} />
+
+          <Route path="*" element={<NotFoundPage />} />
 
         </Route>
       </Route>

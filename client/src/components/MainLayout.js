@@ -207,7 +207,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
   return (
     <div className="flex-1">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="px-8 flex items-center justify-between" style={{ height: "64px" }}>
+        <div className="px-4 h-[79px] flex items-center justify-between">
           <div className="flex flex-col">
             {title && <h1 className="text-xl font-bold text-gray-900">{title}</h1>}
             {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
@@ -216,7 +216,7 @@ const MainLayout = ({ children, title, subtitle, actions }) => {
         </div>
       </header>
 
-      <main className="p-8">{children}</main>
+      <main className="p-4">{children}</main>
     </div>
   );
 };

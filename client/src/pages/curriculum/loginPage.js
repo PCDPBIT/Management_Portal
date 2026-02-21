@@ -66,11 +66,7 @@ function LoginPage() {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-purple-50 via-white flex items-center justify-center p-4"
-      style={{
-        backgroundImage:
-          "linear-gradient(to bottom right, rgba(67, 113, 229, 0.05), rgb(255, 255, 255), rgba(168, 85, 247, 0.05))",
-      }}
+      className="min-h-screen bg-background flex items-center justify-center p-4"
     >
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -91,8 +87,7 @@ function LoginPage() {
           <div
             className="inline-flex items-center justify-center w-20 h-20 rounded-3xl shadow-2xl mb-6 transform hover:scale-105 transition-transform"
             style={{
-              background:
-                "linear-gradient(to bottom right, rgb(67, 113, 229), rgb(47, 93, 209))",
+              backgroundColor: "#7D53F6",
             }}
           >
             <svg
@@ -112,10 +107,7 @@ function LoginPage() {
           <h1
             className="text-4xl font-bold mb-2"
             style={{
-              background:
-                "linear-gradient(to right, rgb(67, 113, 229), rgb(47, 93, 209))",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
+              color: "#7D53F6",
             }}
           >
             Curriculum Management System

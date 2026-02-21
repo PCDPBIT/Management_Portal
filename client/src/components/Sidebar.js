@@ -134,7 +134,7 @@ function Sidebar({ onExpandedChange }) {
         name: "Dashboard",
         path: userRole === "teacher" ? "/teacher-dashboard" : "/dashboard",
         icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -149,7 +149,7 @@ function Sidebar({ onExpandedChange }) {
         name: "Curriculum",
         path: "/curriculum",
         icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -164,7 +164,7 @@ function Sidebar({ onExpandedChange }) {
         name: "Student & Teacher",
         path: "/student-teacher-dashboard",
         icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -179,7 +179,7 @@ function Sidebar({ onExpandedChange }) {
         name: "Course Allocation",
         path: "/course-allocation",
         icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -194,7 +194,7 @@ function Sidebar({ onExpandedChange }) {
         name: "Teacher Courses",
         path: "/teacher-courses",
         icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -209,7 +209,7 @@ function Sidebar({ onExpandedChange }) {
         name: "Mark Entry",
         path: "/mark-entry",
         icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -225,7 +225,7 @@ function Sidebar({ onExpandedChange }) {
         name: "Mark Permissions",
         path: "/mark-entry-permissions",
         icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -270,27 +270,20 @@ function Sidebar({ onExpandedChange }) {
   return (
     <aside
       onPointerDownCapture={() => setIsPointerDownInSidebar(true)}
-      className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 ${
-        isSidebarExpanded ? "w-64" : "w-20"
-      }`}
+      className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 ${isSidebarExpanded ? "w-64" : "w-20"
+        }`}
     >
       {/* Logo Header */}
       <div
-        className={`h-16 flex items-center border-b border-gray-200 transition-all duration-300 ${
-          isSidebarExpanded ? "justify-between px-6" : "justify-center"
-        }`}
+        className={`h-20 flex items-center border-b border-gray-200 transition-all duration-300 ${isSidebarExpanded ? "justify-between px-6" : "justify-center"
+          }`}
       >
         <div
-          className={`flex items-center transition-all duration-300 ${
-            isSidebarExpanded ? "space-x-3" : ""
-          }`}
+          className={`flex items-center transition-all duration-300 ${isSidebarExpanded ? "space-x-3" : ""
+            }`}
         >
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0"
-            style={{
-              background:
-                "linear-gradient(to bottom right, rgb(67, 113, 229), rgb(47, 93, 209))",
-            }}
+            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 bg-primary"
           >
             <svg
               className="w-6 h-6 text-white"
@@ -312,7 +305,7 @@ function Sidebar({ onExpandedChange }) {
                 className="text-lg font-bold whitespace-nowrap"
                 style={{
                   background:
-                    "linear-gradient(to right, rgb(67, 113, 229), rgb(47, 93, 209))",
+                    "linear-gradient(to right, #7d53f6, #6c3df0)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                 }}
@@ -333,7 +326,7 @@ function Sidebar({ onExpandedChange }) {
             title={sidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
           >
             <svg
-              className="w-5 h-5 text-gray-600"
+              className="w-7 h-7"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -354,31 +347,32 @@ function Sidebar({ onExpandedChange }) {
       </div>
 
       {/* Navigation */}
-      <nav className="p-4 space-y-1">
+      <nav className="px-4 py-4 space-y-4">
         {menuItems.map((item) => (
           <button
             key={item.path}
             onClick={() => navigate(item.path)}
-            className={`w-full flex items-center rounded-lg transition-all duration-300 ease-in-out ${
-              isActive(item.path)
+            className={`w-full flex items-center rounded-lg transition-all duration-300 ease-in-out ${isActive(item.path)
                 ? "font-medium"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-            } ${
-              isSidebarExpanded
+                : "text-gray-900 hover:bg-gray-200 hover:text-gray-800"
+              } ${isSidebarExpanded
                 ? "px-4 py-3 justify-start"
                 : "px-0 py-3 justify-center"
-            }`}
+              }`}
             style={{
               ...(isActive(item.path)
                 ? {
-                    backgroundColor: "rgba(67, 113, 229, 0.1)",
-                    color: "rgb(67, 113, 229)",
-                  }
+                  backgroundColor: "rgb(125, 83, 246)",
+                  color: "#ffffff",
+                }
                 : {}),
             }}
           >
             <div className="flex items-center gap-3 transition-all duration-300 ease-in-out">
-              <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+              <div
+                className={`flex-shrink-0 w-7 h-7 flex items-center justify-center ${isActive(item.path) ? "text-white" : "text-iconColor"
+                  }`}
+              >
                 {item.icon}
               </div>
               {isSidebarExpanded && (
@@ -390,13 +384,11 @@ function Sidebar({ onExpandedChange }) {
       </nav>
 
       {/* User Section */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+      <div className="absolute bottom-0 left-0 right-0 p-4 mx-auto border-t border-gray-200">
         <div
-          className={`flex items-center transition-all duration-300 overflow-hidden ${
-            isSidebarExpanded ? "space-x-3" : "justify-center"
-          }`}
+          className={`flex items-center transition-all duration-300 overflow-hidden ${isSidebarExpanded ? "space-x-3" : "justify-center"}`}
         >
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+          <div className={`w-7 h-7 ms-2 bg-primary rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0`}>
             {userName.charAt(0).toUpperCase()}
           </div>
           <div
@@ -414,7 +406,7 @@ function Sidebar({ onExpandedChange }) {
 
         <button
           onClick={handleLogout}
-          className="mt-3 w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-all duration-300 overflow-hidden"
+          className="mt-3 w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm text-iconColor border hover:bg-primary hover:text-white rounded-lg transition-all duration-300 overflow-hidden"
           style={{
             opacity: isSidebarExpanded ? 1 : 0,
             transform: isSidebarExpanded ? "scaleY(1)" : "scaleY(0)",

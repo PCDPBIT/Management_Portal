@@ -165,27 +165,31 @@ function ManageCurriculumPage() {
   const getCardStyle = (cardType) => {
     const styles = {
       'semester': {
-        gradient: 'from-blue-500 to-blue-700',
-        bg: 'bg-blue-50',
-        badge: 'bg-blue-100 text-blue-700',
+        card:'hover:border hover:border-primary',
+        gradient: 'from-primary to-primary',
+        bg: 'bg-white',
+        badge: 'bg-white text-primary border border-primary',
         label: 'Semester',
         icon: '📚'
       },
       'language_elective': {
+        card:'hover:border hover:border-green-700',
         gradient: 'from-green-500 to-green-700',
         bg: 'bg-green-50',
-        badge: 'bg-green-100 text-green-700',
+        badge: 'border border-green-700 text-green-700',
         label: 'Language Elective',
         icon: '🎯'
       },
       'vertical': {
-        gradient: 'from-orange-500 to-orange-700',
+        card:'hover:border hover:border-orange-500',
+        gradient: 'from-orange-300 to-orange-500',
         bg: 'bg-orange-50',
         badge: 'bg-orange-100 text-orange-700',
         label: 'Vertical',
         icon: '📊'
       },
       'open_elective': {
+        card:'hover:border hover:border-yellow-500',
         gradient: 'from-purple-500 to-purple-700',
         bg: 'bg-purple-50',
         badge: 'bg-purple-100 text-purple-700',
@@ -193,6 +197,7 @@ function ManageCurriculumPage() {
         icon: '🌟'
       },
       'one_credit': {
+        card:'hover:border hover:border-yellow-500',
         gradient: 'from-teal-500 to-teal-700',
         bg: 'bg-teal-50',
         badge: 'bg-teal-100 text-teal-700',
@@ -368,7 +373,7 @@ function ManageCurriculumPage() {
         </div>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-0">
 
         {/* Error Message */}
         {error && (
@@ -453,7 +458,7 @@ function ManageCurriculumPage() {
                     <option value="MINOR VERTICAL">MINOR VERTICAL</option>
                   </select>
                 </div>
-                <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white font-medium px-5 py-2.5 rounded-lg transition-all">
+                <button type="submit" className="bg-primary text-white font-medium px-5 py-2.5 rounded-lg transition-all">
                   Create Honour Card
                 </button>
                 <button
@@ -487,7 +492,7 @@ function ManageCurriculumPage() {
               return (
                 <div
                   key={`sem-${sem.id}`}
-                  className={`group card-custom p-6 cursor-pointer hover:scale-105 transition-all duration-200 relative ${style.bg} border-2 border-transparent hover:border-opacity-50`}
+                  className={`group card-custom p-6 cursor-pointer transition-all duration-200 relative ${style.bg} ${style.card} border-2 border-transparent hover:border-opacity-50`}
                   onClick={() => navigate(`/curriculum/${id}/curriculum/semester/${sem.id}`)}
                 >
                   {/* Edit Button - Only show for semester and vertical cards */}
@@ -560,7 +565,7 @@ function ManageCurriculumPage() {
             {honourCards.map(card => (
               <div
                 key={`honour-${card.id}`}
-                className="relative group card-custom p-6 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
+                className="relative group card-custom p-6 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200  hover:border hover:border-primary"
               >
                 {/* Delete Button */}
                 <button
@@ -568,7 +573,7 @@ function ManageCurriculumPage() {
                     e.stopPropagation()
                     handleDeleteHonourCard(card.id, card.title)
                   }}
-                  className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-md z-10"
+                  className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded-lg hover:bg-red-100 opacity-0 group-hover:opacity-100 transition-all"
                   title="Delete"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -578,7 +583,7 @@ function ManageCurriculumPage() {
 
                 {/* Card Content */}
                 <div
-                  className="text-center cursor-pointer"
+                  className="text-center cursor-pointer rounded-lg p-4 transition-all duration-200"
                   onClick={() => navigate(`/curriculum/${id}/curriculum/honour/${card.id}`)}
                 >
                   <div className="text-5xl mb-3">🎖️</div>
@@ -597,7 +602,7 @@ function ManageCurriculumPage() {
         {showEditModal && editingSemester && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-              <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-5 flex items-center justify-between rounded-t-2xl">
+              <div className="bg-primary text-white px-8 py-5 flex items-center justify-between rounded-t-2xl">
                 <div>
                   <h3 className="text-xl font-bold">
                     {editingSemester.card_type === 'vertical' ? 'Edit Vertical' : 'Edit Semester'}
@@ -642,7 +647,7 @@ function ManageCurriculumPage() {
                   </button>
                   <button
                     type="submit"
-                    className="bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2.5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
+                    className="btn-primary-custom text-white font-medium px-5 py-2.5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
                   >
                     {editingSemester.card_type === 'vertical' ? 'Update Vertical' : 'Update Semester'}
                   </button>

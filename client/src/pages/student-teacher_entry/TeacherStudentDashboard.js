@@ -1,9 +1,11 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import MainLayout from '../../components/MainLayout'
+import { useState } from 'react'
 
 function TeacherStudentDashboard() {
   const navigate = useNavigate()
+  const [hoveredIndex, setHoveredIndex] = useState(null)
 
   const actions = [
     {
@@ -31,7 +33,7 @@ function TeacherStudentDashboard() {
       description: 'Assign students to teachers and manage relationships',
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       ),
       action: () => navigate('/teacher-student-mapping')
@@ -39,25 +41,26 @@ function TeacherStudentDashboard() {
   ]
 
   return (
-    <MainLayout 
-      title="Student & Teacher Management" 
+    <MainLayout
+      title="Student & Teacher Management"
       subtitle="Manage teachers, students, and their mappings"
     >
       <div className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {actions.map((action, index) => (
             <button
               key={index}
               onClick={action.action}
-              className="flex flex-col items-center text-center p-8 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 border border-gray-100 group"
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              className="flex flex-col items-center text-center p-8 bg-white rounded-xl card-custom transition-all duration-200 border hover:border-primary hover:border-primary-400 group relative"
             >
-              <div 
-                className="w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors duration-200"
-                style={{
-                    backgroundColor: 'rgba(67, 113, 229, 0.1)',
-                    color: 'rgb(67, 113, 229)'
-                }}
-              >
+              {hoveredIndex === index && (
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary text-white px-3 py-1.5 rounded-md text-xs font-medium shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-20">
+                  Click To View
+                </div>
+              )}
+              <div className="w-16 h-16 text-primary bg-primary-100 border border-primary rounded-full flex items-center justify-center mb-4 transition-colors duration-200">
                 {action.icon}
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">{action.title}</h3>

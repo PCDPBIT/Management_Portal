@@ -6,7 +6,7 @@ import { API_BASE_URL } from '../../config'
 function SemesterDetailPage() {
   const { id, semId } = useParams()
   const navigate = useNavigate()
-  
+
   const [courses, setCourses] = useState([])
   const [semester, setSemester] = useState(null)
   const [curriculum, setCurriculum] = useState(null)
@@ -69,14 +69,14 @@ function SemesterDetailPage() {
       const semResponse = await fetch(`${API_BASE_URL}/curriculum/${id}/semesters`)
       if (!semResponse.ok) return
       const semesters = await semResponse.json()
-      
+
       // Fetch courses for all semesters and sum credits
       // Only count credits from semester card types and courses with count_towards_limit = true
       let totalCredits = 0
       for (const sem of semesters) {
         // Only count credits for semester card types
         if (sem.card_type !== 'semester') continue
-        
+
         const courseResponse = await fetch(`${API_BASE_URL}/curriculum/${id}/semester/${sem.id}/courses`)
         if (courseResponse.ok) {
           const semCourses = await courseResponse.json()
@@ -101,12 +101,12 @@ function SemesterDetailPage() {
       }
       const data = await response.json()
       setCourseTypes(data || [])
-      
+
       // Create mapping of ID to name
       const map = {}
-      ;(data || []).forEach((ct) => {
-        map[ct.id] = ct.name
-      })
+        ; (data || []).forEach((ct) => {
+          map[ct.id] = ct.name
+        })
       setCourseTypeMap(map)
     } catch (err) {
       console.error('Error fetching course types:', err)
@@ -165,7 +165,7 @@ function SemesterDetailPage() {
 
   const handleAddCourse = async (e) => {
     e.preventDefault()
-    
+
     // Validate total marks
     const totalMarks = (parseInt(newCourse.cia_marks) || 0) + (parseInt(newCourse.see_marks) || 0)
     if (totalMarks > 100) {
@@ -173,13 +173,13 @@ function SemesterDetailPage() {
       setTimeout(() => setError(''), 5000)
       return
     }
-    
+
     try {
       const lectureHrs = parseInt(newCourse.lecture_hrs) || 0
       const tutorialHrs = parseInt(newCourse.tutorial_hrs) || 0
       const practicalHrs = parseInt(newCourse.practical_hrs) || 0
       const activityHrs = parseInt(newCourse.activity_hrs) || 0
-      
+
       const courseData = {
         ...newCourse,
         credit: parseInt(newCourse.credit),
@@ -191,7 +191,7 @@ function SemesterDetailPage() {
         cia_marks: newCourse.cia_marks !== '' && newCourse.cia_marks !== null && newCourse.cia_marks !== undefined ? parseInt(newCourse.cia_marks) : 40,
         see_marks: newCourse.see_marks !== '' && newCourse.see_marks !== null && newCourse.see_marks !== undefined ? parseInt(newCourse.see_marks) : 60
       }
-      
+
       // Calculate total hours based on course type
       // Course Type IDs: 1=Theory, 2=Lab, 3=Theory with Lab
       if (newCourse.course_type === 2) {
@@ -219,7 +219,7 @@ function SemesterDetailPage() {
         courseData.practical_total_hrs = practicalHrs * 15
         courseData.activity_total_hrs = activityHrs * 15
       }
-      
+
       const response = await fetch(`${API_BASE_URL}/curriculum/${id}/semester/${semId}/course`, {
         method: 'POST',
         headers: {
@@ -234,7 +234,7 @@ function SemesterDetailPage() {
       }
 
       const responseData = await response.json()
-      
+
       // Check if course was reused and show info message
       if (responseData.message) {
         setSuccess(responseData.message)
@@ -271,7 +271,7 @@ function SemesterDetailPage() {
 
   const handleEditCourse = (course) => {
     setEditingCourse(course)
-    
+
     setEditCourseData({
       course_code: course.course_code,
       course_name: course.course_name,
@@ -295,7 +295,7 @@ function SemesterDetailPage() {
 
   const handleUpdateCourse = async (e) => {
     e.preventDefault()
-    
+
     // Validate total marks
     const totalMarks = (parseInt(editCourseData.cia_marks) || 0) + (parseInt(editCourseData.see_marks) || 0)
     if (totalMarks > 100) {
@@ -303,13 +303,13 @@ function SemesterDetailPage() {
       setTimeout(() => setError(''), 5000)
       return
     }
-    
+
     try {
       const lectureHrs = parseInt(editCourseData.lecture_hrs) || 0
       const tutorialHrs = parseInt(editCourseData.tutorial_hrs) || 0
       const practicalHrs = parseInt(editCourseData.practical_hrs) || 0
       const activityHrs = parseInt(editCourseData.activity_hrs) || 0
-      
+
       const courseData = {
         ...editCourseData,
         credit: parseInt(editCourseData.credit),
@@ -321,7 +321,7 @@ function SemesterDetailPage() {
         cia_marks: editCourseData.cia_marks !== '' && editCourseData.cia_marks !== null && editCourseData.cia_marks !== undefined ? parseInt(editCourseData.cia_marks) : 40,
         see_marks: editCourseData.see_marks !== '' && editCourseData.see_marks !== null && editCourseData.see_marks !== undefined ? parseInt(editCourseData.see_marks) : 60
       }
-      
+
       // Calculate total hours based on course type (for 2026 template, auto-calculate; for 2022, use manual inputs)
       if (curriculumTemplate === '2026') {
         // Course Type IDs: 1=Theory, 2=Lab, 3=Theory with Lab
@@ -356,7 +356,7 @@ function SemesterDetailPage() {
         courseData.tutorial_total_hrs = parseInt(editCourseData.tutorial_hours) || 0
         courseData.practical_total_hrs = parseInt(editCourseData.practical_hours) || 0
       }
-      
+
       const response = await fetch(`${API_BASE_URL}/course/${editingCourse.id}`, {
         method: 'PUT',
         headers: {
@@ -378,7 +378,7 @@ function SemesterDetailPage() {
           },
           body: JSON.stringify({ count_towards_limit: editCourseData.count_towards_limit }),
         })
-        
+
         if (!linkUpdateResponse.ok) {
           console.warn('Failed to update count_towards_limit flag')
         }
@@ -448,7 +448,7 @@ function SemesterDetailPage() {
   }
 
   return (
-    <MainLayout 
+    <MainLayout
       title={`${getCardTypeName()} - Courses`}
       subtitle={
         <div className="flex items-center space-x-4">
@@ -483,7 +483,7 @@ function SemesterDetailPage() {
         </div>
       }
     >
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="min-w-screen mx-auto space-y-6">
 
         {/* Messages */}
         {error && (
@@ -494,7 +494,7 @@ function SemesterDetailPage() {
             <p className="text-sm font-medium text-red-600">{error}</p>
           </div>
         )}
-        
+
         {success && (
           <div className="flex items-start space-x-3 p-4 bg-green-50 border border-green-200 rounded-lg">
             <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -510,15 +510,14 @@ function SemesterDetailPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-900">Add New Course</h2>
               {curriculum && semester?.card_type === 'semester' && (
-                <div className={`px-4 py-2 rounded-lg font-semibold text-sm ${
-                  totalCurriculumCredits >= curriculum.max_credits 
-                    ? 'bg-red-100 text-red-700' 
+                <div className={`px-4 py-2 rounded-lg font-semibold text-sm ${totalCurriculumCredits >= curriculum.max_credits
+                    ? 'bg-red-100 text-red-700'
                     : newCourse.count_towards_limit && (totalCurriculumCredits + (parseInt(newCourse.credit) || 0) > curriculum.max_credits)
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-blue-100 text-blue-700'
-                }`}>
-                  {totalCurriculumCredits >= curriculum.max_credits 
-                    ? 'Maximum credits reached!' 
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-blue-100 text-blue-700'
+                  }`}>
+                  {totalCurriculumCredits >= curriculum.max_credits
+                    ? 'Maximum credits reached!'
                     : `Available: ${curriculum.max_credits - totalCurriculumCredits} credits`}
                 </div>
               )}
@@ -585,32 +584,32 @@ function SemesterDetailPage() {
 
               {/* Common Fields - Hours per week */}
               {!(curriculumTemplate === '2022' && newCourse.course_type === 2) && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Lecture (hrs per week) *</label>
-                <input
-                  type="number"
-                  value={newCourse.lecture_hrs}
-                  onChange={(e) => setNewCourse({ ...newCourse, lecture_hrs: e.target.value })}
-                  placeholder="0"
-                  required
-                  min="0"
-                  className="input-custom"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Lecture (hrs per week) *</label>
+                  <input
+                    type="number"
+                    value={newCourse.lecture_hrs}
+                    onChange={(e) => setNewCourse({ ...newCourse, lecture_hrs: e.target.value })}
+                    placeholder="0"
+                    required
+                    min="0"
+                    className="input-custom"
+                  />
+                </div>
               )}
 
               {!(curriculumTemplate === '2022' && newCourse.course_type === 2) && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Tutorial (hrs per week)</label>
-                <input
-                  type="number"
-                  value={newCourse.tutorial_hrs}
-                  onChange={(e) => setNewCourse({ ...newCourse, tutorial_hrs: e.target.value })}
-                  placeholder="0"
-                  min="0"
-                  className="input-custom"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tutorial (hrs per week)</label>
+                  <input
+                    type="number"
+                    value={newCourse.tutorial_hrs}
+                    onChange={(e) => setNewCourse({ ...newCourse, tutorial_hrs: e.target.value })}
+                    placeholder="0"
+                    min="0"
+                    className="input-custom"
+                  />
+                </div>
               )}
 
               {newCourse.course_type !== 1 && (
@@ -702,7 +701,7 @@ function SemesterDetailPage() {
                   <div className="md:col-span-2">
                     <h3 className="text-sm font-bold text-gray-900 mb-3 mt-4 pt-4 border-t border-gray-200">Total Hours (for whole semester)</h3>
                   </div>
-                  
+
                   {curriculumTemplate === '2026' ? (
                     <>
                       <div>
@@ -786,7 +785,7 @@ function SemesterDetailPage() {
                   <div className="md:col-span-2">
                     <h3 className="text-sm font-bold text-gray-900 mb-3 mt-4 pt-4 border-t border-gray-200">Total Hours (for whole semester)</h3>
                   </div>
-                  
+
                   {curriculumTemplate === '2026' ? (
                     <>
                       <div>
@@ -880,7 +879,7 @@ function SemesterDetailPage() {
                   <div className="md:col-span-2">
                     <h3 className="text-sm font-bold text-gray-900 mb-3 mt-4 pt-4 border-t border-gray-200">Total Hours (for whole semester)</h3>
                   </div>
-                  
+
                   {curriculumTemplate === '2026' ? (
                     <>
                       <div>
@@ -930,26 +929,26 @@ function SemesterDetailPage() {
                   )}
                 </>
               )}
-              
+
               {semester?.card_type === 'semester' && (
                 <>
                   {/* Credit Limit Checkbox - Only show for semester card types */}
                   <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newCourse.count_towards_limit}
-                      onChange={(e) => setNewCourse({ ...newCourse, count_towards_limit: e.target.checked })}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <span className="text-sm font-medium text-gray-700">
-                      Include this course's credits in the curriculum's max credit limit calculation
-                    </span>
-                  </label>
-                  <p className="text-xs text-gray-500 mt-2 ml-7">
-                    Uncheck this if the course credits should not count towards the total {curriculum?.max_credits || 0} credit limit
-                  </p>
-                </div>
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newCourse.count_towards_limit}
+                        onChange={(e) => setNewCourse({ ...newCourse, count_towards_limit: e.target.checked })}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Include this course's credits in the curriculum's max credit limit calculation
+                      </span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-2 ml-7">
+                      Uncheck this if the course credits should not count towards the total {curriculum?.max_credits || 0} credit limit
+                    </p>
+                  </div>
                 </>
               )}
 
@@ -974,79 +973,104 @@ function SemesterDetailPage() {
           <div className="card-custom overflow-hidden">
             <div className="overflow-x-auto">
               <table className="table-custom">
-                <thead>
-                  <tr>
-                    <th className="text-left">Course Code</th>
-                    <th className="text-left">Course Name</th>
-                    <th className="text-left">Type</th>
-                    <th className="text-left">Category</th>
-                    <th className="text-left">{curriculumTemplate === '2022' ? 'L-T-P' : 'L-T-P-A'}</th>
-                    <th className="text-left">Credits</th>
-                    <th className="text-left">Marks</th>
-                    <th className="text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {courses.map(course => (
-                    <tr key={course.id}>
-                      <td className="font-medium">{course.course_code}</td>
-                      <td>{course.course_name}</td>
-                      <td>
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                          {course.course_type}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                          {course.category}
-                        </span>
-                      </td>
-                      <td className="font-mono text-sm">
-                        {curriculumTemplate === '2022' 
-                          ? `${course.lecture_hrs || 0}-${course.tutorial_hrs || 0}-${course.practical_hrs || 0}`
-                          : `${course.lecture_hrs || 0}-${course.tutorial_hrs || 0}-${course.practical_hrs || 0}-${course.activity_hrs || 0}`
-                        }
-                      </td>
-                      <td className="font-semibold">{course.credit}</td>
-                      <td>
-                        <div className="text-xs space-y-1">
-                          <div>CIA: <span className="font-semibold">{course.cia_marks || 0}</span></div>
-                          <div>SEE: <span className="font-semibold">{course.see_marks || 0}</span></div>
-                          <div className="text-blue-600 font-bold">Total: {course.total_marks || 0}</div>
-                        </div>
-                      </td>
-                      <td className="text-center">
-                        <div className="flex gap-2 justify-center flex-wrap">
-                          <button
-                            onClick={() => handleEditCourse(course)}
-                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-all"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => navigate(`/course/${course.id}/syllabus`)}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-all"
-                          >
-                            Syllabus
-                          </button>
-                          <button
-                            onClick={() => navigate(`/course/${course.id}/mapping`)}
-                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition-all"
-                          >
-                            Mapping
-                          </button>
-                          <button
-                            onClick={() => handleRemoveCourse(course.id)}
-                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-all"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+  <thead>
+    <tr>
+      <th className="text-left w-32">Course Code</th>
+      <th className="text-left min-w-[200px]">Course Name</th>
+      <th className="text-center w-32">Type</th>
+      <th className="text-center w-28">Category</th>
+      <th className="text-center w-28">{curriculumTemplate === '2022' ? 'L-T-P' : 'L-T-P-A'}</th>
+      <th className="text-center w-20">Credits</th>
+      <th className="text-center w-32">Marks</th>
+      <th className="text-center w-48">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {courses.map(course => (
+      <tr key={course.id}>
+        <td className="font-semibold tracking-tight text-gray-900">{course.course_code}</td>
+        <td className='tracking-tight text-gray-800'>{course.course_name}</td>
+        <td className="text-center">
+          <span className={`inline-block px-2.5 py-1 tracking-tight uppercase rounded-md text-xs font-semibold whitespace-nowrap ${
+            course.course_type === 'theory'
+              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+              : course.course_type === 'lab'
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : course.course_type === 'theory_with_lab'
+                  ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                  : 'bg-gray-50 text-gray-700 border border-gray-200'
+          }`}>
+            {course.course_type === 'theory_with_lab' ? 'Theory+Lab' : course.course_type}
+          </span>
+        </td>
+        <td className="text-center">
+          <span className="py-1 font-medium tracking-tight text-gray-700">
+            {course.category}
+          </span>
+        </td>
+        <td className="font-mono text-sm text-center text-gray-700">
+          {curriculumTemplate === '2022'
+            ? `${course.lecture_hrs || 0}-${course.tutorial_hrs || 0}-${course.practical_hrs || 0}`
+            : `${course.lecture_hrs || 0}-${course.tutorial_hrs || 0}-${course.practical_hrs || 0}-${course.activity_hrs || 0}`
+          }
+        </td>
+        <td className="font-bold text-center text-gray-900">{course.credit}</td>
+        <td>
+          <div className="flex flex-col items-center gap-0.5 text-xs">
+            <div className="flex items-center gap-1">
+              <span className="text-gray-500 font-medium">CIA:</span>
+              <span className="font-semibold text-gray-900">{course.cia_marks || 0}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-gray-500 font-medium">SEE:</span>
+              <span className="font-semibold text-gray-900">{course.see_marks || 0}</span>
+            </div>
+            <div className="flex items-center gap-1 pt-0.5 border-t border-gray-200 mt-0.5">
+              <span className="text-blue-600 font-semibold">Total:</span>
+              <span className="text-blue-600 font-bold">{course.total_marks || 0}</span>
+            </div>
+          </div>
+        </td>
+        <td className="text-center">
+          <div className="flex gap-1.5 justify-center items-center">
+            <button
+              onClick={() => navigate(`/course/${course.id}/syllabus`)}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-all tracking-tight shadow-sm hover:shadow"
+              title="View Syllabus"
+            >
+              Syllabus
+            </button>
+            <button
+              onClick={() => navigate(`/course/${course.id}/mapping`)}
+              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-md transition-all tracking-tight shadow-sm hover:shadow"
+              title="View Mapping"
+            >
+              Mapping
+            </button>
+            <button
+              onClick={() => handleEditCourse(course)}
+              className="p-1.5 text-green-600 hover:text-white hover:bg-green-600 rounded-md transition-all shadow-sm hover:shadow"
+              title="Edit Course"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => handleRemoveCourse(course.id)}
+              className="p-1.5 rounded-md text-red-600 hover:bg-red-600 hover:text-white transition-all shadow-sm hover:shadow"
+              title="Delete Course"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
             </div>
           </div>
         )}
@@ -1060,7 +1084,7 @@ function SemesterDetailPage() {
                   <h3 className="text-xl font-bold">Edit Course</h3>
                   <p className="text-sm text-green-100">Update course details</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowEditModal(false)}
                   className="text-white hover:bg-white/20 rounded-lg p-2 transition-all"
                 >
@@ -1069,7 +1093,7 @@ function SemesterDetailPage() {
                   </svg>
                 </button>
               </div>
-              
+
               <form onSubmit={handleUpdateCourse} className="p-8 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1150,45 +1174,45 @@ function SemesterDetailPage() {
                   </div>
 
                   {!(curriculumTemplate === '2022' && editCourseData.course_type === 2) && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Lecture (hrs per week)</label>
-                    <input
-                      type="number"
-                      value={editCourseData.lecture_hrs}
-                      onChange={(e) => setEditCourseData({ ...editCourseData, lecture_hrs: e.target.value })}
-                      placeholder="3"
-                      min="0"
-                      className="input-custom"
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Lecture (hrs per week)</label>
+                      <input
+                        type="number"
+                        value={editCourseData.lecture_hrs}
+                        onChange={(e) => setEditCourseData({ ...editCourseData, lecture_hrs: e.target.value })}
+                        placeholder="3"
+                        min="0"
+                        className="input-custom"
+                      />
+                    </div>
                   )}
 
                   {!(curriculumTemplate === '2022' && editCourseData.course_type === 2) && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Tutorial (hrs per week)</label>
-                    <input
-                      type="number"
-                      value={editCourseData.tutorial_hrs}
-                      onChange={(e) => setEditCourseData({ ...editCourseData, tutorial_hrs: e.target.value })}
-                      placeholder="0"
-                      min="0"
-                      className="input-custom"
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Tutorial (hrs per week)</label>
+                      <input
+                        type="number"
+                        value={editCourseData.tutorial_hrs}
+                        onChange={(e) => setEditCourseData({ ...editCourseData, tutorial_hrs: e.target.value })}
+                        placeholder="0"
+                        min="0"
+                        className="input-custom"
+                      />
+                    </div>
                   )}
 
                   {editCourseData.course_type !== 1 && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Practical (hrs per week)</label>
-                    <input
-                      type="number"
-                      value={editCourseData.practical_hrs}
-                      onChange={(e) => setEditCourseData({ ...editCourseData, practical_hrs: e.target.value })}
-                      placeholder="2"
-                      min="0"
-                      className="input-custom"
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Practical (hrs per week)</label>
+                      <input
+                        type="number"
+                        value={editCourseData.practical_hrs}
+                        onChange={(e) => setEditCourseData({ ...editCourseData, practical_hrs: e.target.value })}
+                        placeholder="2"
+                        min="0"
+                        className="input-custom"
+                      />
+                    </div>
                   )}
 
                   {curriculumTemplate !== '2022' && (
@@ -1254,7 +1278,7 @@ function SemesterDetailPage() {
                     <div className="border-t pt-4 mt-4">
                       <h3 className="text-sm font-bold text-gray-900 mb-3">Total Hours (for whole semester)</h3>
                     </div>
-                    
+
                     {curriculumTemplate === '2026' ? (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
@@ -1343,7 +1367,7 @@ function SemesterDetailPage() {
                     <div className="border-t pt-4 mt-4">
                       <h3 className="text-sm font-bold text-gray-900 mb-3">Total Hours (for whole semester)</h3>
                     </div>
-                    
+
                     {curriculumTemplate === '2026' ? (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
@@ -1444,7 +1468,7 @@ function SemesterDetailPage() {
                     <div className="border-t pt-4 mt-4">
                       <h3 className="text-sm font-bold text-gray-900 mb-3">Total Hours (for whole semester)</h3>
                     </div>
-                    
+
                     {curriculumTemplate === '2026' ? (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
