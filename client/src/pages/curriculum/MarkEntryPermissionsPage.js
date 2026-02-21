@@ -61,9 +61,9 @@ function MarkEntryPermissionsPage() {
   const [assignmentLoading, setAssignmentLoading] = useState(false)
   const [userAssignedWindows, setUserAssignedWindows] = useState([])
 
-  // Check if user has COE role
+  // Check if user has COE or admin role
   useEffect(() => {
-    if (userRole !== 'coe') {
+    if (userRole !== 'coe' && userRole !== 'admin') {
       navigate('/dashboard')
     }
   }, [userRole, navigate])
@@ -80,6 +80,7 @@ function MarkEntryPermissionsPage() {
       fetchStudentsForAssignment()
       fetchUserAssignedWindows()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
   // Reload students when Window Scope department changes
@@ -87,6 +88,7 @@ function MarkEntryPermissionsPage() {
     if (activeTab === 'student-assignment') {
       fetchStudentsForAssignment()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowDepartmentId])
 
   // Fetch courses when department and semester change in student-assignment tab
@@ -102,12 +104,16 @@ function MarkEntryPermissionsPage() {
 
   // Load components when course changes in student-assignment tab
   useEffect(() => {
+    console.log('[DEBUG] Component loading effect triggered:', { activeTab, windowCourseId, learningMode })
     if (activeTab === 'student-assignment' && windowCourseId && windowCourseId !== 'all') {
+      console.log('[DEBUG] Fetching components for course:', windowCourseId)
       fetchMarkCategoriesForCourseType(windowCourseId)
     } else if (activeTab === 'student-assignment') {
       // Show all categories if no specific course selected or if "All Courses" is selected
+      console.log('[DEBUG] Fetching all mark categories')
       fetchAllMarkCategories()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, windowCourseId, learningMode])
 
   useEffect(() => {
@@ -132,6 +138,7 @@ function MarkEntryPermissionsPage() {
     } else {
       setWindowComponents([])
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowScope, selectedCourseId, windowCourseId, learningMode])
 
   useEffect(() => {
@@ -158,6 +165,7 @@ function MarkEntryPermissionsPage() {
 
   useEffect(() => {
     loadWindowRule()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowScope, selectedTeacherId, selectedCourseId, windowDepartmentId, windowSemester, windowCourseId])
 
   const fetchTeachers = async () => {
@@ -224,11 +232,13 @@ function MarkEntryPermissionsPage() {
       const learningModeId = learningMode === 'UAL' ? 1 : 2
 
       // First fetch the course to get its category
-      const courseRes = await fetch(`${API_BASE_URL}/courses/${courseId}`)
+      const courseRes = await fetch(`${API_BASE_URL}/course/${courseId}`)
       if (!courseRes.ok) throw new Error('Failed to fetch course')
       const course = await courseRes.json()
+      console.log('[DEBUG] Fetched course:', course)
 
       const courseTypeID = mapCourseCategoryToTypeID(course.category)
+      console.log('[DEBUG] Course category:', course.category, 'Mapped to type ID:', courseTypeID)
       if (courseTypeID === 0) {
         setWindowComponents([])
         return
@@ -255,7 +265,10 @@ function MarkEntryPermissionsPage() {
     try {
       const res = await fetch(`${API_BASE_URL}/departments`)
       const data = await res.json()
-      setDepartments(Array.isArray(data) ? data : [])
+      console.log('[DEBUG] Fetched departments:', data)
+      // Handle both response formats: array or object with departments property
+      const depts = Array.isArray(data) ? data : (data.departments || [])
+      setDepartments(depts)
     } catch (error) {
       console.error('Error fetching departments:', error)
       setMessage({ type: 'error', text: 'Failed to load departments.' })
@@ -559,22 +572,41 @@ function MarkEntryPermissionsPage() {
 
     // Load components if course is set
     if (win.course_id && win.component_ids) {
-      const allPBL = []
-      const allUAL = []
+      try {
+        // Fetch all components to check their learning modes
+        const allComponentsRes = await Promise.all([
+          fetch(`${API_BASE_URL}/mark-categories-by-type/1?learning_modes=1,2`).then(r => r.json()),
+          fetch(`${API_BASE_URL}/mark-categories-by-type/2?learning_modes=1,2`).then(r => r.json()),
+          fetch(`${API_BASE_URL}/mark-categories-by-type/3?learning_modes=1,2`).then(r => r.json())
+        ])
 
-      for (const compId of win.component_ids) {
-        const comp = windowComponents.find(c => c.id === compId)
-        if (comp) {
-          if (comp.learning_mode_id === 2) {
-            allPBL.push(compId)
-          } else if (comp.learning_mode_id === 1) {
-            allUAL.push(compId)
+        const allComponents = []
+        allComponentsRes.forEach(cats => {
+          if (Array.isArray(cats)) allComponents.push(...cats)
+        })
+
+        const allPBL = []
+        const allUAL = []
+
+        for (const compId of win.component_ids) {
+          const comp = allComponents.find(c => c.id === compId)
+          if (comp) {
+            if (comp.learning_mode_id === 2) {
+              allPBL.push(compId)
+            } else if (comp.learning_mode_id === 1) {
+              allUAL.push(compId)
+            }
           }
         }
-      }
 
-      setSelectedPBLComponents(allPBL)
-      setSelectedUALComponents(allUAL)
+        setSelectedPBLComponents(allPBL)
+        setSelectedUALComponents(allUAL)
+      } catch (error) {
+        console.error('Error loading components:', error)
+      }
+    } else {
+      setSelectedPBLComponents([])
+      setSelectedUALComponents([])
     }
 
     // Load assigned students for this window
@@ -745,34 +777,75 @@ function MarkEntryPermissionsPage() {
       // Combine PBL and UAL components
       const allComponents = [...selectedPBLComponents, ...selectedUALComponents]
 
-      const res = await fetch(`${API_BASE_URL}/mark-entry/create-user-window`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: selectedUserId,
-          department_id: windowDepartmentId ? parseInt(windowDepartmentId) : null,
-          semester: windowSemester ? parseInt(windowSemester) : null,
-          course_id: windowCourseId && windowCourseId !== 'all' ? parseInt(windowCourseId) : null,
-          student_ids: selectedStudents,
-          start_at: windowStartAt,
-          end_at: windowEndAt,
-          component_ids: allComponents.length > 0 ? allComponents : [],
-          created_by: localStorage.getItem('username') || 'coe_admin'
+      if (editingWindow) {
+        // Update existing window
+        const updateRes = await fetch(`${API_BASE_URL}/mark-entry-windows/${editingWindow.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            start_at: new Date(windowStartAt).toISOString(),
+            end_at: new Date(windowEndAt).toISOString(),
+            enabled: windowEnabled,
+            component_ids: allComponents.length > 0 ? allComponents : null,
+          })
         })
-      })
 
-      if (!res.ok) {
-        const error = await res.text()
-        throw new Error(error || 'Failed to create window')
+        if (!updateRes.ok) {
+          const error = await updateRes.text()
+          throw new Error(error || 'Failed to update window')
+        }
+
+        // Update student assignments by re-assigning
+        const assignRes = await fetch(`${API_BASE_URL}/mark-entry/assign-students`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            window_id: editingWindow.id,
+            user_id: selectedUserId,
+            student_ids: selectedStudents
+          })
+        })
+
+        if (!assignRes.ok) {
+          const error = await assignRes.text()
+          throw new Error(error || 'Failed to update student assignments')
+        }
+
+        setMessage({
+          type: 'success',
+          text: `Successfully updated window and student assignments!`
+        })
+      } else {
+        // Create new window
+        const res = await fetch(`${API_BASE_URL}/mark-entry/create-user-window`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: selectedUserId,
+            department_id: windowDepartmentId ? parseInt(windowDepartmentId) : null,
+            semester: windowSemester ? parseInt(windowSemester) : null,
+            course_id: windowCourseId && windowCourseId !== 'all' ? parseInt(windowCourseId) : null,
+            student_ids: selectedStudents,
+            start_at: windowStartAt,
+            end_at: windowEndAt,
+            component_ids: allComponents.length > 0 ? allComponents : [],
+            created_by: localStorage.getItem('username') || 'coe_admin'
+          })
+        })
+
+        if (!res.ok) {
+          const error = await res.text()
+          throw new Error(error || 'Failed to create window')
+        }
+
+        const result = await res.json()
+        setMessage({
+          type: 'success',
+          text: `Successfully created window #${result.window_id} and assigned ${result.assignments_created} students! User can now enter marks (will overwrite existing marks).`
+        })
       }
 
-      const result = await res.json()
-      setMessage({
-        type: 'success',
-        text: `Successfully created window #${result.window_id} and assigned ${result.assignments_created} students! User can now enter marks (will overwrite existing marks).`
-      })
-
-      // Refresh windows lists to show the newly created window
+      // Refresh windows lists to show the updated/created window
       fetchExistingWindows()
       fetchUserAssignedWindows()
 
@@ -789,8 +862,8 @@ function MarkEntryPermissionsPage() {
       setSelectedUALComponents([])
       setEditingWindow(null)
     } catch (error) {
-      console.error('Error creating window:', error)
-      setMessage({ type: 'error', text: error.message || 'Failed to create window.' })
+      console.error('Error creating/updating window:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to create/update window.' })
     } finally {
       setAssignmentLoading(false)
     }
@@ -831,102 +904,34 @@ function MarkEntryPermissionsPage() {
         )}
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="flex border-b border-gray-200 pl-2">
-            <button
-              onClick={() => setActiveTab('windows')}
-              className={`px-6 py-3 font-medium transition-colors ${activeTab === 'windows'
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-gray-600 hover:text-gray-900'
-                }`}
-            >
-              Mark Entry Windows
-            </button>
-            <button
-              onClick={() => setActiveTab('student-assignment')}
-              className={`px-6 py-3 font-medium transition-colors ${activeTab === 'student-assignment'
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-gray-600 hover:text-gray-900'
-                }`}
-            >
-              Student-User Assignment
-            </button>
+        <div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-2 inline-block">
+            <div className="inline-flex rounded-lg bg-gray-100 p-1">
+              <button
+                onClick={() => setActiveTab('windows')}
+                className={`flex-1 px-4 py-3 text-sm font-semibold rounded-md transition-all duration-200 whitespace-nowrap ${activeTab === 'windows'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                  }`}
+              >
+                Mark Entry Windows
+              </button>
+              <button
+                onClick={() => setActiveTab('student-assignment')}
+                className={`flex-1 px-4 py-3 text-sm font-semibold rounded-md transition-all duration-200 whitespace-nowrap ${activeTab === 'student-assignment'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                  }`}
+              >
+                Student-User Assignment
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Windows Tab Content */}
         {activeTab === 'windows' && (
           <>
-            {/* Teacher & Course Selection Card */}
-            {windowScope === 'teacher_course' && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-                <div className="border-b border-gray-200 px-6 py-3">
-                  <h3 className="text-sm font-semibold text-gray-700">Teacher & Course Selection</h3>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div className="relative teacher-search-container">
-                      <SearchBarWithDropdown
-                        value={teacherSearch}
-                        onChange={(e) => setTeacherSearch(e.target.value)}
-                        items={teachers}
-                        onSelect={(teacher) => {
-                          setSelectedTeacherId(teacher.faculty_id)
-                          setTeacherSearch(`${teacher.name} (${teacher.faculty_id})`)
-                        }}
-                        filterFunction={(teacher, term) => {
-                          const search = term.toLowerCase()
-                          return (
-                            teacher.name.toLowerCase().includes(search) ||
-                            teacher.faculty_id.toLowerCase().includes(search)
-                          )
-                        }}
-                        renderItem={(teacher) => (
-                          <div className={selectedTeacherId === teacher.faculty_id ? 'bg-blue-50' : ''}>
-                            <div className="font-medium text-gray-900">{teacher.name}</div>
-                            <div className="text-sm text-gray-500">{teacher.faculty_id}</div>
-                          </div>
-                        )}
-                        getItemKey={(teacher) => teacher.faculty_id}
-                        label="Teacher"
-                        placeholder="Search by name or ID..."
-                        width="w-full"
-                      />
-                    </div>
-                    <div className="relative course-search-container">
-                      <SearchBarWithDropdown
-                        value={courseSearch}
-                        onChange={(e) => setCourseSearch(e.target.value)}
-                        items={courses}
-                        onSelect={(course) => {
-                          setSelectedCourseId(course.course_id)
-                          setCourseSearch(`${course.course_code} - ${course.course_name}`)
-                        }}
-                        filterFunction={(course, term) => {
-                          const search = term.toLowerCase()
-                          return (
-                            course.course_code.toLowerCase().includes(search) ||
-                            course.course_name.toLowerCase().includes(search)
-                          )
-                        }}
-                        renderItem={(course) => (
-                          <div className={selectedCourseId === course.course_id ? 'bg-blue-50' : ''}>
-                            <div className="font-medium text-gray-900">{course.course_code}</div>
-                            <div className="text-sm text-gray-500">{course.course_name}</div>
-                          </div>
-                        )}
-                        getItemKey={(course) => course.course_id}
-                        label="Course"
-                        placeholder="Search by code or name..."
-                        width="w-full"
-                        disabled={!selectedTeacherId}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Window Configuration Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
               <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
@@ -996,6 +1001,72 @@ function MarkEntryPermissionsPage() {
                   )}
                 </div>
 
+                {/* Teacher & Course Selection */}
+                {windowScope === 'teacher_course' && (
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Teacher & Course Selection</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="relative teacher-search-container">
+                        <SearchBarWithDropdown
+                          value={teacherSearch}
+                          onChange={(e) => setTeacherSearch(e.target.value)}
+                          items={teachers}
+                          onSelect={(teacher) => {
+                            setSelectedTeacherId(teacher.faculty_id)
+                            setTeacherSearch(`${teacher.name} (${teacher.faculty_id})`)
+                          }}
+                          filterFunction={(teacher, term) => {
+                            const search = term.toLowerCase()
+                            return (
+                              teacher.name.toLowerCase().includes(search) ||
+                              teacher.faculty_id.toLowerCase().includes(search)
+                            )
+                          }}
+                          renderItem={(teacher) => (
+                            <div className={selectedTeacherId === teacher.faculty_id ? 'bg-blue-50' : ''}>
+                              <div className="font-medium text-gray-900">{teacher.name}</div>
+                              <div className="text-sm text-gray-500">{teacher.faculty_id}</div>
+                            </div>
+                          )}
+                          getItemKey={(teacher) => teacher.faculty_id}
+                          label="Teacher"
+                          placeholder="Search by name or ID..."
+                          width="w-full"
+                        />
+                      </div>
+                      <div className="relative course-search-container">
+                        <SearchBarWithDropdown
+                          value={courseSearch}
+                          onChange={(e) => setCourseSearch(e.target.value)}
+                          items={courses}
+                          onSelect={(course) => {
+                            setSelectedCourseId(course.course_id)
+                            setCourseSearch(`${course.course_code} - ${course.course_name}`)
+                          }}
+                          filterFunction={(course, term) => {
+                            const search = term.toLowerCase()
+                            return (
+                              course.course_code.toLowerCase().includes(search) ||
+                              course.course_name.toLowerCase().includes(search)
+                            )
+                          }}
+                          renderItem={(course) => (
+                            <div className={selectedCourseId === course.course_id ? 'bg-blue-50' : ''}>
+                              <div className="font-medium text-gray-900">{course.course_code}</div>
+                              <div className="text-sm text-gray-500">{course.course_name}</div>
+                            </div>
+                          )}
+                          getItemKey={(course) => course.course_id}
+                          label="Course"
+                          placeholder="Search by code or name..."
+                          width="w-full"
+                          disabled={!selectedTeacherId}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Department/Semester Selection */}
                 {(windowScope === 'department_semester' || windowScope === 'department_semester_course') && (
                   <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -1012,7 +1083,7 @@ function MarkEntryPermissionsPage() {
                           <option value="0">All Departments</option>
                           {departments.map((department) => (
                             <option key={department.id} value={department.id}>
-                              {department.department_name}
+                              {department.name}
                             </option>
                           ))}
                         </select>
@@ -1368,7 +1439,7 @@ function MarkEntryPermissionsPage() {
                       <option value="">All Departments</option>
                       {departments.map((dept) => (
                         <option key={dept.id} value={dept.id}>
-                          {dept.department_code ? `${dept.department_code} - ` : ''}{dept.department_name}
+                          {dept.name}
                         </option>
                       ))}
                     </select>
@@ -1502,7 +1573,7 @@ function MarkEntryPermissionsPage() {
                   >
                     <option value="">All Departments</option>
                     {departments.map(dept => (
-                      <option key={dept.id} value={dept.department_name}>{dept.department_name}</option>
+                      <option key={dept.id} value={dept.name}>{dept.name}</option>
                     ))}
                   </select>
                   <input
@@ -1603,7 +1674,27 @@ function MarkEntryPermissionsPage() {
                 )}
 
                 {/* Create Window Button */}
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-3">
+                  {editingWindow && (
+                    <button
+                      onClick={() => {
+                        setEditingWindow(null)
+                        setSelectedUserId('')
+                        setSelectedStudents([])
+                        setWindowDepartmentId('')
+                        setWindowSemester('')
+                        setWindowCourseId('')
+                        setWindowStartAt('')
+                        setWindowEndAt('')
+                        setWindowEnabled(true)
+                        setSelectedPBLComponents([])
+                        setSelectedUALComponents([])
+                      }}
+                      className="px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
                   <button
                     onClick={assignStudentsToUser}
                     disabled={!selectedUserId || selectedStudents.length === 0 || !windowStartAt || !windowEndAt || assignmentLoading}
