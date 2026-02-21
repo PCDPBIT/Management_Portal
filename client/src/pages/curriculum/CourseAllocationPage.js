@@ -3,6 +3,7 @@ import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
 import './CourseAllocationPage.css'
 import StatCard from '../../components/StatCard'
+import SearchBarWithDropdown from '../../components/SearchBarWithDropdown'
 
 function CourseAllocationPage() {
   const [curriculums, setCurriculums] = useState([])
@@ -13,6 +14,7 @@ function CourseAllocationPage() {
   const [teacherSearch, setTeacherSearch] = useState('')
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false)
   const dropdownRef = useRef(null)
+  const [curriculumDisplay, setCurriculumDisplay] = useState('')
   
   const [filters, setFilters] = useState({
     curriculum_id: '',
@@ -78,6 +80,7 @@ function CourseAllocationPage() {
       if (data && data.length > 0) {
         const firstId = data[0].id
         setFilters(prev => ({ ...prev, curriculum_id: firstId }))
+        setCurriculumDisplay(data[0].name)
         // Immediately fetch semesters
         fetchSemesters(firstId)
       }
@@ -249,16 +252,18 @@ const filteredTeachers = teachers.filter(t =>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Curriculum</label>
-              <select
-                value={filters.curriculum_id}
-                onChange={(e) => setFilters({ ...filters, curriculum_id: e.target.value })}
-                className="input-custom"
-              >
-                <option value="">Select Curriculum</option>
-                {curriculums.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <SearchBarWithDropdown
+                value={curriculumDisplay}
+                onChange={(e) => setCurriculumDisplay(e.target.value)}
+                items={curriculums}
+                onSelect={(item) => {
+                  setFilters({ ...filters, curriculum_id: item.id })
+                  setCurriculumDisplay(item.name)
+                }}
+                placeholder="Select Curriculum"
+                renderItem={(item) => <div>{item.name}</div>}
+                getItemKey={(item) => item.id}
+              />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Semester</label>

@@ -145,8 +145,7 @@ function TeacherCourseStudentsPage() {
                     className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
                   >
                     <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0"
-                      style={{ background: 'linear-gradient(to bottom right, rgb(67, 113, 229), rgb(47, 93, 209))' }}
+                      className="w-16 h-16 rounded-full bg-background flex items-center justify-center text-primary font-semibold text-2xl shadow-md flex-shrink-0 border-2 border-primary"
                     >
                       {student.student_name.charAt(0).toUpperCase()}
                     </div>

@@ -26,7 +26,7 @@ function StudentCard({ student, onEdit, onDelete }) {
           />
         ) : null}
         <div
-          className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-white font-semibold text-2xl shadow-md flex-shrink-0 border-2 border-primary-300"
+          className="w-16 h-16 rounded-full bg-background flex items-center justify-center text-primary font-semibold text-2xl shadow-md flex-shrink-0 border-2 border-primary"
           style={{ display: imageUrl ? "none" : "flex" }}
         >
           {student.student_name ? student.student_name.charAt(0).toUpperCase() : "S"}

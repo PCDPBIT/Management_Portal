@@ -271,7 +271,7 @@ function UsersPage() {
                       <div className="text-sm text-gray-500">{user.email}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : ' text-gray-800'}`}>
+                      <span className={`inline-flex text-xs uppercase leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-primary p-1' : ' text-gray-800'}`}>
                         {user.role}
                       </span>
                     </td>

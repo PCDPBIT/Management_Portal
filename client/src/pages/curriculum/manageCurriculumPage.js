@@ -458,7 +458,7 @@ function ManageCurriculumPage() {
                     <option value="MINOR VERTICAL">MINOR VERTICAL</option>
                   </select>
                 </div>
-                <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white font-medium px-5 py-2.5 rounded-lg transition-all">
+                <button type="submit" className="bg-primary text-white font-medium px-5 py-2.5 rounded-lg transition-all">
                   Create Honour Card
                 </button>
                 <button

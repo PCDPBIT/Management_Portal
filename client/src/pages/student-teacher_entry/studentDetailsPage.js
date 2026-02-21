@@ -1,9 +1,12 @@
   import React, { useState, useEffect } from 'react'
   import MainLayout from '../../components/MainLayout'
   import StudentCard from '../../components/StudentCard'
+  import SearchBarWithDropdown from '../../components/SearchBarWithDropdown'
   import { API_BASE_URL } from '../../config'
 
-  function StudentDetailsPage() {
+  function 
+  StudentDetailsPage() {
+    const [curriculumDisplay, setCurriculumDisplay] = useState('')
     const [formData, setFormData] = useState({
       // Basic Student Fields
       enrollment_no: '',
@@ -995,20 +998,18 @@
                   <input type="text" name="student_status" placeholder="Student Status" value={formData.student_status} onChange={handleInputChange} className="input-custom" />
                   <div className="flex flex-col">
                     <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1">Curriculum <span className="text-red-500">*</span></label>
-                    <select
-                      name="curriculum_id"
-                      value={formData.curriculum_id}
-                      onChange={handleInputChange}
-                      required
-                      className="input-custom"
-                    >
-                      <option value="">Select Curriculum</option>
-                      {curriculums.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.academic_year})
-                        </option>
-                      ))}
-                    </select>
+                    <SearchBarWithDropdown
+                      value={curriculumDisplay}
+                      onChange={(e) => setCurriculumDisplay(e.target.value)}
+                      items={curriculums}
+                      onSelect={(item) => {
+                        setFormData(prev => ({...prev, curriculum_id: item.id}))
+                        setCurriculumDisplay(`${item.name} (${item.academic_year})`)
+                      }}
+                      placeholder="Select Curriculum"
+                      renderItem={(item) => <div>{item.name} ({item.academic_year})</div>}
+                      getItemKey={(item) => item.id}
+                    />
                   </div>
                 </div>
               </div>

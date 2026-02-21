@@ -417,7 +417,7 @@ function MarkEntryPage() {
                 ? 'bg-red-50 text-red-700 border-red-400'
                 : message.type === 'success'
                 ? 'bg-green-50 text-green-700 border-green-400'
-                : 'bg-yellow-50 text-yellow-700 border-yellow-400'
+                : 'bg-yellow-50 text-primary border-primary'
             }`}
           >
             {message.text}

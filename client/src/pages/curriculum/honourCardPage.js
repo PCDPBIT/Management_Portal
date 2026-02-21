@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import MainLayout from '../../components/MainLayout'
+import SearchBarWithDropdown from '../../components/SearchBarWithDropdown'
 import { API_BASE_URL } from '../../config'
 
 function HonourCardPage() {
@@ -558,12 +559,12 @@ function HonourCardPage() {
                         Delete
                       </button>
                     </div>
-                  </div>
+                  </div>  
                 </div>
 
                 {/* Add Course Section */}
                 {showAddCourse === vertical.id && (
-                  <div className="bg-background px-5 py-5 sm:px-6 border-b border-primary">
+                  <div className="bg-white px-5 py-5 sm:px-6 border-b border-primary">
                     <p className="text-sm text-gray-700 mb-4 font-medium flex items-center gap-2">
                       <span className="text-lg">💡</span>
                       Add a new course to this vertical (same fields as normal card)
@@ -594,38 +595,27 @@ function HonourCardPage() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Course Type *</label>
-                        <select
+                        <SearchBarWithDropdown
+                          label="Course Type *"
                           value={newCourse.course_type}
                           onChange={(e) => setNewCourse({ ...newCourse, course_type: e.target.value })}
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all appearance-none background-image-url-data-image-svg-xml-3csvg-xmlns-27http-3a-2f-2fwww-w3-org-2f2000-2fsvg-27-fill-27none-27-viewBox-270-200-2020-20-27-3e-3cpath-stroke-27-236b7280-27-stroke-linecap-27round-27-stroke-linejoin-27round-27-stroke-width-271-5-27-d-27M6-208l4-204-204-4-27-2f-3c-2fsvg-3e background-position-right-0-5rem-center background-repeat-no-repeat background-size-1-5em-1-5em padding-right-2-5rem"
-                        >
-                          <option value="">Select Type</option>
-                          <option value="Theory">Theory</option>
-                          <option value="Lab">Lab</option>
-                          <option value="Theory&Lab">Theory&Lab</option>
-                          <option value="NA">NA</option>
-                        </select>
+                          onSelect={(item) => setNewCourse({ ...newCourse, course_type: item })}
+                          items={["Theory", "Lab", "Theory&Lab", "NA"]}
+                          placeholder="Select or search course type"
+                          width="w-full"
+                        />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Category *</label>
-                        <select
+                        <SearchBarWithDropdown
+                          label="Category *"
                           value={newCourse.category}
                           onChange={(e) => setNewCourse({ ...newCourse, category: e.target.value })}
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all appearance-none background-image-url-data-image-svg-xml-3csvg-xmlns-27http-3a-2f-2fwww-w3-org-2f2000-2fsvg-27-fill-27none-27-viewBox-270-200-2020-20-27-3e-3cpath-stroke-27-236b7280-27-stroke-linecap-27round-27-stroke-linejoin-27round-27-stroke-width-271-5-27-d-27M6-208l4-204-204-4-27-2f-3c-2fsvg-3e background-position-right-0-5rem-center background-repeat-no-repeat background-size-1-5em-1-5em padding-right-2-5rem"
-                        >
-                          <option value="">Select Category</option>
-                          <option value="BS - Basic Sciences">BS - Basic Sciences</option>
-                          <option value="ES - Engineering Sciences">ES - Engineering Sciences</option>
-                          <option value="HSS - Humanities and Social Sciences">HSS - Humanities and Social Sciences</option>
-                          <option value="PC - Professional Core">PC - Professional Core</option>
-                          <option value="PE - Professional Elective">PE - Professional Elective</option>
-                          <option value="OE - Open Elective">OE - Open Elective</option>
-                          <option value="EEC - Employability Enhancement Course">EEC - Employability Enhancement Course</option>
-                        </select>
+                          onSelect={(item) => setNewCourse({ ...newCourse, category: item })}
+                          items={["BS - Basic Sciences", "ES - Engineering Sciences", "HSS - Humanities and Social Sciences", "PC - Professional Core", "PE - Professional Elective", "OE - Open Elective", "EEC - Employability Enhancement Course", "NA"]}
+                          placeholder="Select or search category"
+                          width="w-full"
+                        />
                       </div>
 
                       <div>
@@ -1040,19 +1030,19 @@ function HonourCardPage() {
                               <div className="flex flex-wrap gap-2 flex-shrink-0 self-start lg:self-auto">
                                 <button
                                   onClick={() => handleEditCourse(course)}
-                                  className="px-3 py-1.5 bg-primary hover:bg-primary/90 text-white text-xs rounded-lg transition-all"
+                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-all"
                                 >
                                   Edit
                                 </button>
                                 <button
                                   onClick={() => navigate(`/course/${course.id}/syllabus`)}
-                                  className="px-3 py-1.5 bg-primary hover:bg-primary/90 text-white text-xs rounded-lg transition-all"
+                                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-all"
                                 >
                                   Syllabus
                                 </button>
                                 <button
                                   onClick={() => navigate(`/course/${course.id}/mapping`)}
-                                  className="px-3 py-1.5 bg-primary hover:bg-primary text-white text-xs rounded-lg transition-all"
+                                  className="px-3 py-1.5 bg-primary hover:bg-primary/90 text-white text-xs rounded-lg transition-all"
                                 >
                                   Mapping
                                 </button>
@@ -1123,39 +1113,27 @@ function HonourCardPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Course Type</label>
-                    <select
+                    <SearchBarWithDropdown
+                      label="Course Type"
                       value={editCourseData.course_type}
                       onChange={(e) => setEditCourseData({ ...editCourseData, course_type: e.target.value })}
-                      required
-                      className="input-custom"
-                    >
-                      <option value="">Select Type</option>
-                      <option value="Theory">Theory</option>
-                      <option value="Lab">Lab</option>
-                      <option value="Theory&Lab">Theory&Lab</option>
-                      <option value="NA">NA</option>
-                    </select>
+                      onSelect={(item) => setEditCourseData({ ...editCourseData, course_type: item })}
+                      items={["Theory", "Lab", "Theory&Lab", "NA"]}
+                      placeholder="Select or search course type"
+                      width="w-full"
+                    />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
-                    <select
+                    <SearchBarWithDropdown
+                      label="Category"
                       value={editCourseData.category}
                       onChange={(e) => setEditCourseData({ ...editCourseData, category: e.target.value })}
-                      required
-                      className="input-custom"
-                    >
-                      <option value="">Select Category</option>
-                      <option value="BS - Basic Sciences">BS - Basic Sciences</option>
-                      <option value="ES - Engineering Sciences">ES - Engineering Sciences</option>
-                      <option value="HSS - Humanities and Social Sciences">HSS - Humanities and Social Sciences</option>
-                      <option value="PC - Professional Core">PC - Professional Core</option>
-                      <option value="PE - Professional Elective">PE - Professional Elective</option>
-                      <option value="OE - Open Elective">OE - Open Elective</option>
-                      <option value="EEC - Employability Enhancement Course">EEC - Employability Enhancement Course</option>
-                      <option value="NA">NA</option>
-                    </select>
+                      onSelect={(item) => setEditCourseData({ ...editCourseData, category: item })}
+                      items={["BS - Basic Sciences", "ES - Engineering Sciences", "HSS - Humanities and Social Sciences", "PC - Professional Core", "PE - Professional Elective", "OE - Open Elective", "EEC - Employability Enhancement Course", "NA"]}
+                      placeholder="Select or search category"
+                      width="w-full"
+                    />
                   </div>
                 </div>
 
