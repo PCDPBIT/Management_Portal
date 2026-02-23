@@ -23,8 +23,6 @@ const ElectiveSelectionPage = () => {
     try {
       setLoading(true);
       const url = `${API_BASE_URL}/students/electives/available?email=${userEmail}`;
-      console.log('Fetching from URL:', url);
-
       const response = await fetch(url);
 
       if (response.ok) {
@@ -32,32 +30,37 @@ const ElectiveSelectionPage = () => {
         console.log('Elective Data:', data);
         setElectiveData(data);
 
-        // Group electives by slot (new structure with slots)
         const grouped = {};
         if (data.slots && data.slots.length > 0) {
           data.slots.forEach(slot => {
-            // Use slot_name as the category key
-            const category = slot.slot_name || 'Unassigned';
-            grouped[category] = {
+            grouped[slot.slot_name || 'Unassigned'] = {
               slot_id: slot.slot_id,
               slot_name: slot.slot_name,
               slot_type: slot.slot_type,
               is_active: slot.is_active,
               courses: slot.courses || []
             };
-            console.log(`Slot: ${slot.slot_name}, Type: ${slot.slot_type}`);
           });
         }
         setGroupedElectives(grouped);
-        console.log('Grouped Electives:', grouped);
 
-        // Load existing selections from backend response (PRIMARY SOURCE OF TRUTH)
+        // Load existing selections from backend (PRIMARY SOURCE OF TRUTH)
         if (data.existing_selections && Object.keys(data.existing_selections).length > 0) {
           console.log('Loading existing selections from backend:', data.existing_selections);
           setSelections(data.existing_selections);
-          calculateTotalCredits(data.existing_selections);
 
-          // Check if already submitted (has selections for all REQUIRED slots only)
+          // Calculate credits using data directly (avoid stale closure on electiveData)
+          let total = 0;
+          Object.entries(data.existing_selections).forEach(([slotName, courseId]) => {
+            const slot = data.slots.find(s => s.slot_name === slotName);
+            if (slot && ['HONOR', 'MINOR', 'ADDON'].includes(slot.slot_type)) {
+              const course = slot.courses.find(c => c.course_id === courseId);
+              if (course) total += course.credits;
+            }
+          });
+          setTotalCreditUsed(total);
+
+          // Check submitted: all REQUIRED slots are filled
           const requiredSlots = data.slots.filter(slot =>
             ['PROFESSIONAL', 'OPEN', 'MIXED'].includes(slot.slot_type)
           );
@@ -66,25 +69,20 @@ const ElectiveSelectionPage = () => {
             return slot && ['PROFESSIONAL', 'OPEN', 'MIXED'].includes(slot.slot_type);
           });
 
-          if (selectedRequiredSlots.length === requiredSlots.length && requiredSlots.length > 0) {
-            setIsSubmitted(true);
-          } else {
-            setIsSubmitted(false);
-          }
+          setIsSubmitted(
+            requiredSlots.length > 0 &&
+            selectedRequiredSlots.length === requiredSlots.length
+          );
         } else {
-          // No existing selections in database - clear any old localStorage data
-          console.log('No existing selections found in backend - clearing localStorage');
           setSelections({});
           setIsSubmitted(false);
           setTotalCreditUsed(0);
-          // Clear old localStorage data for this semester
           localStorage.removeItem(`elective_selections_${userEmail}_sem${data.next_semester}`);
           localStorage.removeItem(`elective_submitted_${userEmail}_sem${data.next_semester}`);
           localStorage.removeItem(`elective_submission_${userEmail}_sem${data.next_semester}`);
         }
       } else {
         const errorText = await response.text();
-        console.error('Error response:', errorText);
         setMessage({ type: 'error', text: errorText || 'Failed to fetch electives' });
       }
     } catch (error) {

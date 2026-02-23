@@ -192,15 +192,10 @@ const TeacherCourseSelectionPage = () => {
       
       try {
         // Fetch teacher data from backend using email
-        console.log('Fetching teacher by email:', userEmail);
         const response = await fetch(`${API_BASE_URL}/teachers/by-email?email=${encodeURIComponent(userEmail)}`);
-        
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
         
         if (response.ok) {
           const data = await response.json();
-          console.log('Response data:', data);
           if (data.teacher && data.teacher.id) {
             console.log('Teacher found by email:', data.teacher);
             setTeacherId(data.teacher.id.toString());
@@ -211,16 +206,13 @@ const TeacherCourseSelectionPage = () => {
             localStorage.setItem('teacher_name', data.teacher.name || '');
             localStorage.setItem('teacher_dept', data.teacher.dept || '');
           } else {
-            console.error('No teacher in response data');
             setError(`No teacher record found for email: ${userEmail}\nPlease contact your administrator to add you to the teachers database.`);
             setLoading(false);
           }
         } else if (response.status === 404) {
-          console.error('404 - Teacher not found');
           setError(`No teacher record found for email: ${userEmail}\nPlease contact your administrator to add you to the teachers database.`);
           setLoading(false);
         } else {
-          console.error('API call failed with status:', response.status);
           // Fallback to stored teacher_id if API fails
           const storedTeacherId = localStorage.getItem('teacher_id');
           if (storedTeacherId) {
