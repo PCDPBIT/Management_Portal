@@ -2,6 +2,7 @@ package routes
 
 import (
 	"net/http"
+	"server/handlers/allocation"
 	curriculum "server/handlers/curriculum"
 	studentteacher "server/handlers/student-teacher_entry"
 
@@ -17,6 +18,15 @@ func SetupRoutes() *mux.Router {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	}).Methods("GET")
+
+	// Course types
+	router.HandleFunc("/api/course-types", curriculum.GetCourseTypes).Methods("GET", "OPTIONS")
+
+	// Academic Calendar routes
+	router.HandleFunc("/api/academic-calendar/current", curriculum.GetCurrentAcademicCalendar).Methods("GET", "OPTIONS")
+
+	// Courses routes
+	router.HandleFunc("/api/courses/by-semester/{semester}", curriculum.GetCoursesBySemester).Methods("GET", "OPTIONS")
 
 	// Department routes
 	router.HandleFunc("/api/departments", curriculum.GetDepartments).Methods("GET", "OPTIONS")
@@ -183,10 +193,11 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/academic-calendar/current", curriculum.GetCurrentAcademicCalendar).Methods("GET", "OPTIONS")
 
 	// Minor Program Management routes
-	router.HandleFunc("/api/hod/minor-verticals", curriculum.GetMinorVerticals).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/hod/vertical-courses", curriculum.GetVerticalCourses).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/hod/minor-selections", curriculum.GetHODMinorSelections).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/hod/minor-selections", curriculum.SaveHODMinorSelections).Methods("POST", "OPTIONS")
+	// TODO: Implement these handlers in curriculum package
+	// router.HandleFunc("/api/hod/minor-verticals", curriculum.GetMinorVerticals).Methods("GET", "OPTIONS")
+	// router.HandleFunc("/api/hod/vertical-courses", curriculum.GetVerticalCourses).Methods("GET", "OPTIONS")
+	// router.HandleFunc("/api/hod/minor-selections", curriculum.GetHODMinorSelections).Methods("GET", "OPTIONS")
+	// router.HandleFunc("/api/hod/minor-selections", curriculum.SaveHODMinorSelections).Methods("POST", "OPTIONS")
 
 	// User Management routes
 	router.HandleFunc("/api/users", curriculum.GetUsers).Methods("GET", "OPTIONS")
@@ -205,6 +216,7 @@ func SetupRoutes() *mux.Router {
 
 	// Teacher routes
 	router.HandleFunc("/api/teachers", studentteacher.GetTeachers).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/teachers/by-email", studentteacher.GetTeacherByEmail).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/teachers/{id}", studentteacher.GetTeacherByID).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/teachers", studentteacher.CreateTeacher).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/teachers/{id}", studentteacher.UpdateTeacher).Methods("PUT", "OPTIONS")
@@ -215,6 +227,27 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/student-teacher-mapping/data", studentteacher.GetMappingData).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/student-teacher-mapping/assign", studentteacher.AssignStudentsToTeachers).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/student-teacher-mapping/clear", studentteacher.ClearMappings).Methods("DELETE", "OPTIONS")
+
+	// Student Elective Selection routes
+	router.HandleFunc("/api/students/electives/available", studentteacher.GetAvailableElectives).Methods("GET", "OPTIONS")          // ?email=
+	router.HandleFunc("/api/students/electives/selections", studentteacher.SaveElectiveSelections).Methods("POST", "OPTIONS")       // ?email=
+	router.HandleFunc("/api/students/electives/selections", studentteacher.GetStudentElectiveSelections).Methods("GET", "OPTIONS")  // ?email=
+
+	// HR routes
+	router.HandleFunc("/api/hr/faculty", studentteacher.GetAllFaculty).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/hr/faculty/subject-counts", studentteacher.UpdateFacultySubjectCounts).Methods("PUT", "OPTIONS")
+
+	// Teacher Course Preferences routes
+	router.HandleFunc("/api/teachers/{teacher_id}/allocation-summary", studentteacher.GetTeacherAllocationSummary).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/teachers/{teacher_id}/course-preferences", studentteacher.GetTeacherCoursePreferences).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/teachers/course-preferences", studentteacher.SaveTeacherCoursePreferences).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/teachers/course-window/{academic_year}", studentteacher.GetTeacherCourseWindow).Methods("GET", "OPTIONS")
+
+	// Teacher -> Department -> Semester courses (auto-map department/curriculum)
+	router.HandleFunc("/api/teachers/{teacherId}/semester/{semester}/courses", curriculum.GetCoursesForTeacherSemester).Methods("GET", "OPTIONS")
+
+	// Automatic Allocation routes
+	router.HandleFunc("/api/allocations/run", allocation.RunAutoAllocation).Methods("POST", "OPTIONS")
 
 	return router
 }

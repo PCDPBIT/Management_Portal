@@ -2,20 +2,6 @@ package models
 
 import "time"
 
-// AcademicCalendar represents the current academic calendar
-type AcademicCalendar struct {
-	ID                     int        `json:"id"`
-	AcademicYear           string     `json:"academic_year"`
-	CurrentSemester        int        `json:"current_semester"`
-	SemesterStartDate      time.Time  `json:"semester_start_date"`
-	SemesterEndDate        time.Time  `json:"semester_end_date"`
-	ElectiveSelectionStart *time.Time `json:"elective_selection_start,omitempty"`
-	ElectiveSelectionEnd   *time.Time `json:"elective_selection_end,omitempty"`
-	IsCurrent              bool       `json:"is_current"`
-	CreatedAt              time.Time  `json:"created_at"`
-	UpdatedAt              time.Time  `json:"updated_at"`
-}
-
 // HODElectiveSelection represents HOD's elective course selections
 type HODElectiveSelection struct {
 	ID               int       `json:"id"`
