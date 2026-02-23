@@ -8,8 +8,6 @@ import (
 	"server/db"
 	"server/middleware"
 	"server/routes"
-	"server/scheduler"
-
 	"github.com/joho/godotenv"
 )
 
