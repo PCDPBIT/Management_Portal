@@ -3,7 +3,6 @@ package curriculum
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"server/db"
@@ -182,9 +181,6 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			COALESCE(c.category, '') as category,
 			COALESCE(c.credit, 0) as credit,
 			nc.id as card_id,
-			nc.id as vertical_id,
-			COALESCE(nc.vertical_name, '') as vertical_name,
-			nc.semester_number as vertical_semester,
 			nc.card_type,
 			CASE WHEN hes.id IS NOT NULL THEN 1 ELSE 0 END as is_selected,
 			hes.semester as assigned_semester,
@@ -205,7 +201,7 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			AND nc.card_type = 'vertical'
 			AND c.status = 1
 			AND nc.status = 1
-		ORDER BY nc.semester_number IS NULL, nc.semester_number, c.course_type, c.course_code
+		ORDER BY c.course_type, c.course_code
 	`
 
 	rows, err := db.DB.Query(query, departmentID, academicYear, batch, batch, curriculumID)
@@ -235,9 +231,6 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 			&course.Category,
 			&course.Credit,
 			&course.CardID,
-			&course.VerticalID,
-			&course.VerticalName,
-			&course.VerticalSemester,
 			&course.CardType,
 			&isSelected,
 			&assignedSemester,
@@ -348,79 +341,6 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Honour courses validation
-	// Get slot information to identify honour slots
-	slotMap := make(map[int]string)
-	slotQuery := "SELECT id, slot_name FROM elective_semester_slots WHERE id IN ("
-	slotIDs := make([]interface{}, 0)
-	for i, assignment := range req.CourseAssignments {
-		if i > 0 {
-			slotQuery += ","
-		}
-		slotQuery += "?"
-		slotIDs = append(slotIDs, assignment.SlotID)
-	}
-	slotQuery += ")"
-
-	if len(slotIDs) > 0 {
-		slotRows, err := db.DB.Query(slotQuery, slotIDs...)
-		if err != nil {
-			log.Println("Error fetching slot names:", err)
-		} else {
-			defer slotRows.Close()
-			for slotRows.Next() {
-				var slotID int
-				var slotName string
-				if err := slotRows.Scan(&slotID, &slotName); err == nil {
-					slotMap[slotID] = slotName
-				}
-			}
-		}
-	}
-
-	// Count honour course assignments by semester and collect honour course IDs
-	honourCourseCountBySemester := make(map[int]int)
-	honourCourseIDs := make([]int, 0)
-	professionalCourseIDs := make([]int, 0)
-
-	for _, assignment := range req.CourseAssignments {
-		slotName := slotMap[assignment.SlotID]
-		if strings.Contains(strings.ToLower(slotName), "honour slot") {
-			honourCourseCountBySemester[assignment.Semester]++
-			honourCourseIDs = append(honourCourseIDs, assignment.CourseID)
-		} else if strings.Contains(strings.ToLower(slotName), "professional elective") {
-			professionalCourseIDs = append(professionalCourseIDs, assignment.CourseID)
-		}
-	}
-
-	// Validate max 2 honour courses per semester
-	for semester, count := range honourCourseCountBySemester {
-		if count > 2 {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"success": false,
-				"message": fmt.Sprintf("Maximum 2 honour courses allowed per semester. Semester %d has %d honour courses.", semester, count),
-			})
-			return
-		}
-	}
-
-	// Validate honour courses are not in professional electives
-	if len(honourCourseIDs) > 0 && len(professionalCourseIDs) > 0 {
-		for _, honourCourseID := range honourCourseIDs {
-			for _, profCourseID := range professionalCourseIDs {
-				if honourCourseID == profCourseID {
-					w.WriteHeader(http.StatusBadRequest)
-					json.NewEncoder(w).Encode(map[string]interface{}{
-						"success": false,
-						"message": "Honour courses cannot be the same as professional elective courses. Please select different courses.",
-					})
-					return
-				}
-			}
-		}
-	}
-
 	// Get HOD's user ID, department, and curriculum
 	var userID, departmentID, curriculumID int
 	deptQuery := `
@@ -467,15 +387,14 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Delete existing selections for this department/batch/year/semester
+	// Delete existing selections for this department/batch/year
 	deleteQuery := `
 		DELETE FROM hod_elective_selections 
 		WHERE department_id = ? 
 		AND academic_year = ?
-		AND semester = ?
 		AND (batch = ? OR (batch IS NULL AND ? = ''))
 	`
-	_, err = tx.Exec(deleteQuery, departmentID, req.AcademicYear, req.Semester, req.Batch, req.Batch)
+	_, err = tx.Exec(deleteQuery, departmentID, req.AcademicYear, req.Batch, req.Batch)
 	if err != nil {
 		log.Println("Error deleting old selections:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -486,159 +405,7 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch open elective courses from curriculum
-	openElectivesQuery := `
-		SELECT DISTINCT c.id
-		FROM courses c
-		INNER JOIN curriculum_courses cc ON c.id = cc.course_id
-		INNER JOIN normal_cards nc ON cc.semester_id = nc.id
-		WHERE cc.curriculum_id = ?
-			AND nc.card_type = 'open_elective'
-			AND c.status = 1
-			AND nc.status = 1
-	`
-	openElectiveRows, err := tx.Query(openElectivesQuery, curriculumID)
-	if err != nil {
-		log.Println("Error fetching open electives:", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"message": "Error fetching open electives",
-		})
-		return
-	}
-	defer openElectiveRows.Close()
-
-	openElectiveCourseIDs := []int{}
-	for openElectiveRows.Next() {
-		var courseID int
-		if err := openElectiveRows.Scan(&courseID); err != nil {
-			log.Println("Error scanning open elective course ID:", err)
-			continue
-		}
-		openElectiveCourseIDs = append(openElectiveCourseIDs, courseID)
-	}
-
-	// Auto-allocate open electives per semester based on rules
-	autoAllocatedCount := 0
-	if len(openElectiveCourseIDs) > 0 {
-		// Get unique semesters from course assignments
-		semesterSet := make(map[int]bool)
-		for _, assignment := range req.CourseAssignments {
-			semesterSet[assignment.Semester] = true
-		}
-
-		// For each semester, determine slot allocation
-		for semester := range semesterSet {
-			// Fetch slots for this semester
-			slotsQuery := `
-				SELECT id, slot_name, slot_order
-				FROM elective_semester_slots
-				WHERE semester = ?
-				ORDER BY slot_order
-			`
-			slotRows, err := tx.Query(slotsQuery, semester)
-			if err != nil {
-				log.Println("Error fetching semester slots:", err)
-				continue
-			}
-
-			var professionalElectiveSlots []struct {
-				ID        int
-				SlotName  string
-				SlotOrder int
-			}
-			var openElectiveSlotID int
-
-			for slotRows.Next() {
-				var slotID, slotOrder int
-				var slotName string
-				if err := slotRows.Scan(&slotID, &slotName, &slotOrder); err != nil {
-					log.Println("Error scanning slot:", err)
-					continue
-				}
-
-				if strings.Contains(strings.ToLower(slotName), "open elective") {
-					openElectiveSlotID = slotID
-				} else if strings.Contains(strings.ToLower(slotName), "professional elective") {
-					professionalElectiveSlots = append(professionalElectiveSlots, struct {
-						ID        int
-						SlotName  string
-						SlotOrder int
-					}{slotID, slotName, slotOrder})
-				}
-			}
-			slotRows.Close()
-
-			// Apply rules:
-			// 1. If only one professional elective slot exists -> skip open electives
-			// 2. If open elective slot exists -> use it
-			// 3. Else use last professional elective slot
-			var targetSlotID int
-			if len(professionalElectiveSlots) == 1 && openElectiveSlotID == 0 {
-				// Rule 1: only one professional elective slot, no open elective slot -> skip
-				continue
-			} else if openElectiveSlotID != 0 {
-				// Rule 2: open elective slot exists
-				targetSlotID = openElectiveSlotID
-			} else if len(professionalElectiveSlots) > 0 {
-				// Rule 3: use last professional elective slot (highest slot_order)
-				lastSlot := professionalElectiveSlots[0]
-				for _, slot := range professionalElectiveSlots {
-					if slot.SlotOrder > lastSlot.SlotOrder {
-						lastSlot = slot
-					}
-				}
-				targetSlotID = lastSlot.ID
-			} else {
-				// No suitable slot found
-				continue
-			}
-
-			// Insert open electives into target slot for this semester
-			insertQuery := `
-				INSERT INTO hod_elective_selections 
-				(department_id, curriculum_id, semester, course_id, slot_id, slot_name, academic_year, batch, approved_by_user_id, status, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, (SELECT slot_name FROM elective_semester_slots WHERE id = ?), ?, ?, ?, ?, ?, ?)
-			`
-			now := time.Now()
-			status := req.Status
-			if status == "" {
-				status = "ACTIVE"
-			}
-			var batchVal interface{}
-			if req.Batch != "" {
-				batchVal = req.Batch
-			} else {
-				batchVal = nil
-			}
-
-			for _, openCourseID := range openElectiveCourseIDs {
-				_, err = tx.Exec(insertQuery,
-					departmentID,
-					curriculumID,
-					semester,
-					openCourseID,
-					targetSlotID,
-					targetSlotID,
-					req.AcademicYear,
-					batchVal,
-					userID,
-					status,
-					now,
-					now,
-				)
-				if err != nil {
-					log.Println("Error inserting open elective:", err)
-					// Continue with other courses
-					continue
-				}
-				autoAllocatedCount++
-			}
-		}
-	}
-
-	// Insert user-provided selections with semester assignments
+	// Insert new selections with semester assignments
 	if len(req.CourseAssignments) > 0 {
 		insertQuery := `
 			INSERT INTO hod_elective_selections 
@@ -700,10 +467,7 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 
 	message := "Elective selections saved successfully"
 	if len(req.CourseAssignments) > 0 {
-		message = fmt.Sprintf("%d elective courses assigned to semesters", len(req.CourseAssignments))
-		if autoAllocatedCount > 0 {
-			message = fmt.Sprintf("%s (%d open electives auto-allocated)", message, autoAllocatedCount)
-		}
+		message = strconv.Itoa(len(req.CourseAssignments)) + " elective courses assigned to semesters"
 	} else {
 		message = "All elective selections cleared"
 	}

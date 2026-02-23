@@ -146,20 +146,34 @@ type SelectedElectivesResponse struct {
 // StudentElectiveCourse - Course for student view
 type StudentElectiveCourse struct {
 	SelectionID        int    `json:"selection_id"`
+	CourseID           int    `json:"course_id"`
 	CourseCode         string `json:"course_code"`
 	CourseName         string `json:"course_name"`
 	CourseType         string `json:"course_type"`
 	Category           string `json:"category"`
-	Credit             int    `json:"credit"`
+	Credits            int    `json:"credits"`  // renamed from Credit for frontend consistency
+	Credit             int    `json:"credit"`   // keep for backward compat
 	MaxStudents        *int   `json:"max_students,omitempty"`
 	CurrentEnrollments int    `json:"current_enrollments"`
 	IsChosen           bool   `json:"is_chosen"`
 }
 
-// StudentAvailableElectivesResponse - Response for student available electives
+// StudentElectiveSlot - Slot grouping for student view
+type StudentElectiveSlot struct {
+	SlotID    int                     `json:"slot_id"`
+	SlotName  string                  `json:"slot_name"`
+	SlotType  string                  `json:"slot_type"` // PROFESSIONAL, OPEN, MIXED, HONOR, MINOR, ADDON
+	IsActive  bool                    `json:"is_active"`
+	Courses   []StudentElectiveCourse `json:"courses"`
+}
+
+// StudentAvailableElectivesResponse - Response for student available electives (slot-based)
 type StudentAvailableElectivesResponse struct {
-	Semester  int                     `json:"semester"`
-	Electives []StudentElectiveCourse `json:"electives"`
+	NextSemester       int                            `json:"next_semester"`
+	Semester           int                            `json:"semester"`
+	AcademicYear       string                         `json:"academic_year"`
+	Slots              []StudentElectiveSlot          `json:"slots"`
+	ExistingSelections map[string]int                 `json:"existing_selections"` // slot_name -> course_id
 }
 
 // StudentElectiveSelectionRequest - Request for student to choose electives
