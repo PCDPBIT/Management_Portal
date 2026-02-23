@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MainLayout from '../../components/MainLayout'
 import { API_BASE_URL } from '../../config'
+import SearchFilterBar from '../../components/SearchFilterBar'
 
 function UsersPage() {
   const navigate = useNavigate()
@@ -13,7 +14,9 @@ function UsersPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
-  
+  const [searchQuery, setSearchQuery] = useState('')
+  const [roleFilter, setRoleFilter] = useState('all')
+
   const [newUser, setNewUser] = useState({
     username: '',
     password: '',
@@ -56,6 +59,16 @@ function UsersPage() {
       setLoading(false)
     }
   }
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      (user.username || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.role || '').toLowerCase().includes(searchQuery.toLowerCase())
+
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter
+
+    return matchesSearch && matchesRole
+  })
 
   const handleCreateUser = async (e) => {
     e.preventDefault()
@@ -65,7 +78,7 @@ function UsersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser)
       })
-      
+
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to create user')
@@ -108,7 +121,7 @@ function UsersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editUser)
       })
-      
+
       if (!response.ok) throw new Error('Failed to update user')
 
       setSuccess('User updated successfully!')
@@ -135,7 +148,7 @@ function UsersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: newPassword })
       })
-      
+
       if (!response.ok) throw new Error('Failed to change password')
 
       setSuccess('Password changed successfully!')
@@ -155,7 +168,7 @@ function UsersPage() {
       const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
         method: 'DELETE'
       })
-      
+
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to delete user')
@@ -187,8 +200,8 @@ function UsersPage() {
   }
 
   return (
-    <MainLayout 
-      title="User Management" 
+    <MainLayout
+      title="User Management"
       subtitle="Manage system users and permissions"
       actions={
         <button
@@ -202,7 +215,7 @@ function UsersPage() {
         </button>
       }
     >
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="card-custom">
         {/* Messages */}
         {error && (
           <div className="flex items-start space-x-3 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -212,7 +225,7 @@ function UsersPage() {
             <p className="text-sm font-medium text-red-600">{error}</p>
           </div>
         )}
-        
+
         {success && (
           <div className="flex items-start space-x-3 p-4 bg-green-50 border border-green-200 rounded-lg">
             <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -222,47 +235,48 @@ function UsersPage() {
           </div>
         )}
 
+        <SearchFilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          resultCount={filteredUsers.length}
+          resultLabel="users"
+          searchWidth="w-full sm:w-80"
+        />
+
         {/* Users Table */}
         <div className="card-custom overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Full Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-center text-sm text-black font-bold tracking-wider">S. No</th>
+                  <th className="px-6 py-3 text-left text-xs text-black font-bold tracking-wider uppercase">Username</th>
+                  <th className="px-6 py-3 text-left text-xs text-black font-bold tracking-wider uppercase">Email</th>
+                  <th className="px-6 py-3 text-left text-xs text-black font-bold tracking-wider uppercase">Role</th>
+                  <th className="px-6 py-3 text-left text-xs text-black font-bold tracking-wider uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs text-black font-bold tracking-wider uppercase">Last Login</th>
+                  <th className="px-6 py-3 text-center text-xs text-black font-bold tracking-wider uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
+                {filteredUsers.map((user, index) => (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-semibold text-sm">{user.username.charAt(0).toUpperCase()}</span>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{user.username}</div>
-                        </div>
-                      </div>
+                      <div className="text-sm font-medium text-center text-gray-900">{index + 1}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{user.full_name}</div>
+                      <div className="text-sm font-medium text-gray-900">{user.username}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{user.email}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
+                      <span className={`inline-flex text-xs uppercase leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-primary p-1' : ' text-gray-800'}`}>
                         {user.role}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_active ? 'bg-primary text-white' : 'bg-red-100 text-red-800'}`}>
                         {user.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
@@ -270,10 +284,10 @@ function UsersPage() {
                       {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-center gap-4">
                         <button
                           onClick={() => handleEditUser(user)}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="text-primary-500 hover:text-primary-600"
                           title="Edit user"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -282,7 +296,7 @@ function UsersPage() {
                         </button>
                         <button
                           onClick={() => handleChangePassword(user)}
-                          className="text-yellow-600 hover:text-yellow-900"
+                          className="text-primary"
                           title="Change password"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -292,7 +306,7 @@ function UsersPage() {
                         {user.id !== 1 && (
                           <button
                             onClick={() => handleDeleteUser(user)}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-red-600 hover:bg-red-600 hover:text-white p-2 rounded-full "
                             title="Delete user"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,7 +405,6 @@ function UsersPage() {
         </div>
       )}
 
-      {/* Edit User Modal */}
       {showEditModal && currentUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">

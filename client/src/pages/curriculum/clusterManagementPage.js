@@ -61,7 +61,6 @@ function ClusterManagementPage() {
         throw new Error('Failed to fetch available departments')
       }
       const data = await response.json()
-      console.log('Available departments:', data)
       setAvailableCurriculum(data || [])
     } catch (err) {
       console.error('Error fetching available departments:', err)
@@ -76,7 +75,6 @@ function ClusterManagementPage() {
         throw new Error('Failed to fetch cluster departments')
       }
       const data = await response.json()
-      console.log('Cluster departments data:', data)
       setClusterDepartments(data || [])
     } catch (err) {
       console.error('Error fetching cluster departments:', err)
@@ -210,14 +208,12 @@ function ClusterManagementPage() {
   }
 
   const getDepartmentName = (dept) => {
-    console.log('Getting name for dept:', dept)
     // If dept has a name property from backend, use it
     if (dept && dept.name) {
       return dept.name
     }
     // Otherwise look up by curriculum_id or id
     const regId = dept.curriculum_id || dept.id
-    console.log('Looking up curriculum by id:', regId, 'in curriculum array:', curriculum)
     const reg = curriculum.find(r => r.id === regId)
     return reg ? reg.name : `Department ${regId}`
   }
@@ -268,14 +264,22 @@ function ClusterManagementPage() {
       <div className="space-y-6">
         {/* Messages */}
         {error && (
-          <div className="flex items-start space-x-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-            <p className="text-sm font-medium text-red-600">{error}</p>
+          <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg space-x-3">
+            <div className="flex items-center space-x-2">
+              <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm font-medium text-red-600">{error}</p>
+            </div>
+            {/* Retry button */}
+            <button
+              onClick={() => window.location.reload()}
+              className="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 hover:text-red-800 focus:outline-none focus:ring-2 focus:ring-red-300 transition"
+            >
+              Retry
+            </button>
           </div>
         )}
-        
         {success && (
           <div className="flex items-start space-x-3 p-4 bg-green-50 border border-green-200 rounded-lg">
             <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -343,7 +347,7 @@ function ClusterManagementPage() {
                 <svg className="w-16 h-16 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
-                <p className="text-sm">No clusters yet. Click "Create Cluster" to start.</p>
+                <p className="text-sm">No clusters yet. Click <button type="button" onClick={() => setShowCreateForm(true)} className="text-primary hover:underline">Create Cluster</button> to start.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -483,7 +487,7 @@ function ClusterManagementPage() {
         {/* Add Department Modal */}
         {showAddDepartmentModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAddDepartmentModal(false)}>
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-background rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
               <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-5 flex items-center justify-between rounded-t-2xl">
                 <div>
                   <h3 className="text-2xl font-bold mb-1">Add Department</h3>

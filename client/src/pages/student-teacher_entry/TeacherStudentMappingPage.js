@@ -44,16 +44,9 @@ function TeacherStudentMappingPage() {
     setLoading(true);
     try {
       const url = `${API_BASE_URL}/student-teacher-mapping/data?department_id=${selectedDepartment}&year=${selectedYear}&academic_year=${academicYear}`;
-      console.log("[MAPPING DEBUG] Fetching from URL:", url);
-      console.log("[MAPPING DEBUG] Filters - dept:", selectedDepartment, "year:", selectedYear, "academicYear:", academicYear);
       
       const response = await fetch(url);
       const data = await response.json();
-      
-      console.log("[MAPPING DEBUG] Response data:", data);
-      console.log("[MAPPING DEBUG] Teachers count:", (data.teachers || []).length);
-      console.log("[MAPPING DEBUG] Students count:", (data.students || []).length);
-      console.log("[MAPPING DEBUG] Students:", data.students);
       
       setTeachers(data.teachers || []);
       setStudents(data.students || []);
@@ -231,7 +224,7 @@ function TeacherStudentMappingPage() {
             <button
               onClick={handleAssign}
               disabled={assigning || loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+              className="px-6 py-2 bg-primary text-white rounded-md  disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
             >
               {assigning ? "Assigning..." : "Assign Students to Teachers"}
             </button>
@@ -356,23 +349,23 @@ function TeacherStudentMappingPage() {
 
         {/* Statistics Summary */}
         {selectedDepartment && selectedYear && students.length > 0 && (
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <div className="mt-6 mb-4 p-4 bg-gray-50 rounded-lg">
             <h4 className="font-semibold mb-2">Distribution Summary</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div>
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-2xl font-bold text-primary">
                   {teachers.length}
                 </p>
                 <p className="text-sm text-gray-600">Teachers</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-2xl font-bold text-primary">
                   {students.length}
                 </p>
                 <p className="text-sm text-gray-600">Students</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-2xl font-bold text-primary">
                   {teachers.length > 0
                     ? Math.floor(students.length / teachers.length)
                     : 0}
@@ -380,7 +373,7 @@ function TeacherStudentMappingPage() {
                 <p className="text-sm text-gray-600">Per Teacher</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-orange-600">
+                <p className="text-2xl font-bold text-primary">
                   {teachers.length > 0 ? students.length % teachers.length : 0}
                 </p>
                 <p className="text-sm text-gray-600">Extra Students</p>

@@ -349,7 +349,7 @@ const HODElectivePage = () => {
 
       if (data.available_electives) {
         const courseMap = new Map();
-        const assignments = {};
+        const semesterAssignments = {}; // Store assignments grouped by semester
 
         data.available_electives.forEach((course) => {
           // Filter out open elective courses
@@ -360,12 +360,18 @@ const HODElectivePage = () => {
             courseMap.set(course.id, course);
           }
 
-          if (course.assigned_semester === targetSemester) {
+          // If this course has an assigned semester, add it to that semester's assignments
+          if (course.assigned_semester) {
+            if (!semesterAssignments[course.assigned_semester]) {
+              semesterAssignments[course.assigned_semester] = {};
+            }
             const slotId = course.assigned_slot_id || 0;
             if (slotId) {
-              const existing = assignments[course.id]?.slot_ids || [];
+              const existing =
+                semesterAssignments[course.assigned_semester][course.id]
+                  ?.slot_ids || [];
               if (!existing.includes(slotId)) {
-                assignments[course.id] = {
+                semesterAssignments[course.assigned_semester][course.id] = {
                   slot_ids: [...existing, slotId],
                 };
               }
@@ -375,12 +381,11 @@ const HODElectivePage = () => {
 
         setAvailableElectives(Array.from(courseMap.values()));
 
-        if (targetSemester) {
-          setCourseAssignmentsBySemester((prev) => ({
-            ...prev,
-            [targetSemester]: assignments,
-          }));
-        }
+        // Update assignments for all semesters, not just the current one
+        setCourseAssignmentsBySemester((prev) => ({
+          ...prev,
+          ...semesterAssignments,
+        }));
       }
     } catch (error) {
       console.error("Error fetching electives:", error);

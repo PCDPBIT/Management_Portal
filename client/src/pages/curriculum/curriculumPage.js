@@ -303,6 +303,7 @@ function CurriculumPage() {
               const getCardLabel = () => {
                 if (cardType === 'semester') return `Semester ${sem.semester_number}`
                 if (cardType === 'vertical') {
+                  if (sem.vertical_name) return sem.vertical_name
                   return sem.semester_number ? `Vertical ${sem.semester_number}` : 'Vertical'
                 }
                 if (cardType === 'language_elective') return 'Language Elective'
@@ -338,7 +339,7 @@ function CurriculumPage() {
                     <h3 className="text-lg font-semibold text-gray-800">{getCardLabel()}</h3>
                     <p className="text-sm text-gray-500 mt-2">Max Credits: {sem.max_credits || 0}</p>
                     <span className="inline-block mt-2 px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">
-                      {cardType === 'semester' ? 'Semester' : cardType === 'vertical' ? 'Vertical' : cardType === 'language_elective' ? 'Language Elective' : cardType === 'open_elective' ? 'Open Elective' : 'One Credit'}
+                      {cardType === 'semester' ? 'Semester' : cardType === 'vertical' ? (sem.vertical_name || 'Vertical') : cardType === 'language_elective' ? 'Language Elective' : cardType === 'open_elective' ? 'Open Elective' : 'One Credit'}
                     </span>
                     <p className="text-xs text-gray-400 mt-2">Click to manage courses</p>
                   </div>

@@ -103,7 +103,7 @@ func GetSemesters(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "SELECT id, curriculum_id, semester_number, COALESCE(card_type, 'semester') as card_type FROM normal_cards WHERE curriculum_id = ? AND (status = 1 OR status IS NULL) ORDER BY COALESCE(semester_number, 999), id"
+	query := "SELECT id, curriculum_id, semester_number, COALESCE(card_type, 'semester') as card_type, COALESCE(vertical_name, '') as vertical_name FROM normal_cards WHERE curriculum_id = ? AND (status = 1 OR status IS NULL) ORDER BY COALESCE(semester_number, 999), id"
 	rows, err := db.DB.Query(query, curriculumID)
 	if err != nil {
 		log.Println("Error querying semesters:", err)
@@ -117,7 +117,7 @@ func GetSemesters(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var sem models.Semester
 		var semesterNum sql.NullInt64
-		err := rows.Scan(&sem.ID, &sem.CurriculumID, &semesterNum, &sem.CardType)
+		err := rows.Scan(&sem.ID, &sem.CurriculumID, &semesterNum, &sem.CardType, &sem.VerticalName)
 		if err != nil {
 			log.Println("Error scanning semester:", err)
 			continue
@@ -193,8 +193,12 @@ func CreateSemester(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	query := "INSERT INTO normal_cards (curriculum_id, semester_number, card_type) VALUES (?, ?, ?)"
-	result, err := db.DB.Exec(query, card.CurriculumID, card.SemesterNumber, card.CardType)
+	query := "INSERT INTO normal_cards (curriculum_id, semester_number, card_type, vertical_name) VALUES (?, ?, ?, ?)"
+	verticalName := ""
+	if card.CardType == "vertical" {
+		verticalName = card.VerticalName
+	}
+	result, err := db.DB.Exec(query, card.CurriculumID, card.SemesterNumber, card.CardType, verticalName)
 	if err != nil {
 		log.Println("Error inserting semester:", err)
 		w.WriteHeader(http.StatusInternalServerError)

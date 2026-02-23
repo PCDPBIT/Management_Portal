@@ -14,7 +14,7 @@ function ManageCurriculumPage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [cardType, setCardType] = useState('normal') // 'normal' or 'honour'
   const [showDropdown, setShowDropdown] = useState(false)
-  const [newSemester, setNewSemester] = useState({ semester_number: null, name: '', card_type: 'semester' })
+  const [newSemester, setNewSemester] = useState({ semester_number: null, name: '', card_type: 'semester', vertical_name: '' })
   const [newHonourCard, setNewHonourCard] = useState({ title: '' })
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingSemester, setEditingSemester] = useState(null)
@@ -108,7 +108,8 @@ function ManageCurriculumPage() {
         body: JSON.stringify({
           semester_number: newSemester.semester_number,
           name: generatedName,
-          card_type: newSemester.card_type
+          card_type: newSemester.card_type,
+          vertical_name: newSemester.card_type === 'vertical' ? newSemester.vertical_name : ''
         }),
       })
 
@@ -116,7 +117,7 @@ function ManageCurriculumPage() {
         throw new Error('Failed to create semester')
       }
 
-      setNewSemester({ semester_number: null, name: '', card_type: 'semester' })
+      setNewSemester({ semester_number: null, name: '', card_type: 'semester', vertical_name: '' })
       setShowCreateForm(false)
       setShowDropdown(false)
       fetchSemesters()
@@ -164,27 +165,31 @@ function ManageCurriculumPage() {
   const getCardStyle = (cardType) => {
     const styles = {
       'semester': {
-        gradient: 'from-blue-500 to-blue-700',
-        bg: 'bg-blue-50',
-        badge: 'bg-blue-100 text-blue-700',
+        card:'hover:border hover:border-primary',
+        gradient: 'from-primary to-primary',
+        bg: 'bg-white',
+        badge: 'bg-white text-primary border border-primary',
         label: 'Semester',
         icon: '📚'
       },
       'language_elective': {
+        card:'hover:border hover:border-green-700',
         gradient: 'from-green-500 to-green-700',
         bg: 'bg-green-50',
-        badge: 'bg-green-100 text-green-700',
+        badge: 'border border-green-700 text-green-700',
         label: 'Language Elective',
         icon: '🎯'
       },
       'vertical': {
-        gradient: 'from-orange-500 to-orange-700',
+        card:'hover:border hover:border-orange-500',
+        gradient: 'from-orange-300 to-orange-500',
         bg: 'bg-orange-50',
         badge: 'bg-orange-100 text-orange-700',
         label: 'Vertical',
         icon: '📊'
       },
       'open_elective': {
+        card:'hover:border hover:border-yellow-500',
         gradient: 'from-purple-500 to-purple-700',
         bg: 'bg-purple-50',
         badge: 'bg-purple-100 text-purple-700',
@@ -192,6 +197,7 @@ function ManageCurriculumPage() {
         icon: '🌟'
       },
       'one_credit': {
+        card:'hover:border hover:border-yellow-500',
         gradient: 'from-teal-500 to-teal-700',
         bg: 'bg-teal-50',
         badge: 'bg-teal-100 text-teal-700',
@@ -367,7 +373,7 @@ function ManageCurriculumPage() {
         </div>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-0">
 
         {/* Error Message */}
         {error && (
@@ -391,7 +397,7 @@ function ManageCurriculumPage() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Card Type</label>
                   <select
                     value={newSemester.card_type}
-                    onChange={(e) => setNewSemester({ ...newSemester, card_type: e.target.value, semester_number: null })}
+                    onChange={(e) => setNewSemester({ ...newSemester, card_type: e.target.value, semester_number: null, vertical_name: '' })}
                     className="input-custom"
                   >
                     <option value="semester">Semester</option>
@@ -410,6 +416,19 @@ function ManageCurriculumPage() {
                       onChange={(e) => setNewSemester({ ...newSemester, semester_number: e.target.value ? parseInt(e.target.value) : null })}
                       placeholder="e.g., 1"
                       min="1"
+                      required
+                      className="input-custom"
+                    />
+                  </div>
+                )}
+                {newSemester.card_type === 'vertical' && (
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Vertical Name</label>
+                    <input
+                      type="text"
+                      value={newSemester.vertical_name || ''}
+                      onChange={(e) => setNewSemester({ ...newSemester, vertical_name: e.target.value })}
+                      placeholder="e.g., AI & ML"
                       required
                       className="input-custom"
                     />
@@ -439,7 +458,7 @@ function ManageCurriculumPage() {
                     <option value="MINOR VERTICAL">MINOR VERTICAL</option>
                   </select>
                 </div>
-                <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white font-medium px-5 py-2.5 rounded-lg transition-all">
+                <button type="submit" className="bg-primary text-white font-medium px-5 py-2.5 rounded-lg transition-all">
                   Create Honour Card
                 </button>
                 <button
@@ -469,10 +488,11 @@ function ManageCurriculumPage() {
             {/* Normal Cards (All Types) */}
             {semesters.map(sem => {
               const style = getCardStyle(sem.card_type || 'semester')
+              const displayLabel = sem.card_type === 'vertical' && sem.vertical_name ? sem.vertical_name : style.label
               return (
                 <div
                   key={`sem-${sem.id}`}
-                  className={`group card-custom p-6 cursor-pointer hover:scale-105 transition-all duration-200 relative ${style.bg} border-2 border-transparent hover:border-opacity-50`}
+                  className={`group card-custom p-6 cursor-pointer transition-all duration-200 relative ${style.bg} ${style.card} border-2 border-transparent hover:border-opacity-50`}
                   onClick={() => navigate(`/curriculum/${id}/curriculum/semester/${sem.id}`)}
                 >
                   {/* Edit Button - Only show for semester and vertical cards */}
@@ -527,12 +547,12 @@ function ManageCurriculumPage() {
                     
                     {/* Card Name */}
                     <h3 className="text-lg font-bold text-gray-900 mb-2 min-h-[3rem] flex items-center justify-center">
-                      {style.label}
+                      {displayLabel}
                     </h3>
                     
                     {/* Card Type Badge */}
                     <span className={`inline-block mb-2 px-3 py-1 ${style.badge} text-xs font-semibold rounded-full`}>
-                      {style.label}
+                      {displayLabel}
                     </span>
                     
                     <p className="text-sm text-gray-600">Manage courses →</p>
@@ -545,7 +565,7 @@ function ManageCurriculumPage() {
             {honourCards.map(card => (
               <div
                 key={`honour-${card.id}`}
-                className="relative group card-custom p-6 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
+                className="relative group card-custom p-6 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200  hover:border hover:border-primary"
               >
                 {/* Delete Button */}
                 <button
@@ -553,7 +573,7 @@ function ManageCurriculumPage() {
                     e.stopPropagation()
                     handleDeleteHonourCard(card.id, card.title)
                   }}
-                  className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-md z-10"
+                  className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded-lg hover:bg-red-100 opacity-0 group-hover:opacity-100 transition-all"
                   title="Delete"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -563,7 +583,7 @@ function ManageCurriculumPage() {
 
                 {/* Card Content */}
                 <div
-                  className="text-center cursor-pointer"
+                  className="text-center cursor-pointer rounded-lg p-4 transition-all duration-200"
                   onClick={() => navigate(`/curriculum/${id}/curriculum/honour/${card.id}`)}
                 >
                   <div className="text-5xl mb-3">🎖️</div>
@@ -582,7 +602,7 @@ function ManageCurriculumPage() {
         {showEditModal && editingSemester && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-              <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-5 flex items-center justify-between rounded-t-2xl">
+              <div className="bg-primary text-white px-8 py-5 flex items-center justify-between rounded-t-2xl">
                 <div>
                   <h3 className="text-xl font-bold">
                     {editingSemester.card_type === 'vertical' ? 'Edit Vertical' : 'Edit Semester'}
@@ -627,7 +647,7 @@ function ManageCurriculumPage() {
                   </button>
                   <button
                     type="submit"
-                    className="bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2.5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
+                    className="btn-primary-custom text-white font-medium px-5 py-2.5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
                   >
                     {editingSemester.card_type === 'vertical' ? 'Update Vertical' : 'Update Semester'}
                   </button>

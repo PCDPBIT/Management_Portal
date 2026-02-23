@@ -93,8 +93,15 @@ func main() {
 		log.Fatal("Failed to remove name column from normal_cards:", err)
 	}
 
-	// Start allocation scheduler (checks every hour for closed windows)
-	scheduler.StartAllocationScheduler()
+	// Create mark entry student permissions table
+	if err := db.CreateMarkEntryStudentPermissionsTables(); err != nil {
+		log.Fatal("Failed to create mark entry student permissions tables:", err)
+	}
+
+	// Add user_id to mark_entry_windows for user-based windows
+	if err := db.AddUserIdToMarkEntryWindows(); err != nil {
+		log.Fatal("Failed to add user_id to mark_entry_windows:", err)
+	}
 
 	// Setup routes
 	router := routes.SetupRoutes()
@@ -110,4 +117,3 @@ func main() {
 	fmt.Println("Server started at http://localhost:5000")
 	log.Fatal(http.ListenAndServe(":5000", handler))
 }
-

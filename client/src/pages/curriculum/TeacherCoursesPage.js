@@ -34,7 +34,6 @@ function TeacherCoursesPage() {
         url += '?' + params.toString()
       }
 
-      console.log('[TEACHER COURSES] Fetching from:', url)
       const response = await fetch(url)
 
       if (!response.ok) {
@@ -42,7 +41,6 @@ function TeacherCoursesPage() {
       }
 
       const data = await response.json()
-      console.log('[TEACHER COURSES] Data received:', data)
 
       if (!data || data.length === 0) {
         setError('No courses found for this teacher')
@@ -127,7 +125,7 @@ function TeacherCoursesPage() {
 
   return (
     <MainLayout title="Teacher Course Allocation" subtitle="View all courses allocated to a teacher">
-      <div className="teacher-courses-page">
+      <div>
         {/* Search Form */}
         <div className="search-form-card">
           <form onSubmit={fetchTeacherCourses} className="search-form">
@@ -175,7 +173,7 @@ function TeacherCoursesPage() {
 
               <div className="form-group">
                 <label>&nbsp;</label>
-                <button type="submit" className="btn-primary" disabled={loading}>
+                <button type="submit" className="btn-primary-custom" disabled={loading}>
                   {loading ? 'Searching...' : 'Search'}
                 </button>
               </div>

@@ -22,7 +22,7 @@ function LoginPage() {
         body: JSON.stringify({ username, password }),
       })
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success) {
         // Determine the best name to display
@@ -30,19 +30,28 @@ function LoginPage() {
         
         // Store user info in localStorage
         localStorage.setItem('userRole', data.user.role)
-        localStorage.setItem('userName', displayName)
+        localStorage.setItem('userName', data.user.full_name || data.teacher_name || data.user.username)
+        localStorage.setItem('userEmail', data.user.email)
         localStorage.setItem('userId', data.user.id)
-        localStorage.setItem('userEmail', data.user.email) // Store email from users table
+        localStorage.setItem('user_id', data.user.id) // Store with underscore for consistency
+        localStorage.setItem('username', data.user.username) // Store username for API calls
         
-        // If teacher data is available, store it
-        if (data.teacher_data) {
-          localStorage.setItem('teacher_id', data.teacher_data.teacher_id)
-          localStorage.setItem('faculty_id', data.teacher_data.faculty_id)
-          localStorage.setItem('teacher_name', data.teacher_data.name)
-          localStorage.setItem('teacher_email', data.teacher_data.email)
-          localStorage.setItem('teacher_dept', data.teacher_data.dept || '')
-          localStorage.setItem('teacher_designation', data.teacher_data.designation || '')
-          console.log('Teacher data stored:', data.teacher_data);
+        // Store teacher ID if teacher role
+        if (data.user.role === 'teacher' && data.teacher_id) {
+          localStorage.setItem('teacherId', data.teacher_id)
+          localStorage.setItem('teacher_id', data.teacher_id) // Store with underscore for consistency
+        }
+
+        setUsername("");
+        setPassword("");
+
+        // Redirect based on role
+        if (data.user.role === "teacher") {
+          navigate("/teacher-dashboard");
+        } else if (data.user.role === "curriculum_entry_user") {
+          navigate("/curriculum");
+        } else if (data.user.role === "hod") {
+          navigate("/hod/elective-management");
         } else {
           // Clear any stale teacher data from previous sessions
           localStorage.removeItem('teacher_id');
@@ -82,7 +91,9 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white flex items-center justify-center p-4" style={{backgroundImage: 'linear-gradient(to bottom right, rgba(67, 113, 229, 0.05), rgb(255, 255, 255), rgba(168, 85, 247, 0.05))'}}>
+    <div
+      className="min-h-screen bg-background flex items-center justify-center p-4"
+    >
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob" style={{backgroundColor: 'rgba(67, 113, 229, 0.3)'}}></div>
@@ -93,13 +104,37 @@ function LoginPage() {
       <div className="relative w-full max-w-md">
         {/* Logo and Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl shadow-2xl mb-6 transform hover:scale-105 transition-transform" style={{background: 'linear-gradient(to bottom right, rgb(67, 113, 229), rgb(47, 93, 209))'}}>
-            <svg className="w-11 h-11 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          <div
+            className="inline-flex items-center justify-center w-20 h-20 rounded-3xl shadow-2xl mb-6 transform hover:scale-105 transition-transform"
+            style={{
+              backgroundColor: "#7D53F6",
+            }}
+          >
+            <svg
+              className="w-11 h-11 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+              />
             </svg>
           </div>
-          <h1 className="text-4xl font-bold mb-2" style={{background: 'linear-gradient(to right, rgb(67, 113, 229), rgb(47, 93, 209))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>Curriculum Management System</h1>
-          <p className="text-gray-600 text-base font-medium">Sign in to continue to your dashboard</p>
+          <h1
+            className="text-4xl font-bold mb-2"
+            style={{
+              color: "#7D53F6",
+            }}
+          >
+            Curriculum Management System
+          </h1>
+          <p className="text-gray-600 text-base font-medium">
+            Sign in to continue to your dashboard
+          </p>
         </div>
 
         {/* Login Card */}
@@ -200,4 +235,4 @@ function LoginPage() {
   )
 }
 
-export default LoginPage
+export default LoginPage;

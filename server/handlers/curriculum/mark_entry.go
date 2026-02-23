@@ -360,6 +360,23 @@ func SaveStudentMarks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get assigned student IDs for this user (if student-specific permissions exist)
+	assignedStudents, err := getAssignedStudentIDs(saveRequest.FacultyID, saveRequest.CourseID)
+	if err != nil {
+		log.Printf("Error fetching assigned students: %v", err)
+		http.Error(w, "Failed to validate student permissions", http.StatusInternalServerError)
+		return
+	}
+
+	// Create a map for quick lookup of assigned students
+	assignedStudentMap := make(map[int]bool)
+	for _, studentID := range assignedStudents {
+		assignedStudentMap[studentID] = true
+	}
+
+	// If there are assigned students, restrict to only those students
+	hasStudentRestrictions := len(assignedStudents) > 0
+
 	// Build map of window-allowed components (empty = all allowed)
 	allowedByWindow := map[int]bool{}
 	if len(allowedComponents) > 0 {
@@ -373,6 +390,12 @@ func SaveStudentMarks(w http.ResponseWriter, r *http.Request) {
 
 	// Process each mark entry
 	for _, entry := range saveRequest.MarkEntries {
+		// Check student-specific permissions if restrictions exist
+		if hasStudentRestrictions && !assignedStudentMap[entry.StudentID] {
+			errors = append(errors, fmt.Sprintf("Student %d: not assigned to this user for mark entry", entry.StudentID))
+			continue
+		}
+
 		// Check window component permissions
 		if len(allowedByWindow) > 0 && !allowedByWindow[entry.AssessmentComponentID] {
 			errors = append(errors, fmt.Sprintf("Student %d: component %d not allowed by window", entry.StudentID, entry.AssessmentComponentID))
@@ -513,17 +536,50 @@ func GetStudentMarks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query all marks for the course
-	query := `
-		SELECT 
-			id, student_id, course_id, faculty_id, assessment_component_id,
-			obtained_marks, converted_marks, status
-		FROM student_marks
-		WHERE course_id = ? AND status = 1
-		ORDER BY student_id, assessment_component_id
-	`
+	// Get assigned student IDs for this user (if student-specific permissions exist)
+	assignedStudents, err := getAssignedStudentIDs(teacherID, courseID)
+	if err != nil {
+		log.Printf("Error fetching assigned students: %v", err)
+		http.Error(w, "Failed to validate student permissions", http.StatusInternalServerError)
+		return
+	}
 
-	rows, err := database.Query(query, courseID)
+	// Query marks - filter by assigned students if restrictions exist
+	var query string
+	var args []interface{}
+
+	if len(assignedStudents) > 0 {
+		// Build IN clause for assigned students
+		placeholders := make([]string, len(assignedStudents))
+		args = make([]interface{}, len(assignedStudents)+1)
+		args[0] = courseID
+		for i, studentID := range assignedStudents {
+			placeholders[i] = "?"
+			args[i+1] = studentID
+		}
+
+		query = fmt.Sprintf(`
+			SELECT 
+				id, student_id, course_id, faculty_id, assessment_component_id,
+				obtained_marks, converted_marks, status
+			FROM student_marks
+			WHERE course_id = ? AND student_id IN (%s) AND status = 1
+			ORDER BY student_id, assessment_component_id
+		`, strings.Join(placeholders, ","))
+	} else {
+		// No student restrictions - show all marks for the course
+		query = `
+			SELECT 
+				id, student_id, course_id, faculty_id, assessment_component_id,
+				obtained_marks, converted_marks, status
+			FROM student_marks
+			WHERE course_id = ? AND status = 1
+			ORDER BY student_id, assessment_component_id
+		`
+		args = []interface{}{courseID}
+	}
+
+	rows, err := database.Query(query, args...)
 	if err != nil {
 		log.Printf("Error fetching student marks: %v", err)
 		http.Error(w, "Error fetching student marks", http.StatusInternalServerError)

@@ -378,29 +378,31 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Count honour course assignments and collect honour course IDs
-	honourCourseCount := 0
+	// Count honour course assignments by semester and collect honour course IDs
+	honourCourseCountBySemester := make(map[int]int)
 	honourCourseIDs := make([]int, 0)
 	professionalCourseIDs := make([]int, 0)
 
 	for _, assignment := range req.CourseAssignments {
 		slotName := slotMap[assignment.SlotID]
 		if strings.Contains(strings.ToLower(slotName), "honour slot") {
-			honourCourseCount++
+			honourCourseCountBySemester[assignment.Semester]++
 			honourCourseIDs = append(honourCourseIDs, assignment.CourseID)
 		} else if strings.Contains(strings.ToLower(slotName), "professional elective") {
 			professionalCourseIDs = append(professionalCourseIDs, assignment.CourseID)
 		}
 	}
 
-	// Validate max 2 honour courses
-	if honourCourseCount > 2 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"message": fmt.Sprintf("Maximum 2 honour courses allowed. You have selected %d honour courses.", honourCourseCount),
-		})
-		return
+	// Validate max 2 honour courses per semester
+	for semester, count := range honourCourseCountBySemester {
+		if count > 2 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"message": fmt.Sprintf("Maximum 2 honour courses allowed per semester. Semester %d has %d honour courses.", semester, count),
+			})
+			return
+		}
 	}
 
 	// Validate honour courses are not in professional electives
@@ -465,14 +467,15 @@ func SaveHODSelections(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Delete existing selections for this department/batch/year
+	// Delete existing selections for this department/batch/year/semester
 	deleteQuery := `
 		DELETE FROM hod_elective_selections 
 		WHERE department_id = ? 
 		AND academic_year = ?
+		AND semester = ?
 		AND (batch = ? OR (batch IS NULL AND ? = ''))
 	`
-	_, err = tx.Exec(deleteQuery, departmentID, req.AcademicYear, req.Batch, req.Batch)
+	_, err = tx.Exec(deleteQuery, departmentID, req.AcademicYear, req.Semester, req.Batch, req.Batch)
 	if err != nil {
 		log.Println("Error deleting old selections:", err)
 		w.WriteHeader(http.StatusInternalServerError)

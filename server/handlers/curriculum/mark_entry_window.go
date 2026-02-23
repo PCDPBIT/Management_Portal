@@ -353,8 +353,16 @@ func resolveMarkEntryWindow(courseID int, teacherID string) (bool, []int, error)
 		return false, nil, sql.ErrConnDone
 	}
 
+	// Try to lookup numeric user ID from username (for users)
+	var numericUserID sql.NullInt64
+	err := database.QueryRow(`SELECT id FROM users WHERE username = ? AND is_active = 1`, teacherID).Scan(&numericUserID)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("Error looking up user ID for %s: %v", teacherID, err)
+		return false, nil, err
+	}
+
 	var departmentID sql.NullInt64
-	err := database.QueryRow(`
+	err = database.QueryRow(`
 		SELECT department_id
 		FROM department_teachers
 		WHERE teacher_id = ? AND status = 1
@@ -378,18 +386,19 @@ func resolveMarkEntryWindow(courseID int, teacherID string) (bool, []int, error)
 	}
 
 	// DEBUG: Log what we're matching against
-	log.Printf("Resolving window for courseID=%d, teacherID=%s, departmentID=%v, semester=%v",
-		courseID, teacherID, departmentID, semester)
+	log.Printf("Resolving window for courseID=%d, teacherID=%s, numericUserID=%v, departmentID=%v, semester=%v",
+		courseID, teacherID, numericUserID, departmentID, semester)
 
 	query := `
 		SELECT id, start_at, end_at, enabled
 		FROM mark_entry_windows
-		WHERE (teacher_id IS NULL OR teacher_id = ?)
+		WHERE ((teacher_id IS NULL AND user_id IS NULL) OR teacher_id = ? OR user_id = ?)
 		  AND (course_id IS NULL OR course_id = ?)
-		  AND (department_id IS NULL OR department_id = ?)
-		  AND (semester IS NULL OR semester = ?)
+		  AND (? IS NULL OR department_id IS NULL OR department_id = 0 OR department_id = ?)
+		  AND (? IS NULL OR semester IS NULL OR semester = 0 OR semester = ?)
 		ORDER BY
 		  (teacher_id IS NOT NULL) DESC,
+		  (user_id IS NOT NULL) DESC,
 		  (course_id IS NOT NULL) DESC,
 		  (department_id IS NOT NULL) DESC,
 		  (semester IS NOT NULL) DESC,
@@ -407,7 +416,12 @@ func resolveMarkEntryWindow(courseID int, teacherID string) (bool, []int, error)
 		semValue = semester.Int64
 	}
 
-	rows, rowErr := database.Query(query, teacherID, courseID, deptValue, semValue)
+	userIDValue := interface{}(nil)
+	if numericUserID.Valid {
+		userIDValue = numericUserID.Int64
+	}
+
+	rows, rowErr := database.Query(query, teacherID, userIDValue, courseID, deptValue, deptValue, semValue, semValue)
 	if rowErr != nil {
 		if rowErr == sql.ErrNoRows {
 			log.Printf("No matching window rule found")
@@ -471,6 +485,101 @@ func resolveMarkEntryWindow(courseID int, teacherID string) (bool, []int, error)
 	return true, allowedComponents, nil
 }
 
+// validateStudentPermission checks if a user has permission to enter marks for a specific student
+func validateStudentPermission(userID string, studentID int, courseID int) (bool, int, error) {
+	database := db.DB
+	if database == nil {
+		return false, 0, sql.ErrConnDone
+	}
+
+	// Try to lookup numeric user ID from username
+	var numericUserID int
+	err := database.QueryRow(`SELECT id FROM users WHERE username = ? AND is_active = 1`, userID).Scan(&numericUserID)
+	if err == sql.ErrNoRows {
+		// User not found, no permission
+		return false, 0, nil
+	}
+	if err != nil {
+		return false, 0, err
+	}
+
+	// Check if there's an active window with student-specific permission
+	query := `
+		SELECT mesp.window_id
+		FROM mark_entry_student_permissions mesp
+		INNER JOIN mark_entry_windows mew ON mesp.window_id = mew.id
+		WHERE mesp.user_id = ?
+		  AND mesp.student_id = ?
+		  AND (mew.course_id IS NULL OR mew.course_id = ?)
+		AND mew.enabled = 1
+		AND mew.start_at <= NOW()
+		AND mew.end_at > NOW()
+		LIMIT 1
+	`
+
+	var windowID int
+	err = database.QueryRow(query, numericUserID, studentID, courseID).Scan(&windowID)
+	if err == sql.ErrNoRows {
+		return false, 0, nil
+	}
+	if err != nil {
+		return false, 0, err
+	}
+
+	return true, windowID, nil
+}
+
+// getAssignedStudentIDs returns the list of student IDs assigned to a user for a specific course
+// userID can be either a username (for users) or faculty_id (for teachers)
+func getAssignedStudentIDs(userID string, courseID int) ([]int, error) {
+	database := db.DB
+	if database == nil {
+		return nil, sql.ErrConnDone
+	}
+
+	// Try to lookup numeric user ID from username
+	var numericUserID int
+	err := database.QueryRow(`SELECT id FROM users WHERE username = ? AND is_active = 1`, userID).Scan(&numericUserID)
+	if err != nil && err != sql.ErrNoRows {
+		// If error is not "no rows", return the error
+		log.Printf("Error looking up user ID for %s: %v", userID, err)
+		return nil, err
+	}
+
+	// If user not found in users table, they might be a teacher with no student assignments
+	if err == sql.ErrNoRows {
+		// Return empty list - no student-specific permissions
+		return []int{}, nil
+	}
+
+	query := `
+		SELECT DISTINCT mesp.student_id
+		FROM mark_entry_student_permissions mesp
+		INNER JOIN mark_entry_windows mew ON mesp.window_id = mew.id
+		WHERE mesp.user_id = ?
+		  AND (mew.course_id IS NULL OR mew.course_id = ?)
+		AND mew.enabled = 1
+		AND mew.start_at <= NOW()
+		AND mew.end_at > NOW()
+	`
+
+	rows, err := database.Query(query, numericUserID, courseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var studentIDs []int
+	for rows.Next() {
+		var studentID int
+		if err := rows.Scan(&studentID); err == nil {
+			studentIDs = append(studentIDs, studentID)
+		}
+	}
+
+	return studentIDs, nil
+}
+
 // GetAllMarkEntryWindows returns all mark entry windows for admin management
 func GetAllMarkEntryWindows(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -489,28 +598,64 @@ func GetAllMarkEntryWindows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `
-		SELECT 
-			w.id,
-			w.teacher_id,
-			COALESCE(t.name, '') as teacher_name,
-			w.department_id,
-			COALESCE(d.department_name, '') as department_name,
-			w.semester,
-			w.course_id,
-			COALESCE(c.course_code, '') as course_code,
-			COALESCE(c.course_name, '') as course_name,
-			w.start_at,
-			w.end_at,
-			w.enabled
-		FROM mark_entry_windows w
-		LEFT JOIN teachers t ON w.teacher_id = t.faculty_id
-		LEFT JOIN departments d ON w.department_id = d.id
-		LEFT JOIN courses c ON w.course_id = c.id
-		ORDER BY 
-			CASE WHEN w.end_at > UTC_TIMESTAMP() THEN 0 ELSE 1 END,
-			w.start_at DESC
-	`
+	// Check if filtering for user-only windows
+	userOnly := r.URL.Query().Get("user_only") == "true"
+
+	var query string
+	if userOnly {
+		// Only get windows with user_id set (user-assigned windows)
+		query = `
+			SELECT 
+				w.id,
+				w.user_id,
+				COALESCE(u.username, '') as user_username,
+				w.department_id,
+				COALESCE(d.department_name, '') as department_name,
+				w.semester,
+				w.course_id,
+				COALESCE(c.course_code, '') as course_code,
+				COALESCE(c.course_name, '') as course_name,
+				w.start_at,
+				w.end_at,
+				w.enabled,
+				COUNT(DISTINCT mesp.student_id) as student_count
+			FROM mark_entry_windows w
+			LEFT JOIN users u ON w.user_id = u.id
+			LEFT JOIN departments d ON w.department_id = d.id
+			LEFT JOIN courses c ON w.course_id = c.id
+			LEFT JOIN mark_entry_student_permissions mesp ON w.id = mesp.window_id
+			WHERE w.user_id IS NOT NULL
+			GROUP BY w.id
+			ORDER BY 
+				CASE WHEN w.end_at > NOW() THEN 0 ELSE 1 END,
+				w.start_at DESC
+		`
+	} else {
+		// Get windows with teacher_id set (teacher windows)
+		query = `
+			SELECT 
+				w.id,
+				w.teacher_id,
+				COALESCE(t.name, '') as teacher_name,
+				w.department_id,
+				COALESCE(d.department_name, '') as department_name,
+				w.semester,
+				w.course_id,
+				COALESCE(c.course_code, '') as course_code,
+				COALESCE(c.course_name, '') as course_name,
+				w.start_at,
+				w.end_at,
+				w.enabled
+			FROM mark_entry_windows w
+			LEFT JOIN teachers t ON w.teacher_id = t.faculty_id
+			LEFT JOIN departments d ON w.department_id = d.id
+			LEFT JOIN courses c ON w.course_id = c.id
+			WHERE w.teacher_id IS NOT NULL OR w.user_id IS NULL
+			ORDER BY 
+				CASE WHEN w.end_at > NOW() THEN 0 ELSE 1 END,
+				w.start_at DESC
+		`
+	}
 
 	rows, err := database.Query(query)
 	if err != nil {
@@ -522,8 +667,10 @@ func GetAllMarkEntryWindows(w http.ResponseWriter, r *http.Request) {
 
 	type WindowWithDetails struct {
 		ID             int       `json:"id"`
-		TeacherID      *string   `json:"teacher_id"`
-		TeacherName    string    `json:"teacher_name"`
+		TeacherID      *string   `json:"teacher_id,omitempty"`
+		TeacherName    string    `json:"teacher_name,omitempty"`
+		UserID         *int      `json:"user_id,omitempty"`
+		UserUsername   string    `json:"user_username,omitempty"`
 		DepartmentID   *int      `json:"department_id"`
 		DepartmentName string    `json:"department_name"`
 		Semester       *int      `json:"semester"`
@@ -534,51 +681,104 @@ func GetAllMarkEntryWindows(w http.ResponseWriter, r *http.Request) {
 		EndAt          time.Time `json:"end_at"`
 		Enabled        bool      `json:"enabled"`
 		Components     []int     `json:"component_ids"`
+		StudentCount   *int      `json:"student_count,omitempty"`
 	}
 
 	var windows []WindowWithDetails
 	for rows.Next() {
 		var window WindowWithDetails
-		var teacherID, teacherName, deptName, courseCode, courseName sql.NullString
-		var deptID, semester, courseID sql.NullInt64
 
-		err := rows.Scan(
-			&window.ID,
-			&teacherID,
-			&teacherName,
-			&deptID,
-			&deptName,
-			&semester,
-			&courseID,
-			&courseCode,
-			&courseName,
-			&window.StartAt,
-			&window.EndAt,
-			&window.Enabled,
-		)
-		if err != nil {
-			log.Printf("Error scanning window: %v", err)
-			continue
-		}
+		if userOnly {
+			var userID, studentCount sql.NullInt64
+			var userUsername, deptName, courseCode, courseName sql.NullString
+			var deptID, semester, courseID sql.NullInt64
 
-		if teacherID.Valid {
-			window.TeacherID = &teacherID.String
-			window.TeacherName = teacherName.String
-		}
-		if deptID.Valid {
-			id := int(deptID.Int64)
-			window.DepartmentID = &id
-			window.DepartmentName = deptName.String
-		}
-		if semester.Valid {
-			sem := int(semester.Int64)
-			window.Semester = &sem
-		}
-		if courseID.Valid {
-			id := int(courseID.Int64)
-			window.CourseID = &id
-			window.CourseCode = courseCode.String
-			window.CourseName = courseName.String
+			err := rows.Scan(
+				&window.ID,
+				&userID,
+				&userUsername,
+				&deptID,
+				&deptName,
+				&semester,
+				&courseID,
+				&courseCode,
+				&courseName,
+				&window.StartAt,
+				&window.EndAt,
+				&window.Enabled,
+				&studentCount,
+			)
+			if err != nil {
+				log.Printf("Error scanning user window: %v", err)
+				continue
+			}
+
+			if userID.Valid {
+				id := int(userID.Int64)
+				window.UserID = &id
+				window.UserUsername = userUsername.String
+			}
+			if studentCount.Valid {
+				count := int(studentCount.Int64)
+				window.StudentCount = &count
+			}
+			if deptID.Valid {
+				id := int(deptID.Int64)
+				window.DepartmentID = &id
+				window.DepartmentName = deptName.String
+			}
+			if semester.Valid {
+				sem := int(semester.Int64)
+				window.Semester = &sem
+			}
+			if courseID.Valid {
+				id := int(courseID.Int64)
+				window.CourseID = &id
+				window.CourseCode = courseCode.String
+				window.CourseName = courseName.String
+			}
+		} else {
+			var teacherID, teacherName, deptName, courseCode, courseName sql.NullString
+			var deptID, semester, courseID sql.NullInt64
+
+			err := rows.Scan(
+				&window.ID,
+				&teacherID,
+				&teacherName,
+				&deptID,
+				&deptName,
+				&semester,
+				&courseID,
+				&courseCode,
+				&courseName,
+				&window.StartAt,
+				&window.EndAt,
+				&window.Enabled,
+			)
+			if err != nil {
+				log.Printf("Error scanning window: %v", err)
+				continue
+			}
+
+			if teacherID.Valid {
+				window.TeacherID = &teacherID.String
+				window.TeacherName = teacherName.String
+			}
+			if deptID.Valid {
+				id := int(deptID.Int64)
+				window.DepartmentID = &id
+				window.DepartmentName = deptName.String
+			}
+			if semester.Valid {
+				sem := int(semester.Int64)
+				window.Semester = &sem
+			}
+			if courseID.Valid {
+				id := int(courseID.Int64)
+				window.CourseID = &id
+				window.CourseCode = courseCode.String
+				window.CourseName = courseName.String
+			}
 		}
 
 		// Load components for this window

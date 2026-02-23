@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 
 const COLLAPSED_WIDTH_PX = 80; // Tailwind w-20
 const EXPANDED_WIDTH_PX = 256; // Tailwind w-64
@@ -17,13 +18,60 @@ function Sidebar({ onExpandedChange }) {
   // Prevent collapse while clicking/dragging in sidebar.
   const [isPointerDownInSidebar, setIsPointerDownInSidebar] = useState(false);
 
+  // Track if user has assigned windows
+  const [hasAssignedWindows, setHasAssignedWindows] = useState(false);
+
   const rafId = useRef(0);
 
   const userRole = localStorage.getItem("userRole");
   const userName = localStorage.getItem("userName") || "User";
   const userEmail = localStorage.getItem("userEmail") || "user@cms.edu";
+  const username = localStorage.getItem("username");
 
   const isSidebarExpanded = sidebarPinned || isHovering || isPointerDownInSidebar;
+
+  // Check if user has assigned windows (for non-teacher roles)
+  useEffect(() => {
+    const checkUserWindows = async () => {
+      if (userRole === 'teacher') {
+        // Teachers always have access to mark entry
+        setHasAssignedWindows(true);
+        return;
+      }
+
+      // For other roles, check if they have assigned windows
+      try {
+        if (!username) {
+          setHasAssignedWindows(false);
+          return;
+        }
+
+        const response = await fetch(
+          `${API_BASE_URL}/mark-entry/check-user-windows?user_id=${username}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setHasAssignedWindows(data.has_windows || false);
+        } else {
+          setHasAssignedWindows(false);
+        }
+      } catch (error) {
+        console.error('Error checking user windows:', error);
+        setHasAssignedWindows(false);
+      }
+    };
+
+    if (username && userRole) {
+      checkUserWindows();
+    }
+  }, [username, userRole]);
 
   useEffect(() => {
     onExpandedChange?.(isSidebarExpanded);
@@ -86,7 +134,7 @@ function Sidebar({ onExpandedChange }) {
         name: "Dashboard",
         path: userRole === "teacher" ? "/teacher-dashboard" : "/dashboard",
         icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -101,7 +149,7 @@ function Sidebar({ onExpandedChange }) {
         name: "Curriculum",
         path: "/curriculum",
         icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -113,10 +161,10 @@ function Sidebar({ onExpandedChange }) {
         roles: ["admin", "curriculum_entry_user"],
       },
       {
-        name: "Student & Teacher",
+        name: "Register",
         path: "/student-teacher-dashboard",
         icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -140,26 +188,11 @@ function Sidebar({ onExpandedChange }) {
             />
           </svg>
         ),
-        roles: ["admin", "hod"],
+        roles: ["admin"],
       },
       {
-        name: "My Course Selection",
-        path: "/teacher/course-selection",
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 6h6m-6 4h6"
-            />
-          </svg>
-        ),
-        roles: ["teacher"],
-      },
-      {
-        name: "My Electives",
-        path: "/student/elective-selection",
+        name: "Teacher Courses",
+        path: "/teacher-courses",
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -170,7 +203,7 @@ function Sidebar({ onExpandedChange }) {
             />
           </svg>
         ),
-        roles: ["student"],
+        roles: ["admin"],
       },
       {
         name: "Mark Entry",
@@ -185,7 +218,8 @@ function Sidebar({ onExpandedChange }) {
             />
           </svg>
         ),
-        roles: ["teacher"],
+        roles: ["teacher", "user", "faculty", "staff", "coe", "curriculum_entry_user"],
+        requiresWindow: true, // This menu item requires window assignment for non-teachers
       },
       {
         name: "Mark Permissions",
@@ -200,7 +234,7 @@ function Sidebar({ onExpandedChange }) {
             />
           </svg>
         ),
-        roles: ["coe"],
+        roles: ["admin", "coe"],
       },
       {
         name: "Faculty Management",
@@ -219,8 +253,20 @@ function Sidebar({ onExpandedChange }) {
       },
     ];
 
-    return allMenuItems.filter((item) => item.roles.includes(userRole));
-  }, [userRole]);
+    return allMenuItems.filter((item) => {
+      // Special handling for Mark Entry - show if teacher OR has assigned windows
+      if (item.name === "Mark Entry") {
+        return userRole === "teacher" || hasAssignedWindows;
+      }
+
+      // For other items, check if role matches
+      if (!item.roles.includes(userRole)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [userRole, hasAssignedWindows]);
 
   const isActive = (path) => {
     return location.pathname === path || location.pathname.startsWith(path + "/");
@@ -239,30 +285,23 @@ function Sidebar({ onExpandedChange }) {
   return (
     <aside
       onPointerDownCapture={() => setIsPointerDownInSidebar(true)}
-      className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 ${
-        isSidebarExpanded ? "w-64" : "w-20"
-      }`}
+      className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 ${isSidebarExpanded ? "w-64" : "w-20"
+        }`}
     >
       {/* Logo Header */}
       <div
-        className={`h-16 flex items-center border-b border-gray-200 transition-all duration-300 ${
-          isSidebarExpanded ? "justify-between px-6" : "justify-center"
-        }`}
+        className={`h-20 flex items-center border-b border-gray-200 transition-all duration-300 ${isSidebarExpanded ? "justify-between px-6" : "justify-center"
+          }`}
       >
         <div
-          className={`flex items-center transition-all duration-300 ${
-            isSidebarExpanded ? "space-x-3" : ""
-          }`}
+          className={`flex items-center transition-all duration-300 ${isSidebarExpanded ? "space-x-3" : ""
+            }`}
         >
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0"
-            style={{
-              background:
-                "linear-gradient(to bottom right, rgb(67, 113, 229), rgb(47, 93, 209))",
-            }}
+            className="w-6 h-6 flex items-center justify-center flex-shrink-0 text-primary"
           >
             <svg
-              className="w-6 h-6 text-white"
+              className="w-6 h-6"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -281,7 +320,7 @@ function Sidebar({ onExpandedChange }) {
                 className="text-lg font-bold whitespace-nowrap"
                 style={{
                   background:
-                    "linear-gradient(to right, rgb(67, 113, 229), rgb(47, 93, 209))",
+                    "linear-gradient(to right, #7d53f6, #6c3df0)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                 }}
@@ -302,7 +341,7 @@ function Sidebar({ onExpandedChange }) {
             title={sidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
           >
             <svg
-              className="w-5 h-5 text-gray-600"
+              className="w-6 h-6"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -323,31 +362,32 @@ function Sidebar({ onExpandedChange }) {
       </div>
 
       {/* Navigation */}
-      <nav className="p-4 space-y-1">
+      <nav className="px-4 py-4 space-y-4">
         {menuItems.map((item) => (
           <button
             key={item.path}
             onClick={() => navigate(item.path)}
-            className={`w-full flex items-center rounded-lg transition-all duration-300 ease-in-out ${
-              isActive(item.path)
+            className={`w-full flex items-center rounded-lg transition-all duration-300 ease-in-out ${isActive(item.path)
                 ? "font-medium"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-            } ${
-              isSidebarExpanded
+                : "text-gray-900 hover:bg-gray-200 hover:text-gray-800"
+              } ${isSidebarExpanded
                 ? "px-4 py-3 justify-start"
                 : "px-0 py-3 justify-center"
-            }`}
+              }`}
             style={{
               ...(isActive(item.path)
                 ? {
-                    backgroundColor: "rgba(67, 113, 229, 0.1)",
-                    color: "rgb(67, 113, 229)",
-                  }
+                  backgroundColor: "rgb(125, 83, 246)",
+                  color: "#ffffff",
+                }
                 : {}),
             }}
           >
             <div className="flex items-center gap-3 transition-all duration-300 ease-in-out">
-              <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+              <div
+                className={`flex-shrink-0 w-6 h-6 flex items-center justify-center ${isActive(item.path) ? "text-white" : "text-iconColor"
+                  }`}
+              >
                 {item.icon}
               </div>
               {isSidebarExpanded && (
@@ -359,13 +399,11 @@ function Sidebar({ onExpandedChange }) {
       </nav>
 
       {/* User Section */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+      <div className="absolute bottom-0 left-0 right-0 p-4 mx-auto border-t border-gray-200">
         <div
-          className={`flex items-center transition-all duration-300 overflow-hidden ${
-            isSidebarExpanded ? "space-x-3" : "justify-center"
-          }`}
+          className={`flex items-center transition-all duration-300 overflow-hidden ${isSidebarExpanded ? "space-x-3" : "justify-center"}`}
         >
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+          <div className={`w-8 h-8 ms-2 bg-primary rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0`}>
             {userName.charAt(0).toUpperCase()}
           </div>
           <div
@@ -383,7 +421,7 @@ function Sidebar({ onExpandedChange }) {
 
         <button
           onClick={handleLogout}
-          className="mt-3 w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-all duration-300 overflow-hidden"
+          className="mt-3 w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm text-iconColor border hover:bg-primary hover:text-white rounded-lg transition-all duration-300 overflow-hidden"
           style={{
             opacity: isSidebarExpanded ? 1 : 0,
             transform: isSidebarExpanded ? "scaleY(1)" : "scaleY(0)",
