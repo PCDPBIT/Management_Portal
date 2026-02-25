@@ -280,9 +280,35 @@ func SaveTeacherCoursePreferences(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("==========================================")
 
+	// Check for pending appeals - teacher cannot modify preferences until appeal is resolved
+	var hasPendingAppeal bool
+	err := db.DB.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM teacher_course_appeal 
+			WHERE faculty_id = ? AND appeal_status = FALSE
+		)
+	`, requestData.TeacherID).Scan(&hasPendingAppeal)
+
+	if err != nil {
+		log.Printf("Error checking pending appeals: %v", err)
+		http.Error(w, "Error checking appeal status", http.StatusInternalServerError)
+		return
+	}
+
+	if hasPendingAppeal {
+		log.Printf("Teacher %d has pending appeal - cannot modify preferences", requestData.TeacherID)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "You cannot modify your course selections while an appeal is pending. Please wait for HR decision on your appeal.",
+		})
+		return
+	}
+
 	// Get current_semester_type and next_semester_type from teacher_course_tracking
 	var currentSemesterType, nextSemesterType string
-	err := db.DB.QueryRow(`
+	err = db.DB.QueryRow(`
 		SELECT COALESCE(current_semester_type, ''), 
 		       CASE WHEN current_semester_type = 'even' THEN 'odd' ELSE 'even' END
 		FROM teacher_course_tracking
