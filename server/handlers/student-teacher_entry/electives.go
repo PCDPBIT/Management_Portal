@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"server/db"
+	"strconv"
 	"strings"
 )
 
@@ -125,7 +126,23 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 	nextSemester := currentSemester + 1
 	log.Printf("Student department_id: %d, current semester: %d, next semester: %d, batch: %s", departmentID, currentSemester, nextSemester, batch)
 
-	// Step 4: Get ALL elective slots for this semester with their HOD-assigned courses
+	// Step 4: Check if student is eligible for Honour/Minor courses
+	var isEligibleForHonourMinor bool
+	err = db.DB.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM student_eligible_honour_minor 
+			WHERE student_email = ?
+		)
+	`, email).Scan(&isEligibleForHonourMinor)
+	
+	if err != nil {
+		log.Printf("Error checking honour/minor eligibility: %v", err)
+		isEligibleForHonourMinor = false // Default to not eligible
+	}
+	
+	log.Printf("Student eligible for Honour/Minor: %v", isEligibleForHonourMinor)
+
+	// Step 5: Get ALL elective slots for this semester with their HOD-assigned courses
 	query := `
 		SELECT 
 			COALESCE(c.id, 0) as course_id,
@@ -220,7 +237,15 @@ func GetAvailableElectives(w http.ResponseWriter, r *http.Request) {
 	// Convert map to ordered slice
 	var slots []ElectiveSlot
 	for _, slotID := range slotOrderList {
-		slots = append(slots, *slotMap[slotID])
+		slot := slotMap[slotID]
+		
+		// Filter out HONOR and MINOR slots if student is not eligible
+		if !isEligibleForHonourMinor && (slot.SlotType == "HONOR" || slot.SlotType == "MINOR") {
+			log.Printf("Filtering out %s slot '%s' - student not eligible", slot.SlotType, slot.SlotName)
+			continue
+		}
+		
+		slots = append(slots, *slot)
 	}
 
 	// Handle mixed slots (last professional elective can include open electives)
@@ -306,8 +331,8 @@ func SaveElectiveSelections(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var requestBody struct {
-		Selections map[string]int `json:"selections"` // electiveKey -> courseID
-		Semester   int             `json:"semester"`
+		Selections map[string]interface{} `json:"selections"` // electiveKey -> courseID (int) or "NOT_OPTED" (string)
+		Semester   int                     `json:"semester"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
@@ -407,7 +432,37 @@ func SaveElectiveSelections(w http.ResponseWriter, r *http.Request) {
 	defer courseStmt.Close()
 
 	successCount := 0
-	for _, courseID := range requestBody.Selections {
+	for slotName, courseIDVal := range requestBody.Selections {
+		// Handle "NOT_OPTED" string or numeric courseID
+		var courseID int
+		
+		switch v := courseIDVal.(type) {
+		case float64:
+			courseID = int(v) // JSON numbers are decoded as float64
+		case string:
+			if v == "NOT_OPTED" {
+				log.Printf("Skipping NOT_OPTED selection for slot %s", slotName)
+				successCount++ // Count it as successful so the student can submit
+				continue
+			}
+			// Try to parse string as int
+			var parseErr error
+			courseID, parseErr = strconv.Atoi(v)
+			if parseErr != nil {
+				log.Printf("Invalid course ID value for slot %s: %v", slotName, v)
+				continue
+			}
+		default:
+			log.Printf("Invalid course ID type for slot %s: %T", slotName, v)
+			continue
+		}
+
+		// Skip zero course IDs
+		if courseID == 0 {
+			log.Printf("Skipping zero course ID for slot %s", slotName)
+			continue
+		}
+
 		result, err := stmt.Exec(studentID, requestBody.Semester, academicYear, departmentID, courseID, requestBody.Semester, batch)
 		if err != nil {
 			log.Printf("Error inserting selection for course_id %d: %v", courseID, err)
