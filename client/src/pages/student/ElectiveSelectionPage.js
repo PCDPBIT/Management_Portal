@@ -50,9 +50,27 @@ const ElectiveSelectionPage = () => {
         if (data.existing_selections && Object.keys(data.existing_selections).length > 0) {
           console.log('Loading existing selections from backend:', data.existing_selections);
           finalSelections = { ...data.existing_selections };
+          
+          // Auto-set "NOT_OPTED" for honour/minor slots if student submitted but has no data for them
+          // This handles the case where student selected "NOT_OPTED" (which doesn't save to backend)
+          const hasRequiredSelections = data.slots.some(slot => 
+            ['PROFESSIONAL', 'OPEN', 'MIXED'].includes(slot.slot_type) && 
+            finalSelections[slot.slot_name]
+          );
+          
+          if (hasRequiredSelections) {
+            // If student has submitted, check each HONOR/MINOR slot they're eligible for
+            data.slots.forEach(slot => {
+              if (['HONOR', 'MINOR'].includes(slot.slot_type) && !finalSelections[slot.slot_name]) {
+                // Student is eligible but has no backend data = they chose "NOT_OPTED"
+                finalSelections[slot.slot_name] = 'NOT_OPTED';
+                console.log(`Auto-setting NOT_OPTED for ${slot.slot_name} (eligible but no selection after submission)`);
+              }
+            });
+          }
         }
         
-        // Also check localStorage for any "NOT_OPTED" selections to restore
+        // Also check localStorage for any "NOT_OPTED" selections to restore (fallback for pre-submission)
         const savedSelections = localStorage.getItem(`elective_selections_${userEmail}_sem${data.next_semester}`);
         if (savedSelections) {
           try {
@@ -61,7 +79,7 @@ const ElectiveSelectionPage = () => {
             Object.entries(parsed).forEach(([slotName, value]) => {
               if (value === 'NOT_OPTED' && !finalSelections[slotName]) {
                 finalSelections[slotName] = 'NOT_OPTED';
-                console.log(`Restored NOT_OPTED for slot: ${slotName}`);
+                console.log(`Restored NOT_OPTED from localStorage for slot: ${slotName}`);
               }
             });
           } catch (e) {
