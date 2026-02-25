@@ -891,11 +891,11 @@ const TeacherCourseSelectionPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Course List (Left Side - 2/3 width) */}
-          <div className="lg:col-span-2 transition-all duration-300">
+          <div className="lg:col-span-2 transition-all duration-300 flex flex-col h-[calc(100vh-200px)] sticky top-6 bg-white border border-gray-200 rounded-lg shadow-sm">
             
             {/* Tab Headers */}
             <div className="bg-white rounded-t-lg shadow-sm overflow-hidden border border-gray-200 mb-0">
-              <nav className="flex flex-wrap">
+              <nav className="flex flex-wrap sticky top-0 bg-white z-10">
                 {allocationSummary?.type_summaries?.map((ts) => (
                   <button
                     key={ts.course_type_id}
@@ -917,7 +917,7 @@ const TeacherCourseSelectionPage = () => {
               </nav>
             </div>
 
-            <div className="bg-white rounded-b-lg shadow-sm overflow-hidden border-l border-r border-b border-gray-200">
+            <div className="bg-white rounded-b-lg shadow-sm overflow-auto border-l border-r border-b border-gray-200 flex-1">
               <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                 <span className="font-medium text-primary capitalize text-sm">{activeTab.replace('_', ' ')} Courses</span>
                 <span className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded-md">{getFilteredCourses().length} courses</span>
@@ -1012,7 +1012,7 @@ const TeacherCourseSelectionPage = () => {
           </div>
 
       {/* Right Side Panel - Selected Courses */}
-      <div className="lg:col-span-1 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col h-[calc(100vh-200px)] sticky top-6">
+      <div className="lg:col-span-1 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col justify-center h-[calc(100vh-200px)] sticky top-6">
         <div className="p-4 border-b border-gray-200 flex justify-between items-center rounded-t-lg">
            <h3 className="font-semibold text-gray-900 text-sm">Selected ({selectedCourses.length})</h3>
            {/* Show allocation summary in panel header */}
