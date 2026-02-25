@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/MainLayout';
+import { API_BASE_URL } from '../../config';
 
 const HRFacultyPage = () => {
   const [faculty, setFaculty] = useState([]);
@@ -22,7 +23,7 @@ const HRFacultyPage = () => {
   const fetchCourseTypes = async () => {
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api'}/course-types`
+        `${API_BASE_URL}/course-types`
       );
       if (response.ok) {
         const data = await response.json();
@@ -41,7 +42,7 @@ const HRFacultyPage = () => {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api'}/hr/faculty`
+        `${API_BASE_URL}/hr/faculty`
       );
 
       if (!response.ok) {
@@ -97,7 +98,7 @@ const HRFacultyPage = () => {
     try {
       setSaving(true);
       const response = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api'}/hr/faculty/subject-counts`,
+        `${API_BASE_URL}/hr/faculty/subject-counts`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
