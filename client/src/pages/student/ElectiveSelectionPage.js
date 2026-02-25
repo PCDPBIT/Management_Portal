@@ -322,7 +322,7 @@ const ElectiveSelectionPage = () => {
 
   return (
     <MainLayout>
-      <div className="max-w-4xl mx-auto py-6">
+      <div className="p-12 mx-auto py-6 card-custom">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Elective Selection</h1>
@@ -357,8 +357,8 @@ const ElectiveSelectionPage = () => {
 
         {/* Rules Note */}
         <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="text-sm font-bold text-blue-800 mb-2">📋 Selection Rules</h3>
-          <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+          <h3 className="text-sm font-bold text-primary mb-2">📋 Selection Rules</h3>
+          <ul className="text-sm text-primary space-y-1 list-disc list-inside">
             <li><span className="font-semibold">Professional / Open / Mixed</span> slots are <span className="font-semibold">required</span> — you must select one course from each.</li>
             <li><span className="font-semibold">Honour</span> slots are <span className="font-semibold">optional</span>, but if you choose one Honour course, you must fill <span className="font-semibold">all</span> Honour slots.</li>
             <li><span className="font-semibold">Minor</span> slots are <span className="font-semibold">optional</span>, but if you choose one Minor course, you must fill <span className="font-semibold">all</span> Minor slots.</li>
@@ -382,15 +382,15 @@ const ElectiveSelectionPage = () => {
             <div
               key={slotName}
               className={`bg-white border-2 rounded p-4 ${
-                isSubmitted ? 'opacity-60 pointer-events-none' : ''
+                isSubmitted ? 'pointer-events-none' : ''
               } ${isPartiallyFilled ? 'border-orange-400' : 'border-gray-300'}`}
             >
               <div className="mb-3 flex justify-between items-start">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">
+                  <h2 className="text-xl font-bold opacity-100 text-gray-900">
                     {slotName}
                   </h2>
-                  <span className="text-sm text-gray-600 font-medium">
+                  <span className="text-sm text-gray-600 opacity-100 font-medium">
                     {slotData.slot_type === 'PROFESSIONAL' && '📚 Professional Elective'}
                     {slotData.slot_type === 'OPEN' && '🌐 Open Elective'}
                     {slotData.slot_type === 'MIXED' && '📚🌐 Professional + Open Elective'}
@@ -429,9 +429,9 @@ const ElectiveSelectionPage = () => {
                     key={course.course_id}
                     className={`flex items-center p-3 border-2 rounded cursor-pointer transition ${
                       selections[slotName] === course.course_id
-                        ? 'border-gray-900 bg-gray-100'
-                        : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'
-                    }`}
+                        ? 'border-primary bg-gray-100'
+                        : 'border-background hover:border-gray-400 hover:bg-gray-50'
+                    } ${isSubmitted || isPartiallyFilled ? 'opacity-70 pointer-events-none' : ''}`}
                   >
                     <input
                       type="radio"
@@ -440,7 +440,7 @@ const ElectiveSelectionPage = () => {
                       checked={selections[slotName] === course.course_id}
                       onChange={() => handleSelection(slotName, course.course_id, course.credits)}
                       disabled={isSubmitted}
-                      className="w-4 h-4 text-gray-900"
+                      className={`w-4 h-4 text-gray-900`}
                     />
                     <div className="ml-3 flex-1">
                       <div className="flex items-baseline gap-2">
