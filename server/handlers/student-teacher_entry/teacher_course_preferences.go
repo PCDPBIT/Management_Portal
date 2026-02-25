@@ -344,15 +344,19 @@ func SaveTeacherCoursePreferences(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if now.After(windowEnd.Time) {
-		log.Printf("Selection window closed. Closed on: %v", windowEnd.Time)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success":   false,
-			"error":     "Teacher course selection window has closed",
-			"closed_at": windowEnd.Time.Format("2006-01-02 15:04:05"),
-		})
-		return
+		// Window closes at END OF DAY (23:59:59), so we need to check if we're past midnight of the next day
+		nextDay := windowEnd.Time.AddDate(0, 0, 1)
+		if now.After(nextDay) {
+			log.Printf("Selection window closed. Closed on: %v (23:59:59)", windowEnd.Time)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success":   false,
+				"error":     "Teacher course selection window has closed",
+				"closed_at": windowEnd.Time.Format("2006-01-02") + " 23:59:59",
+			})
+			return
+		}
 	}
 
 	log.Printf("✓ Selection window is open: %v to %v", windowStart.Time, windowEnd.Time)
