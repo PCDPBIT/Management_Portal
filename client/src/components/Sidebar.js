@@ -437,7 +437,7 @@ function Sidebar({ onExpandedChange }) {
                   WebkitTextFillColor: "transparent",
                 }}
               >
-                CMS
+                ACADEMICS
               </span>
               <span className="text-xs text-gray-500 font-medium whitespace-nowrap">
                 Curriculum Portal
