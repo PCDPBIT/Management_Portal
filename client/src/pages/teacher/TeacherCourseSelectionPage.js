@@ -291,9 +291,9 @@ const TeacherCourseSelectionPage = () => {
       // Use the calculated nextSemester and its batch
       const nextBatch = getBatchForSemester(nextSemester);
       
-      // Check for preferences with next semester and its batch
-      const url = `${API_BASE_URL}/teachers/${tid}/course-preferences?next_semester=${nextSemester}&batch=${nextBatch}`;
-      console.log('Checking preferences for next semester:', nextSemester, 'batch:', nextBatch);
+      // Check for preferences with academic_year (backend expects this parameter)
+      const url = `${API_BASE_URL}/teachers/${tid}/course-preferences?academic_year=${academicYear}`;
+      console.log('Checking preferences for academic year:', academicYear, 'next semester:', nextSemester, 'batch:', nextBatch);
       console.log('Fetching from URL:', url);
       
       const response = await fetch(url);
@@ -320,18 +320,27 @@ const TeacherCourseSelectionPage = () => {
         }));
         setSelectedCourses(preSelected);
         
-        // Lock form ONLY if window is closed
-        // During window period, allow editing
+        // Lock form ONLY if window is closed or preferences are already locked
+        // During window period, allow editing only if not locked
         if (!windowStatus.isOpen) {
           setPreferencesLocked(true);
           setSuccess(`Your course preferences were submitted. Window is now closed.`);
+        } else if (data.locked) {
+          setPreferencesLocked(true);
+          setSuccess(`Your course preferences have already been submitted for this window.`);
         } else {
           setPreferencesLocked(false);
           setSuccess(`Your previously saved preferences are loaded. You can update them until ${windowStatus.endDate?.toLocaleDateString()}.`);
         }
       } else {
-        console.log('NO preferences found for next semester - form remains UNLOCKED');
-        setPreferencesLocked(false);
+        if (data.locked) {
+          console.log('Preferences locked but empty?');
+          setPreferencesLocked(true);
+          setSuccess(`Your course preferences have already been submitted for this window.`);
+        } else {
+          console.log('NO preferences found for next semester - form remains UNLOCKED');
+          setPreferencesLocked(false);
+        }
       }
       
       setLoading(false);
@@ -435,9 +444,9 @@ const TeacherCourseSelectionPage = () => {
   };
 
   const handleCourseToggle = (course) => {
-    // Don't allow changes if preferences are locked (window closed)
+    // Don't allow changes if preferences are locked (window closed or already submitted)
     if (preferencesLocked) {
-      setError('The selection window has closed. Preferences cannot be changed.');
+      setError('Preferences cannot be changed. Either the window has closed or you have already submitted your preferences.');
       setTimeout(() => setError(''), 3000);
       return;
     }
@@ -483,10 +492,9 @@ const TeacherCourseSelectionPage = () => {
       return;
     }
     
-    // preferencesLocked will only be true if window is closed (handled above)
-    // So this check is redundant, but keeping for safety
+    // preferencesLocked will be true if window is closed or already submitted
     if (preferencesLocked) {
-      setError('The selection window has closed. Preferences cannot be changed.');
+      setError('Preferences cannot be changed. Either the window has closed or you have already submitted your preferences.');
       return;
     }
     
@@ -562,9 +570,11 @@ const TeacherCourseSelectionPage = () => {
 
       if (response.ok) {
         setSuccess('Course preferences saved successfully! ✓');
+        setPreferencesLocked(true);
         // Clear localStorage draft after successful save
         localStorage.removeItem(`course_draft_${teacherId}`);
-        fetchCurrentPreferences(teacherId);
+        // Don't fetch preferences again - we just saved them and locked the form
+        // fetchCurrentPreferences(teacherId);
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError(data.error || 'Failed to save preferences');
@@ -1080,16 +1090,21 @@ const TeacherCourseSelectionPage = () => {
         <div className="mt-6 flex justify-end space-x-4">
           <button
             onClick={() => setSelectedCourses([])}
-            className="px-6 py-3 border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={preferencesLocked || !windowStatus.isOpen}
+            className={`px-6 py-3 border border-gray-200 text-gray-700 font-medium rounded-lg transition-colors ${
+              preferencesLocked || !windowStatus.isOpen
+                ? 'opacity-50 cursor-not-allowed'
+                : 'hover:bg-gray-50'
+            }`}
           >
             Clear All
           </button>
           
           <button
             onClick={handleSavePreferences}
-            disabled={saving || selectedCourses.length === 0}
+            disabled={saving || !isAllocationComplete() || preferencesLocked || !windowStatus.isOpen}
             className={`px-8 py-3 rounded-lg font-medium transition-colors ${
-              saving || selectedCourses.length === 0
+              saving || !isAllocationComplete() || preferencesLocked || !windowStatus.isOpen
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-blue-600 text-white hover:bg-blue-700'
             }`}
@@ -1103,7 +1118,15 @@ const TeacherCourseSelectionPage = () => {
                 Saving...
               </span>
             ) : (
-              `Save Preferences (${selectedCourses.length})`
+              !windowStatus.isOpen 
+                ? '🔒 Window Closed' 
+                : (preferencesLocked 
+                    ? '✓ Submitted' 
+                    : (isAllocationComplete() 
+                        ? `Save Preferences (${selectedCourses.length})`
+                        : 'Complete Allocations'
+                      )
+                  )
             )}
           </button>
         </div>
