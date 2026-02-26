@@ -243,6 +243,14 @@ func SetupRoutes() *mux.Router {
 	router.HandleFunc("/api/teachers/course-preferences", studentteacher.SaveTeacherCoursePreferences).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/teachers/course-window/{academic_year}", studentteacher.GetTeacherCourseWindow).Methods("GET", "OPTIONS")
 
+	// Teacher Course Appeal routes
+	router.HandleFunc("/api/teachers/appeals", studentteacher.CreateCourseAppeal).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/teachers/appeals/pending", studentteacher.GetTeacherPendingAppeal).Methods("GET", "OPTIONS")        // ?faculty_id=
+	router.HandleFunc("/api/teachers/appeals/history", studentteacher.GetTeacherAppealHistory).Methods("GET", "OPTIONS")       // ?faculty_id=
+	router.HandleFunc("/api/hr/appeals", studentteacher.GetAllAppeals).Methods("GET", "OPTIONS")                               // ?status=pending|resolved
+	router.HandleFunc("/api/hr/appeals/{appeal_id}", studentteacher.GetAppealByID).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/hr/appeals/{appeal_id}/resolve", studentteacher.UpdateAppealStatus).Methods("PUT", "OPTIONS")
+
 	// Teacher -> Department -> Semester courses (auto-map department/curriculum)
 	router.HandleFunc("/api/teachers/{teacherId}/semester/{semester}/courses", curriculum.GetCoursesForTeacherSemester).Methods("GET", "OPTIONS")
 

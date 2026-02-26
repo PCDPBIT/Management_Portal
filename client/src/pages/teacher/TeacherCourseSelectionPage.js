@@ -19,6 +19,14 @@ const TeacherCourseSelectionPage = () => {
   const [currentPreferences, setCurrentPreferences] = useState([]);
   const [preferencesLocked, setPreferencesLocked] = useState(false); // Lock after save
 
+  // Appeal system state
+  const [showAppealModal, setShowAppealModal] = useState(false);
+  const [appealMessage, setAppealMessage] = useState('');
+  const [hasPendingAppeal, setHasPendingAppeal] = useState(false);
+  const [pendingAppealData, setPendingAppealData] = useState(null);
+  const [showAppealDetailsModal, setShowAppealDetailsModal] = useState(false);
+  const [appealSubmitting, setAppealSubmitting] = useState(false);
+
   // Initialize from LocalStorage
   useEffect(() => {
     // Only load if we have a teacherId
@@ -243,6 +251,7 @@ const TeacherCourseSelectionPage = () => {
   useEffect(() => {
     if (teacherId && academicYear) {
       fetchAllocationSummary(teacherId);
+      checkPendingAppeal(teacherId);
     }
   }, [teacherId, academicYear]);
 
@@ -283,6 +292,63 @@ const TeacherCourseSelectionPage = () => {
       }
     } catch (err) {
       console.error('Allocation summary error:', err);
+    }
+  };
+
+  const checkPendingAppeal = async (tid) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teachers/appeals/pending?faculty_id=${tid}`);
+      if (response.ok) {
+        const data = await response.json();
+        setHasPendingAppeal(data.has_pending_appeal || false);
+        if (data.has_pending_appeal && data.appeal) {
+          setPendingAppealData(data.appeal);
+        } else {
+          setPendingAppealData(null);
+        }
+      }
+    } catch (err) {
+      console.error('Error checking pending appeal:', err);
+    }
+  };
+
+  const handleSubmitAppeal = async () => {
+    if (!appealMessage.trim()) {
+      setError('Please enter an appeal message');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    setAppealSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/teachers/appeals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          faculty_id: parseInt(teacherId),
+          appeal_message: appealMessage
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSuccess('Appeal submitted successfully! HR will review your request.');
+        setShowAppealModal(false);
+        setAppealMessage('');
+        setHasPendingAppeal(true);
+        setPendingAppealData(data);
+        setTimeout(() => setSuccess(''), 5000);
+      } else {
+        const errorText = await response.text();
+        setError(errorText || 'Failed to submit appeal');
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch (err) {
+      console.error('Error submitting appeal:', err);
+      setError('Network error. Please try again.');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setAppealSubmitting(false);
     }
   };
 
@@ -753,7 +819,34 @@ const TeacherCourseSelectionPage = () => {
         {/* Allocation Summary Card */}
         {allocationSummary && (
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Allocation Summary</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Allocation Summary</h2>
+              {!hasPendingAppeal && windowStatus.isOpen && (
+                <button
+                  onClick={() => setShowAppealModal(true)}
+                  className="px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Appeal Workload
+                </button>
+              )}
+              {hasPendingAppeal && (
+                <button 
+                  onClick={() => setShowAppealDetailsModal(true)}
+                  className="px-4 py-2 bg-yellow-50 text-yellow-800 text-sm font-medium rounded-lg border border-yellow-200 flex items-center gap-2 hover:bg-yellow-100 transition-colors cursor-pointer"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Appeal Pending Review
+                  <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               {allocationSummary.type_summaries?.map((ts) => {
                 const selectedCount = getSelectedCount(ts.type_name);
@@ -1034,24 +1127,37 @@ const TeacherCourseSelectionPage = () => {
         </div>
         
         <div className="p-4 border-t border-gray-200 bg-white rounded-b-lg">
+          {hasPendingAppeal && (
+            <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
+              <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="text-xs text-yellow-800">
+                <strong>Appeal Pending:</strong> You cannot select courses while your workload appeal is under review by HR.
+              </div>
+            </div>
+          )}
           <button
               onClick={handleSavePreferences}
-              disabled={saving || !isAllocationComplete() || preferencesLocked || !windowStatus.isOpen}
+              disabled={saving || !isAllocationComplete() || preferencesLocked || !windowStatus.isOpen || hasPendingAppeal}
               className={`w-full py-2.5 rounded-lg font-medium transition-colors text-sm ${
-                saving || !isAllocationComplete() || preferencesLocked || !windowStatus.isOpen
+                saving || !isAllocationComplete() || preferencesLocked || !windowStatus.isOpen || hasPendingAppeal
                   ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
                   : 'bg-gray-900 text-white hover:bg-gray-800'
               }`}
             >
-              {!windowStatus.isOpen 
-                ? '🔒 Window Closed' 
-                : (preferencesLocked 
-                    ? '✓ Submitted' 
-                    : (saving 
-                        ? 'Saving...' 
-                        : (isAllocationComplete() 
-                            ? (currentPreferences.length > 0 ? '🔄 Update Preferences' : '💾 Save Preferences')
-                            : 'Complete Allocations'
+              {hasPendingAppeal
+                ? '⏸ Appeal Under Review'
+                : (!windowStatus.isOpen 
+                    ? '🔒 Window Closed' 
+                    : (preferencesLocked 
+                        ? '✓ Submitted' 
+                        : (saving 
+                            ? 'Saving...' 
+                            : (isAllocationComplete() 
+                                ? (currentPreferences.length > 0 ? '🔄 Update Preferences' : '💾 Save Preferences')
+                                : 'Complete Allocations'
+                              )
                           )
                       )
                   )
@@ -1077,9 +1183,9 @@ const TeacherCourseSelectionPage = () => {
           
           <button
             onClick={handleSavePreferences}
-            disabled={saving || !isAllocationComplete() || preferencesLocked || !windowStatus.isOpen}
+            disabled={saving || !isAllocationComplete() || preferencesLocked || !windowStatus.isOpen || hasPendingAppeal}
             className={`px-8 py-3 rounded-lg font-medium transition-colors ${
-              saving || !isAllocationComplete() || preferencesLocked || !windowStatus.isOpen
+              saving || !isAllocationComplete() || preferencesLocked || !windowStatus.isOpen || hasPendingAppeal
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-blue-600 text-white hover:bg-blue-700'
             }`}
@@ -1176,6 +1282,121 @@ const TeacherCourseSelectionPage = () => {
         )}
         </div>
       </div>
+
+      {/* Appeal Details Modal */}
+      {showAppealDetailsModal && pendingAppealData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">Your Appeal Details</h2>
+              <button
+                onClick={() => setShowAppealDetailsModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-5 h-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-semibold text-yellow-900">Status: Pending Review</span>
+                </div>
+                <p className="text-sm text-yellow-800">
+                  Your appeal is currently under review by HR. You will be notified once a decision is made.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Your Appeal Message
+                </label>
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-gray-800 whitespace-pre-wrap">{pendingAppealData.teacher_message}</p>
+                </div>
+              </div>
+
+              {pendingAppealData.hr_message && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    HR Response
+                  </label>
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-gray-800 whitespace-pre-wrap">{pendingAppealData.hr_message}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs text-gray-500">
+                Submitted on: {new Date(pendingAppealData.created_at).toLocaleString()}
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <button
+                onClick={() => setShowAppealDetailsModal(false)}
+                className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appeal Modal */}
+      {showAppealModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Appeal Workload Assignment</h2>
+            
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> By submitting this appeal, you are requesting HR to review and potentially reduce your assigned workload. 
+                You will not be able to select courses until HR reviews your appeal.
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Appeal Message *
+              </label>
+              <textarea
+                value={appealMessage}
+                onChange={(e) => setAppealMessage(e.target.value)}
+                placeholder="Please explain why you need a workload reduction..."
+                rows="5"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowAppealModal(false);
+                  setAppealMessage('');
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+                disabled={appealSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitAppeal}
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 disabled:opacity-50"
+                disabled={appealSubmitting || !appealMessage.trim()}
+              >
+                {appealSubmitting ? 'Submitting...' : 'Submit Appeal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 };

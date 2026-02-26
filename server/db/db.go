@@ -212,7 +212,100 @@ func runMigrations() error {
 		log.Println("student_eligible_honour_minor table created/verified successfully")
 	}
 
+	// Create teacher_course_appeal table
+	_, err = DB.Exec(`
+		CREATE TABLE IF NOT EXISTS teacher_course_appeal (
+			id INT NOT NULL AUTO_INCREMENT,
+			faculty_id BIGINT UNSIGNED NOT NULL,
+			appeal_message TEXT NOT NULL COMMENT 'Message from faculty explaining appeal',
+			appeal_status TINYINT(1) DEFAULT 0 COMMENT '0 = pending, 1 = resolved',
+			hr_action VARCHAR(50) DEFAULT NULL COMMENT 'APPROVED, REJECTED',
+			hr_message TEXT DEFAULT NULL COMMENT 'HR response message',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			resolved_at TIMESTAMP NULL DEFAULT NULL,
+			PRIMARY KEY (id),
+			KEY idx_faculty_id (faculty_id),
+			KEY idx_appeal_status (appeal_status),
+			KEY idx_faculty_status (faculty_id, appeal_status),
+			KEY idx_created_at (created_at),
+			CONSTRAINT teacher_course_appeal_ibfk_1 FOREIGN KEY (faculty_id) REFERENCES teachers (id) ON DELETE CASCADE ON UPDATE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+	`)
+	if err != nil {
+		log.Printf("Warning: Failed to create teacher_course_appeal table: %v", err)
+	} else {
+		log.Println("teacher_course_appeal table created/verified successfully")
+	}
+
+	// Run SQL migration files from db/migrations directory
+	if err := runSQLMigrations(); err != nil {
+		log.Printf("Warning: SQL migrations failed: %v", err)
+	}
+
 	return nil
+}
+
+// runSQLMigrations reads and executes SQL files from db/migrations directory
+func runSQLMigrations() error {
+	migrationsDir := "./db/migrations"
+	
+	// Check if migrations directory exists
+	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+		log.Printf("Migrations directory not found: %s", migrationsDir)
+		return nil
+	}
+
+	// Read all migration files
+	files, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		log.Printf("Error reading migrations directory: %v", err)
+		return err
+	}
+
+	// Execute each .sql file
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".sql") {
+			continue
+		}
+
+		migrationPath := fmt.Sprintf("%s/%s", migrationsDir, file.Name())
+		log.Printf("Running migration: %s", file.Name())
+
+		// Read migration file content
+		content, err := os.ReadFile(migrationPath)
+		if err != nil {
+			log.Printf("Error reading migration file %s: %v", file.Name(), err)
+			continue
+		}
+
+		// Execute migration
+		// Split by semicolons and execute each statement separately
+		statements := strings.Split(string(content), ";")
+		for _, stmt := range statements {
+			stmt = strings.TrimSpace(stmt)
+			if stmt == "" || strings.HasPrefix(stmt, "--") {
+				continue
+			}
+			
+			_, err = DB.Exec(stmt)
+			if err != nil {
+				// Log error but continue with other statements
+				log.Printf("Error executing statement in %s: %v\nStatement: %s", file.Name(), err, stmt[:min(len(stmt), 100)])
+			}
+		}
+
+		log.Printf("Migration %s completed", file.Name())
+	}
+
+	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // CreateCurriculumTable creates the curriculum table if it doesn't exist

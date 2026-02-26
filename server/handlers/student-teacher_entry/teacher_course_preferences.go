@@ -285,7 +285,7 @@ func SaveTeacherCoursePreferences(w http.ResponseWriter, r *http.Request) {
 	err := db.DB.QueryRow(`
 		SELECT EXISTS(
 			SELECT 1 FROM teacher_course_appeal 
-			WHERE faculty_id = ? AND appeal_status = FALSE
+			WHERE faculty_id = ? AND appeal_status = 0
 		)
 	`, requestData.TeacherID).Scan(&hasPendingAppeal)
 
